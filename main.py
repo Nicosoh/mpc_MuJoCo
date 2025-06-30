@@ -1,6 +1,1 @@
-def main():
-    print("Hello from mpc-sim!")
-
-
-if __name__ == "__main__":
-    main()
+from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
