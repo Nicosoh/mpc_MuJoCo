@@ -22,3 +22,9 @@ Assuming that acados was installed in a sister folder to this directory, then ad
 ```
 uv add ../acados/interfaces/acados_template
 ```
+
+#### Allowing the script to find the ACADOS directory
+```
+export LD_LIBRARY_PATH=absolute_path_to/acados/lib
+export ACADOS_SOURCE_DIR=absolute_path_to/acados
+```
