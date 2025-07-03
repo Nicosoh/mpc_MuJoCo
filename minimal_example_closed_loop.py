@@ -49,7 +49,6 @@ def setup(x0, Fmax, N_horizon, Tf, RTI=False):
     ny = nx + nu
     ny_e = nx
 
-
     # set cost module
     ocp.cost.cost_type = 'NONLINEAR_LS'
     ocp.cost.cost_type_e = 'NONLINEAR_LS'
@@ -102,23 +101,26 @@ def setup(x0, Fmax, N_horizon, Tf, RTI=False):
 
 def main(use_RTI=False):
 
-    x0 = np.array([0.0, np.pi, 0.0, 0.0])
-    Fmax = 80
+    x0 = np.array([0.0, np.pi, 0.0, 0.0])   # Starting conditions
+    Fmax = 80                               # Max input force 
 
-    Tf = .8
-    N_horizon = 40
+    Tf = .8                                 # Total prediction time
+    N_horizon = 40                          # Number of steps within the prediction time
 
-    ocp_solver, integrator = setup(x0, Fmax, N_horizon, Tf, use_RTI)
+    # Create solver and integrator
+    ocp_solver, integrator = setup(x0, Fmax, N_horizon, Tf, use_RTI) 
 
+    # Extract dimensions of states and input
     nx = ocp_solver.acados_ocp.dims.nx
     nu = ocp_solver.acados_ocp.dims.nu
 
-    Nsim = 100
-    simX = np.zeros((Nsim+1, nx))
-    simU = np.zeros((Nsim, nu))
+    Nsim = 100                              # Number of simulation time steps
+    simX = np.zeros((Nsim+1, nx))           # Matrix to hold states (logging)
+    simU = np.zeros((Nsim, nu))             # Matrix to hold control inputs (logging)
 
-    simX[0,:] = x0
+    simX[0,:] = x0                          # First state == Starting conditions
 
+    # Timing arrays
     if use_RTI:
         t_preparation = np.zeros((Nsim))
         t_feedback = np.zeros((Nsim))
@@ -126,12 +128,12 @@ def main(use_RTI=False):
     else:
         t = np.zeros((Nsim))
 
-    # do some initial iterations to start with a good initial guess
+    # Do some initial iterations to start with a good initial guess
     num_iter_initial = 5
     for _ in range(num_iter_initial):
         ocp_solver.solve_for_x0(x0_bar = x0)
 
-    # closed loop
+    # Closed loop for Nsim
     for i in range(Nsim):
 
         if use_RTI:
@@ -152,8 +154,8 @@ def main(use_RTI=False):
             simU[i, :] = ocp_solver.get(0, "u")
 
         else:
-            # solve ocp and get next control input
-            simU[i,:] = ocp_solver.solve_for_x0(x0_bar = simX[i, :])
+            # Solve ocp and get next control input 
+            simU[i,:] = ocp_solver.solve_for_x0(x0_bar = simX[i, :]) 
 
             t[i] = ocp_solver.get_stats('time_tot')
 
@@ -182,5 +184,5 @@ def main(use_RTI=False):
 
 
 if __name__ == '__main__':
-    # main(use_RTI=False)
+    main(use_RTI=False)
     main(use_RTI=True)
