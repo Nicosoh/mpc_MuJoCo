@@ -37,43 +37,48 @@ import scipy.linalg
 from casadi import vertcat
 
 def setup(x0, Fmax, N_horizon, Tf, RTI=False):
-    # create ocp object to formulate the OCP
+    # Create ocp object to formulate the OCP
     ocp = AcadosOcp()
 
-    # set model
+    # Call model creation function
     model = export_pendulum_ode_model()
     ocp.model = model
 
+    # Extract state and input dimensions
     nx = model.x.rows()
     nu = model.u.rows()
     ny = nx + nu
     ny_e = nx
 
     # set cost module
-    ocp.cost.cost_type = 'NONLINEAR_LS'
-    ocp.cost.cost_type_e = 'NONLINEAR_LS'
+    ocp.cost.cost_type = 'NONLINEAR_LS'     # Stage cost
+    ocp.cost.cost_type_e = 'NONLINEAR_LS'   # Terminal cost
 
+    # Stage cost weight matrix
     Q_mat = 2*np.diag([1e3, 1e3, 1e-2, 1e-2])
-    R_mat = 2*np.diag([1e-2])
+    # Input cost weight matrix
+    R_mat = 2*np.diag([1e-2]) 
 
-    ocp.cost.W = scipy.linalg.block_diag(Q_mat, R_mat)
-    ocp.cost.W_e = Q_mat
+    ocp.cost.W = scipy.linalg.block_diag(Q_mat, R_mat)  # Stage cost includes both states and input penalty
+    ocp.cost.W_e = Q_mat                                # Terminal cost only inlcudes states
 
-    ocp.model.cost_y_expr = vertcat(model.x, model.u)
-    ocp.model.cost_y_expr_e = model.x
-    ocp.cost.yref  = np.zeros((ny, ))
-    ocp.cost.yref_e = np.zeros((ny_e, ))
+    ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
+    ocp.model.cost_y_expr_e = model.x                   # Terminal cost only inlcudes states
+    ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references as zero for all states and inputs
+    ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference as zeros for states only
 
-    # set constraints
+    # Set input constraints
     ocp.constraints.lbu = np.array([-Fmax])
     ocp.constraints.ubu = np.array([+Fmax])
-
-    ocp.constraints.x0 = x0
+    # Apply above to the first idx in u which is F
     ocp.constraints.idxbu = np.array([0])
+
+    # Set initial constraint
+    ocp.constraints.x0 = x0
 
     # set prediction horizon
     ocp.solver_options.N_horizon = N_horizon
-    ocp.solver_options.tf = Tf
+    ocp.solver_options.tf = Tf # Total predicton time
 
     ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM' # FULL_CONDENSING_QPOASES
     ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
@@ -90,10 +95,11 @@ def setup(x0, Fmax, N_horizon, Tf, RTI=False):
     ocp.solver_options.qp_solver_cond_N = N_horizon
 
 
+    # Create solver based on settings above
     solver_json = 'acados_ocp_' + model.name + '.json'
     acados_ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json)
 
-    # create an integrator with the same settings as used in the OCP solver.
+    # Create an integrator with the same settings as used in the OCP solver.
     acados_integrator = AcadosSimSolver(ocp, json_file = solver_json)
 
     return acados_ocp_solver, acados_integrator
@@ -137,29 +143,37 @@ def main(use_RTI=False):
     for i in range(Nsim):
 
         if use_RTI:
-            # preparation phase
+            # Preparation phase
             ocp_solver.options_set('rti_phase', 1)
+            
             status = ocp_solver.solve()
+            if status != 0:
+                print("MPC solver returned status: ", status)
+
             t_preparation[i] = ocp_solver.get_stats('time_tot')
 
-            # set initial state
+            # Set initial state
             ocp_solver.set(0, "lbx", simX[i, :])
             ocp_solver.set(0, "ubx", simX[i, :])
 
-            # feedback phase
+            # Feedback phase
             ocp_solver.options_set('rti_phase', 2)
+            
             status = ocp_solver.solve()
+            if status != 0:
+                print("MPC solver returned status: ", status)
+
             t_feedback[i] = ocp_solver.get_stats('time_tot')
 
             simU[i, :] = ocp_solver.get(0, "u")
 
-        else:
+        else: # Without RTI
             # Solve ocp and get next control input 
             simU[i,:] = ocp_solver.solve_for_x0(x0_bar = simX[i, :]) 
 
             t[i] = ocp_solver.get_stats('time_tot')
 
-        # simulate system
+        # simulate system (Replace this part with MuJoCo)
         simX[i+1, :] = integrator.simulate(x=simX[i, :], u=simU[i,:])
 
     # evaluate timings
