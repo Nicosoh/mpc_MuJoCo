@@ -28,3 +28,4 @@ uv add ../acados/interfaces/acados_template
 export LD_LIBRARY_PATH=absolute_path_to/acados/lib
 export ACADOS_SOURCE_DIR=absolute_path_to/acados
 ```
+<!-- /home/nicodemus-soh/Documents/acados -->
