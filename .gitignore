@@ -12,6 +12,7 @@ acados
 *.png
 *.ruff_cache
 *.mp4
+archive
 
 # Virtual environments
 .venv
