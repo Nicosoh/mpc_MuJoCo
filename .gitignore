@@ -13,6 +13,7 @@ acados
 *.ruff_cache
 *.mp4
 archive
+outputs
 
 # Virtual environments
 .venv

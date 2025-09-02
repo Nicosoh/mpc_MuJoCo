@@ -17,7 +17,7 @@ def main():
     results, frames = run_simulation(
         model,
         data,
-        duration=30.0,
+        duration=1.0,
         framerate=30,
         render=True,
         controller=mpc,
@@ -26,7 +26,7 @@ def main():
 
     # Save video if frames were recorded
     if frames:
-        save_video(frames, "video_mpc.mp4", fps=30)
+        save_video(frames, fps=30)
 
     plot_signals(
         results["time"],
