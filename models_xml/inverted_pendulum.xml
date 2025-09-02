@@ -1,12 +1,11 @@
 <mujoco model="inverted_pendulum">
+    
     <!-- Background texture -->
     <asset>
         <texture name="grid" type="2d" builtin="checker" rgb1=".1 .2 .3"
         rgb2=".2 .3 .4" width="100" height="100"/>
         <material name="grid" texture="grid" texrepeat="8 8" reflectance=".2"/>
     </asset>
-
-    
 
     <worldbody>
         <!-- Place background -->
@@ -20,7 +19,7 @@
             <joint name="cart_slide" type="slide" axis="1 0 0"/>
             <!-- Size is half size -->
             <geom name="cart_geom" type="box" size="0.2 0.1 0.1" rgba="0.2 0.6 0.8 0.2"/>
-            <inertial mass="10" diaginertia="1e-5 1e-5 1e-5" pos="0 0 0"/>
+            <inertial mass="1" diaginertia="1e-5 1e-5 1e-5" pos="0 0 0"/>
 
             <!-- Weightless pendulum -->
             <body name="pendulum_stick" pos="0 0 0.1">
@@ -31,7 +30,7 @@
                 <!-- Mass on the end of the pendulum -->
                 <body name="pendulum" pos="0 0 0.8">
                     <geom name="pendulum_geom" type="sphere" size="0.1"/>
-                    <inertial mass="3" diaginertia="1e-5 1e-5 1e-5" pos="0 0 0"/>
+                    <inertial mass="0.1" diaginertia="1e-5 1e-5 1e-5" pos="0 0 0"/>
                 </body>
             </body>
         </body>
@@ -40,7 +39,7 @@
     
     <!-- Force actuator on the cart -->
     <actuator>
-        <general joint="cart_slide" ctrllimited="true" ctrlrange="-50 50"/>
+        <general joint="cart_slide"/>
     </actuator>
 
 </mujoco>

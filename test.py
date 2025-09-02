@@ -1,7 +1,7 @@
 import mujoco
 import mediapy as media
 import numpy as np
-import matplotlib.pyplot as plt
+from visualization import plot_signals
 
 # Import XML model from path
 model = mujoco.MjModel.from_xml_path('models_xml/inverted_pendulum.xml')
@@ -16,6 +16,10 @@ scene_option.frame = mujoco.mjtFrame.mjFRAME_GEOM
 duration = 15.0  # seconds
 framerate = 30  # Hz
 
+# Video capture resolution
+height = 480
+width = 640
+
 # Resets data
 frames = []
 mujoco.mj_resetData(model, data)
@@ -26,6 +30,7 @@ data.qpos[1] = np.deg2rad(30)   # hinge joint
 # Steps simulation forward by one step to verify starting conditions
 mujoco.mj_forward(model, data)
 print('Total number of DoFs in the model:', model.nv)
+print("Time step (dt):", model.opt.timestep)
 print('Initial positions', data.qpos)
 print('Initial velocities', data.qvel)
 
@@ -35,7 +40,7 @@ cart_pos, cart_vel = [], []
 pend_angle, pend_angvel = [], []
 
 # Simulation loop
-with mujoco.Renderer(model) as renderer:
+with mujoco.Renderer(model, height, width) as renderer:
     while data.time < duration:
         mujoco.mj_step(model, data)
 
@@ -55,28 +60,18 @@ with mujoco.Renderer(model) as renderer:
 # media.write_video("video.mp4", frames, fps=framerate)
 
 # Plot results
-dpi = 120
-width, height = 800, 1000
-figsize = (width / dpi, height / dpi)
-
-fig, ax = plt.subplots(4, 1, figsize=figsize, dpi=dpi, sharex=True)
-
-ax[0].plot(time, cart_pos)
-ax[0].set_title('Cart Position')
-ax[0].set_ylabel('meters')
-
-ax[1].plot(time, cart_vel)
-ax[1].set_title('Cart Velocity')
-ax[1].set_ylabel('m/s')
-
-ax[2].plot(time, pend_angle)
-ax[2].set_title('Pendulum Angle')
-ax[2].set_ylabel('radians')
-
-ax[3].plot(time, pend_angvel)
-ax[3].set_title('Pendulum Angular Velocity')
-ax[3].set_ylabel('rad/s')
-ax[3].set_xlabel('time (s)')
-
-plt.tight_layout()
-plt.show()
+plot_signals(
+    time,
+    {
+        "Cart Position": cart_pos,
+        "Cart Velocity": cart_vel,
+        "Pendulum Angle": pend_angle,
+        "Pendulum Angular Velocity": pend_angvel,
+    },
+    ylabel_units={
+        "Cart Position": "m",
+        "Cart Velocity": "m/s",
+        "Pendulum Angle": "rad",
+        "Pendulum Angular Velocity": "rad/s",
+    }
+)

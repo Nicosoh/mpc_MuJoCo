@@ -44,8 +44,10 @@ def export_pendulum_ode_model() -> AcadosModel:
     f_expl = vertcat(v1,
                      dtheta,
                      (-m*l*sin_theta*dtheta*dtheta + m*g*cos_theta*sin_theta+F)/denominator,
-                     (-m*l*cos_theta*sin_theta*dtheta*dtheta + F*cos_theta+(M+m)*g*sin_theta)/(l*denominator)
+                     (-m*l*cos_theta*sin_theta*dtheta*dtheta - F*cos_theta+(M+m)*g*sin_theta)/(l*denominator)
                      )
+
+
 
     f_impl = xdot - f_expl
 
