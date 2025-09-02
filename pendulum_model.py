@@ -11,7 +11,7 @@ def export_pendulum_ode_model() -> AcadosModel:
     model_name = 'pendulum_ode'
 
     # Constants
-    M = 1.0 # mass of the cart [kg] -> now estimated
+    M = 1.0 # mass of the cart [kg]
     m = 0.1 # mass of the ball [kg]
     g = 9.81 # gravity constant [m/s^2]
     l = 0.8 # length of the rod [m]
@@ -23,7 +23,7 @@ def export_pendulum_ode_model() -> AcadosModel:
     dtheta  = SX.sym('dtheta') # Angular Velocity
 
     # Form the state matrix
-    x = vertcat(x1, theta, v1, dtheta) 
+    x = vertcat(x1, theta, v1, dtheta)
 
     # Input controls
     F = SX.sym('F')
@@ -46,8 +46,6 @@ def export_pendulum_ode_model() -> AcadosModel:
                      (-m*l*sin_theta*dtheta*dtheta + m*g*cos_theta*sin_theta+F)/denominator,
                      (-m*l*cos_theta*sin_theta*dtheta*dtheta - F*cos_theta+(M+m)*g*sin_theta)/(l*denominator)
                      )
-
-
 
     f_impl = xdot - f_expl
 

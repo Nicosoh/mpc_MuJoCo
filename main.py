@@ -17,13 +17,17 @@ def main():
     results, frames = run_simulation(
         model,
         data,
-        duration=15.0,
+        duration=30.0,
         framerate=30,
         render=True,
         controller=mpc,
+        verbose=False,
     )
 
-    save_video(frames, "video_mpc.mp4", fps=30)
+    # Save video if frames were recorded
+    if frames:
+        save_video(frames, "video_mpc.mp4", fps=30)
+
     plot_signals(
         results["time"],
         {

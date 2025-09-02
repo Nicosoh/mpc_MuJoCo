@@ -23,6 +23,7 @@ def run_simulation(
     resolution=(480, 640),
     render=True,
     controller=None,
+    verbose=True,
 ):
     """Run the simulation, optionally with rendering and control."""
 
@@ -74,9 +75,11 @@ def run_simulation(
         pend_angle.append(data.qpos[1])
         cart_vel.append(data.qvel[0])
         pend_angvel.append(data.qvel[1])
-        print("Current time:", data.time)
-        print("Current control input:", data.ctrl[0])
-        print("Current state:", data.qpos, data.qvel)   
+
+        if verbose:
+            print("Current time:", data.time)
+            print("Current control input:", data.ctrl[0])
+            print("Current state:", data.qpos, data.qvel)
 
         # Render if enabled
         if render and len(frames) < data.time * framerate:

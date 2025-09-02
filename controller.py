@@ -24,9 +24,9 @@ def setup(x0, Fmax, N_horizon, Tf, RTI=False):
     ocp.cost.cost_type_e = 'NONLINEAR_LS'   # Terminal cost
 
     # Stage cost weight matrix
-    Q_mat = 2*np.diag([3e2, 5e3, 1e-2, 1e-2])
+    Q_mat = 2*np.diag([1e3, 5e3, 1e-2, 1e-2])
     # Input cost weight matrix
-    R_mat = 2*np.diag([1e-2]) 
+    R_mat = 2*np.diag([1e-2])
 
     ocp.cost.W = scipy.linalg.block_diag(Q_mat, R_mat)  # Stage cost includes both states and input penalty
     ocp.cost.W_e = Q_mat                                # Terminal cost only inlcudes states
