@@ -8,9 +8,10 @@ import os
 def main():
     # MPC parameters
     Fmax = 80
-    N_horizon = 80
-    Tf = 0.16
-    use_RTI = False
+    N_horizon = 200
+    use_RTI = True
+    mpc_frequency = 100  # Hz, set to None to call MPC every sim step
+    Tf = N_horizon * 1/mpc_frequency  # Time horizon
 
     # Simulation parameters
     sim_duration = 30.0
@@ -19,23 +20,25 @@ def main():
     render = True
     path = "models_xml/inverted_pendulum.xml"
 
+    # Initial condition
+    x0 = np.array([0.0, np.pi/6, 0.0, 0.0])
+
     # Record start time
     start_time = time.time()
 
     # Load MuJoCo model
     model, data = load_model(path)
 
-    # Initial condition
-    x0 = np.array([0.0, np.pi/6, 0.0, 0.0])
-
     # Create MPC controller
     mpc = AcadosMPCController(x0, Fmax=Fmax, N_horizon=N_horizon, Tf=Tf, use_RTI=use_RTI)
 
     # Run MuJoCo simulation with MPC in the loop
     results, frames = run_simulation(
+        x0,
         model,
         data,
         duration=sim_duration,
+        mpc_frequency=mpc_frequency,
         framerate=sim_framerate,
         render=render,
         controller=mpc,
@@ -60,6 +63,7 @@ def main():
         render,
         path,
         elapsed,
+        mpc_frequency,
     )
 
     # Save video if frames were recorded
@@ -107,6 +111,7 @@ def save_summary(
     render,
     path,
     elapsed,
+    mpc_frequency,
 ):
     """Save simulation configuration and runtime details into a text file."""
     summary_file = get_next_filename()
@@ -123,6 +128,7 @@ def save_summary(
         f.write(f"  Horizon (N_horizon): {N_horizon}\n")
         f.write(f"  Time Horizon (Tf): {Tf}\n")
         f.write(f"  Real-Time Iteration (use_RTI): {use_RTI}\n\n")
+        f.write(f"  MPC Frequency: {mpc_frequency} Hz\n\n")
 
         f.write("Simulation Parameters:\n")
         f.write(f"  Duration: {sim_duration} s\n")

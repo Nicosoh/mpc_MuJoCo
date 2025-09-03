@@ -16,20 +16,30 @@ def init_scene_options():
     return scene_option
 
 def run_simulation(
+    x0,
     model,
     data,
     duration=30.0,
+    mpc_frequency=None,
     framerate=30,
     resolution=(480, 640),
     render=True,
     controller=None,
     verbose=True,
-):
-    """Run the simulation, optionally with rendering and control."""
+    ):
+
+    last_u = 0.0
+    next_mpc_time = 0.0
+
+    # Determine MPC update interval
+    if mpc_frequency is None:
+        mpc_dt = model.opt.timestep  # call MPC every sim step
+    else:
+        mpc_dt = 1.0 / mpc_frequency
 
     # Reset and set initial conditions
     mujoco.mj_resetData(model, data)
-    data.qpos[1] = np.deg2rad(30)  # initial pendulum angle
+    data.qpos[1] = x0[1]  # initial pendulum angle
 
     # Steps simulation forward by one step to verify starting conditions
     mujoco.mj_forward(model, data)
@@ -55,16 +65,18 @@ def run_simulation(
             "time": data.time,
         }
 
-        # compute control with exception handling
-        try:
-            u = controller(state) if controller is not None else 0.0
-            data.ctrl[0] = u
-            u_applied.append(np.copy(u))
-        except RuntimeError as e:
-            print(f"[ERROR] MPC solver failed at t={data.time:.3f}s: {e}")
-            print("Stopping simulation and returning recorded data.")
-            break  # exit the loop immediately
+        # Call MPC only at specified intervals
+        if controller is not None and data.time >= next_mpc_time:
+            try:
+                last_u = controller(state)
+            except RuntimeError as e:
+                print(f"[ERROR] MPC solver failed at t={data.time:.3f}s: {e}")
+                break
+            next_mpc_time += mpc_dt
 
+        # Apply last computed control
+        data.ctrl[0] = last_u
+        u_applied.append(np.copy(last_u))
 
         # Step simulation
         mujoco.mj_step(model, data)
