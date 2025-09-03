@@ -18,7 +18,7 @@ def init_scene_options():
 def run_simulation(
     model,
     data,
-    duration=5.0,
+    duration=30.0,
     framerate=30,
     resolution=(480, 640),
     render=True,
