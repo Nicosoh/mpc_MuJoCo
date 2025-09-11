@@ -21,7 +21,7 @@ def main():
     path = "models_xml/inverted_pendulum.xml"
 
     # Initial condition
-    x0 = np.array([0.0, np.pi/6, 0.0, 0.0])
+    x0 = np.array([1.0, np.pi, 0.0, 0.0])
 
     # Record start time
     start_time = time.time()

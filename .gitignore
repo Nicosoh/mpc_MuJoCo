@@ -17,3 +17,9 @@ outputs
 
 # Virtual environments
 .venv
+.pixi
+.vscode
+
+# pixi environments
+.pixi/*
+!.pixi/config.toml

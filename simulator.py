@@ -57,6 +57,7 @@ def run_simulation(
     # Use renderer only if requested
     renderer = mujoco.Renderer(model, height, width) if render else None
 
+    # Main simulation loop
     while data.time < duration:
         # Gather state
         state = {
@@ -99,6 +100,7 @@ def run_simulation(
             pixels = renderer.render()
             frames.append(pixels)
 
+    # Compile results in dict
     results = {
         "time": time,
         "cart_pos": cart_pos,
