@@ -11,49 +11,65 @@ def make_cartpole(ub=True): # ub: unbounded
     model = pin.Model()
 
     m1 = 1.0
-    m2 = 0.1
+    # m2 = 0.00001
+    m3 = 0.1
     length = 0.5
     base_sizes = (0.4, 0.2, 0.05)
 
+    # Create Joints
     base = pin.JointModelPX() # PX: prismatic joint along x-axis
     base_id = model.addJoint(0, base, pin.SE3.Identity(), "base")
 
-    if ub:
-        pole = pin.JointModelRUBY() # RUBY: revolute unbounded along y-axis
-    else:
-        pole = pin.JointModelRY() # RY: revolute along y-axis
-    pole_id = model.addJoint(1, pole, pin.SE3.Identity(), "pole")
+    # if ub:
+    #     pole = pin.JointModelRUBY() # RUBY: revolute unbounded along y-axis
+    # else:
+    #     pole = pin.JointModelRY() # RY: revolute along y-axis
+    # pole_id = model.addJoint(1, pole, pin.SE3.Identity(), "pole")
 
+    pendulum = pin.JointModelRUBY()
+    pendulum_id = model.addJoint(1, pendulum, pin.SE3.Identity(), "pendulum")
+
+    # Inertias
     base_inertia = pin.Inertia.FromBox(m1, *base_sizes) # mass, lx, ly, lz
-    pole_inertia = pin.Inertia( # mass, location of center of mass, inertia matrix
-        m2,
-        np.array([0.0, 0.0, length / 2]),
-        m2 / 5 * np.diagflat([1e-2, length**2, 1e-2]),
-    )
+    # pole_inertia = pin.Inertia( # mass, location of center of mass, inertia matrix
+    #     m2,
+    #     np.array([0.0, 0.0, length / 2]),
+    #     np.diagflat([1e-5, 1e-5, 1e-5]),
+    # )
+    pendulum_inertia = pin.Inertia.FromSphere(m3, 0.1)
 
+    # Place bodies in 3D
     base_body_pl = pin.SE3.Identity() # base body placement (translation and rotation)
-    pole_body_pl = pin.SE3.Identity() # pole body placement (translation and rotation)
-    pole_body_pl.rotation = pin.utils.rpyToMatrix(np.array([0.0, np.pi/2, 0.0]))
-    pole_body_pl.translation = np.array([0.0, 0.0, length / 2]) # move pole up by length/2
+    # pole_body_pl = pin.SE3.Identity() # pole body placement (translation and rotation)
+    pendulum_body_pl = pin.SE3.Identity() # pendulum body placement (translation and rotation)
+    # pole_body_pl.translation = np.array([0.0, 0.0, length / 2]) # move pole up by length/2
+    pendulum_body_pl.translation = np.array([0.0, 0.0, length]) # move pendulum up by length
 
     model.appendBodyToJoint(base_id, base_inertia, base_body_pl) # attach body to joint
-    model.appendBodyToJoint(pole_id, pole_inertia, pole_body_pl) # attach body to joint
+    # model.appendBodyToJoint(pole_id, pole_inertia, pole_body_pl) # attach body to joint
+    model.appendBodyToJoint(pendulum_id, pendulum_inertia, pendulum_body_pl) # attach body to joint
 
     # make visual/collision models (not used in dynamics)
     collision_model = pin.GeometryModel()
     shape_base = fcl.Box(*base_sizes)
-    radius = 0.01
-    shape_pole = fcl.Capsule(radius, length)
+    # radius = 0.01
+    # shape_pole = fcl.Capsule(radius, length)
+    radius_pend = 0.1
+    shape_pend = fcl.Sphere(radius_pend)
     RED_COLOR = np.array([1, 0.0, 0.0, 1.0])
     WHITE_COLOR = np.array([1, 1.0, 1.0, 1.0])
     geom_base = pin.GeometryObject("link_base", base_id, shape_base, base_body_pl)
     geom_base.meshColor = WHITE_COLOR
-    geom_pole = pin.GeometryObject("link_pole", pole_id, shape_pole, pole_body_pl)
-    geom_pole.meshColor = RED_COLOR
+    # geom_pole = pin.GeometryObject("link_pole", pole_id, shape_pole, pole_body_pl)
+    # geom_pole.meshColor = RED_COLOR
+    geom_pend = pin.GeometryObject("link_pend", pendulum_id, shape_pend, pendulum_body_pl)
+    geom_pend.meshColor = RED_COLOR
 
     collision_model.addGeometryObject(geom_base)
-    collision_model.addGeometryObject(geom_pole)
+    # collision_model.addGeometryObject(geom_pole)
+    collision_model.addGeometryObject(geom_pend)
     visual_model = collision_model
+    print(model)
     return model, collision_model, visual_model
 
 
@@ -179,7 +195,7 @@ def integrate_no_control(x0, nsteps):
     return states_
 
 
-states_ = integrate_no_control(x0, nsteps=400)
+states_ = integrate_no_control(x0, nsteps=1000)
 states_ = np.stack(states_).T
 
 

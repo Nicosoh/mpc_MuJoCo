@@ -1,0 +1,68 @@
+[project]
+name = "acados-pixi"
+channels = ["conda-forge"]
+platforms = ["osx-64"]
+
+[dependencies]
+# Core build tools
+python = "3.11.*"
+cmake = "*"
+ninja = "*"
+pkg-config = "*"
+git = "*"
+c-compiler = "*"
+cxx-compiler = "*"
+
+# Python deps for acados_template + examples
+pip = "*"
+setuptools = "*"
+wheel = "*"
+casadi = "*"
+numpy = "*"
+scipy = "*"
+matplotlib = "*"
+pinocchio = ">=3.7.0,<4"
+meshcat-python = ">=0.3.2,<0.4"
+
+[activation.env]
+# Path to acados source (needed by acados_template)
+ACADOS_SOURCE_DIR = "$PWD/external/acados"
+
+# Shared libraries (Linux uses LD_LIBRARY_PATH, macOS uses DYLD_LIBRARY_PATH)
+LD_LIBRARY_PATH   = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+DYLD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH"
+
+# Add the Tera renderer (if downloaded) to PATH
+PATH = "$PWD/external/acados/bin:$PATH"
+
+# Include + link flags so generated code can find HPIPM/BLASFEO headers & libs
+CFLAGS   = "-I$CONDA_PREFIX/include -I$CONDA_PREFIX/include/hpipm/include -I$CONDA_PREFIX/include/blasfeo/include $CFLAGS"
+CPPFLAGS = "$CFLAGS"
+LDFLAGS  = "-L$CONDA_PREFIX/lib $LDFLAGS"
+
+# Makes CMake-based downstream projects find acados automatically
+CMAKE_PREFIX_PATH = "$CONDA_PREFIX:$CMAKE_PREFIX_PATH"
+
+# (Optional) useful for pkg-config consumers
+PKG_CONFIG_PATH = "$CONDA_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
+
+[tasks]
+# Clone acados with submodules
+acados_clone = "git clone --recursive https://github.com/acados/acados.git external/acados"
+
+# Configure acados to install into the pixi prefix
+acados_configure = "cmake -S external/acados -B build/acados -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DBLASFEO_TARGET=X64_AUTOMATIC -DHPIPM_TARGET=GENERIC -DACADOS_EXAMPLES=OFF -DACADOS_UNIT_TESTS=OFF"
+
+# Build and install the C libs (acados, hpipm, blasfeo) into the env
+acados_build   = "cmake --build build/acados -j $PIXI_JOBS"
+acados_install = "cmake --install build/acados --prefix $CONDA_PREFIX"
+
+# Install the Python interface (editable)
+acados_python = "python -m pip install -e external/acados/interfaces/acados_template"
+
+# One-shot: clone + configure + build + install + python interface
+acados_full = "pixi run acados_clone && pixi run acados_configure && pixi run acados_build && pixi run acados_install && pixi run acados_python"
+
+# Run the minimal Python example
+minimal_example = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python external/acados/examples/acados_python/getting_started/minimal_example_ocp.py"
+minimal_example_sim = "python external/acados/examples/acados_python/getting_started/minimal_example_ocp.py"
