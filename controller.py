@@ -1,6 +1,7 @@
 import numpy as np
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
 from pendulum_model import export_pendulum_ode_model
+from pin_pendulum_model import export_pin_pendulum_ode_model
 import scipy.linalg
 from casadi import vertcat
 
@@ -9,7 +10,8 @@ def setup(x0, Fmax, N_horizon, Tf, RTI=False):
     ocp = AcadosOcp()
 
     # Call model creation function
-    model = export_pendulum_ode_model()
+    # model = export_pendulum_ode_model()
+    model = export_pin_pendulum_ode_model()
     ocp.model = model
 
     # Extract state and input dimensions

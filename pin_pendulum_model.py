@@ -7,53 +7,58 @@ import pinocchio as pin
 import pinocchio.casadi as cpin
 from pinocchio.visualize import MeshcatVisualizer
 
-def make_cartpole(ub=True): # ub: unbounded
+def make_cartpole():
     model = pin.Model()
 
     m1 = 1.0
     m2 = 0.1
-    length = 0.5
+    length = 0.8
     base_sizes = (0.4, 0.2, 0.05)
 
+    # Create Joints
     base = pin.JointModelPX() # PX: prismatic joint along x-axis
     base_id = model.addJoint(0, base, pin.SE3.Identity(), "base")
 
-    if ub:
-        pole = pin.JointModelRUBY() # RUBY: revolute unbounded along y-axis
-    else:
-        pole = pin.JointModelRY() # RY: revolute along y-axis
-    pole_id = model.addJoint(1, pole, pin.SE3.Identity(), "pole")
+    pendulum = pin.JointModelRY()
+    pendulum_id = model.addJoint(1, pendulum, pin.SE3.Identity(), "pendulum")
 
+    # Inertias
     base_inertia = pin.Inertia.FromBox(m1, *base_sizes) # mass, lx, ly, lz
-    pole_inertia = pin.Inertia( # mass, location of center of mass, inertia matrix
-        m2,
-        np.array([0.0, 0.0, length / 2]),
-        m2 / 5 * np.diagflat([1e-2, length**2, 1e-2]),
-    )
+    pendulum_inertia = pin.Inertia.FromSphere(m2, 0.1)
 
+    # Place bodies in 3D
     base_body_pl = pin.SE3.Identity() # base body placement (translation and rotation)
+    
+    pendulum_body_pl = pin.SE3.Identity() # pendulum body placement (translation and rotation)
+    pendulum_body_pl.translation = np.array([0.0, 0.0, length]) # move pendulum up by length
+
     pole_body_pl = pin.SE3.Identity() # pole body placement (translation and rotation)
-    pole_body_pl.rotation = pin.utils.rpyToMatrix(np.array([0.0, np.pi/2, 0.0]))
     pole_body_pl.translation = np.array([0.0, 0.0, length / 2]) # move pole up by length/2
 
     model.appendBodyToJoint(base_id, base_inertia, base_body_pl) # attach body to joint
-    model.appendBodyToJoint(pole_id, pole_inertia, pole_body_pl) # attach body to joint
+    model.appendBodyToJoint(pendulum_id, pendulum_inertia, pendulum_body_pl) # attach body to joint
 
     # make visual/collision models (not used in dynamics)
     collision_model = pin.GeometryModel()
     shape_base = fcl.Box(*base_sizes)
     radius = 0.01
     shape_pole = fcl.Capsule(radius, length)
+    radius_pend = 0.1
+    shape_pend = fcl.Sphere(radius_pend)
     RED_COLOR = np.array([1, 0.0, 0.0, 1.0])
     WHITE_COLOR = np.array([1, 1.0, 1.0, 1.0])
     geom_base = pin.GeometryObject("link_base", base_id, shape_base, base_body_pl)
     geom_base.meshColor = WHITE_COLOR
-    geom_pole = pin.GeometryObject("link_pole", pole_id, shape_pole, pole_body_pl)
+    geom_pole = pin.GeometryObject("link_pole", pendulum_id, shape_pole, pole_body_pl)
     geom_pole.meshColor = RED_COLOR
+    geom_pend = pin.GeometryObject("link_pend", pendulum_id, shape_pend, pendulum_body_pl)
+    geom_pend.meshColor = RED_COLOR
 
     collision_model.addGeometryObject(geom_base)
     collision_model.addGeometryObject(geom_pole)
+    collision_model.addGeometryObject(geom_pend)
     visual_model = collision_model
+
     return model, collision_model, visual_model
 
 class PinocchioCasadi:
@@ -67,7 +72,7 @@ class PinocchioCasadi:
         self.cdata = self.cmodel.createData() # create CasADi data
         self.timestep = timestep
         self.create_dynamics()
-        self.create_discrete_dynamics()
+        self.create_discrete_dynamics2()
 
     def create_dynamics(self):
         """Create the acceleration expression and acceleration function."""
@@ -115,6 +120,32 @@ class PinocchioCasadi:
             ["qnext", "vnext"],
         )
 
+    def create_discrete_dynamics2(self):
+        """
+        Create the map `(q,v) -> (qnext, vnext)` using explicit Euler integration.
+        """
+        q = self.q_node
+        v = self.v_node
+        u = self.u_node
+
+        dt = self.timestep
+
+        # Compute acceleration
+        a = self.acc_func(q, v, u)
+
+        # Explicit Euler integration
+        qnext = cpin.integrate(self.cmodel, q, dt * v)  # use current velocity
+        vnext = v + a * dt                              # use current acceleration
+
+        # Define CasADi function for discrete dynamics
+        self.dyn_qv_fn_ = casadi.Function(
+            "discrete_dyn",
+            [q, v, u],
+            [qnext, vnext],
+            ["q", "v", "u"],
+            ["qnext", "vnext"],
+        )
+
     def forward(self, x, u): # Current state and input  -> next state
         nq = self.model.nq
         nv = self.model.nv
@@ -132,88 +163,50 @@ class CartpoleDynamics(PinocchioCasadi):
         self.visual_model = visual_model
         super().__init__(model=model, timestep=timestep)
 
-#-------------------------------
-# Actual code to run 
-
-dt = 0.02 # time step, should match the MPC timestep
-cartpole = CartpoleDynamics(timestep=dt)
-model = cartpole.model
-
-# ----------------------------
-# I think the code ends here, the rest is just testing and visualization
-# Just pass this model to ACADOS. 
-
-print(model)
-
-# -----------------------------
-# Example from chatgpt
-import pinocchio as pin
-from pinocchio.utils import zero
-import numpy as np
-from casadi import SX, vertcat, Function
-
 from acados_template import AcadosModel
+from casadi import vertcat, SX
 
-def export_double_cartpole_model_pinocchio():
+def export_pin_pendulum_ode_model() -> AcadosModel:
     """
-    Double cart-pole model using Pinocchio numerical dynamics, 
-    wrapped as CasADi function for ACADOS.
+    Converts a Pinocchio-based CartPole model into an AcadosModel for OCP solving.
     """
+    cartpole = CartpoleDynamics(timestep=0.002)
 
-    # ----------------------
-    # 1. Build Pinocchio model
-    model = pin.Model()
+    model_name = "pin_pendulum_ode"
 
-    # Cart joint (prismatic along x)
-    joint_cart = model.addJoint(0, pin.JointModelPX(), pin.SE3.Identity(), "cart")
+    # Use already-created Casadi symbolic variables
+    q = cartpole.q_node
+    v = cartpole.v_node
+    u = cartpole.u_node
+    nq = cartpole.model.nq
+    nv = cartpole.model.nv
 
-    # First pendulum (revolute around z)
-    l1, m1 = 0.8, 0.1
-    joint1 = model.addJoint(joint_cart, pin.JointModelRZ(), pin.SE3.Identity(), "pend1")
-    inertia1 = pin.Inertia(m1, np.zeros(3), np.diag([0,0,(l1*l1)/12]))
-    model.appendBodyToJoint(joint1, inertia1, pin.SE3.Identity())
+    # State Vector: x = [q; v]
+    x = vertcat(q, v)
 
-    # Second pendulum (revolute around z)
-    l2, m2 = 0.8, 0.1
-    joint2 = model.addJoint(joint1, pin.JointModelRZ(), pin.SE3(np.eye(3), np.array([l1,0,0])), "pend2")
-    inertia2 = pin.Inertia(m2, np.zeros(3), np.diag([0,0,(l2*l2)/12]))
-    model.appendBodyToJoint(joint2, inertia2, pin.SE3.Identity())
+    # xdot = [v; a(q,v,u)]
+    a = cartpole.acc  # acceleration expression
+    xdot = vertcat(v, a)
 
-    data = model.createData()
+    # Explicit dynamics
+    f_expl = xdot
 
-    # ----------------------
-    # 2. Define ACADOS states and input
-    nq = model.nq
-    nv = model.nv
+    # Implicit dynamics
+    xdot_sym = SX.sym("xdot", nq + nv)
+    f_impl = xdot_sym - f_expl
 
-    q = SX.sym('q', nq)
-    v = SX.sym('v', nv)
-    u = SX.sym('u', 1)  # F input
+    # Wrap into AcadosModel
+    model = AcadosModel()
+    model.f_expl_expr = f_expl
+    model.f_impl_expr = f_impl
+    model.x = x
+    model.xdot = xdot_sym
+    model.u = u
+    model.name = model_name
 
-    # ----------------------
-    # 3. Define a function that wraps Pinocchio forward dynamics
-    # Only numerical: will need to use MX or callback in ACADOS
-    def pinocchio_forward(q_val, v_val, u_val):
-        qn = np.array(q_val).flatten()
-        vn = np.array(v_val).flatten()
-        tau = np.zeros(model.nv)
-        tau[0] = u_val[0]  # only force on cart
-        pin.forwardDynamics(model, data, qn, vn, tau)
-        return data.qdd
+    # store meta information
+    model.x_labels = ['$x$ [m]', r'$\theta$ [rad]', '$v$ [m]', r'$\dot{\theta}$ [rad/s]']
+    model.u_labels = ['$F$']
+    model.t_label = '$t$ [s]'
 
-    # ----------------------
-    # 4. CasADi wrapper using SX.sym placeholder
-    # Note: in ACADOS we usually implement this as an external function
-    qdd = SX.sym('qdd', nv)  # placeholder
-    xdot = vertcat(v, qdd)
-
-    # ----------------------
-    # 5. Build ACADOS model
-    model_acados = AcadosModel()
-    model_acados.x = vertcat(q, v)
-    model_acados.xdot = xdot
-    model_acados.u = u
-    model_acados.f_expl_expr = xdot
-    model_acados.name = 'double_cartpole_pinocchio'
-
-    return model_acados
+    return model

@@ -23,6 +23,8 @@ scipy = "*"
 matplotlib = "*"
 pinocchio = ">=3.7.0,<4"
 meshcat-python = ">=0.3.2,<0.4"
+mujoco = ">=3.3.2,<4"
+mediapy = ">=1.2.4,<2"
 
 [activation.env]
 # Path to acados source (needed by acados_template)
