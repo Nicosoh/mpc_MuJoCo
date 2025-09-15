@@ -20,7 +20,7 @@ def run_simulation(
     model,
     data,
     duration=30.0,
-    mpc_frequency=None,
+    mpc_timestep=0.002,
     framerate=30,
     resolution=(480, 640),
     render=True,
@@ -30,12 +30,6 @@ def run_simulation(
 
     last_u = 0.0
     next_mpc_time = 0.0
-
-    # Determine MPC update interval
-    if mpc_frequency is None:
-        mpc_dt = model.opt.timestep  # call MPC every sim step
-    else:
-        mpc_dt = 1.0 / mpc_frequency
 
     # Reset and set initial conditions
     mujoco.mj_resetData(model, data)
@@ -73,7 +67,7 @@ def run_simulation(
             except RuntimeError as e:
                 print(f"[ERROR] MPC solver failed at t={data.time:.3f}s: {e}")
                 break
-            next_mpc_time += mpc_dt
+            next_mpc_time += mpc_timestep
 
         # Apply last computed control
         data.ctrl[0] = last_u

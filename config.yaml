@@ -1,0 +1,21 @@
+cartpole:
+  mujoco:
+    model_path: "models_xml/inverted_pendulum.xml"
+    timestep: 0.002 # seconds
+    sim_duration: 30.0 # seconds
+    sim_framerate: 30  # Hz
+    render: true # Render simulation
+    verbose: false # Print debug information
+
+  model:
+    name: cartpole
+    mass_cart: 1.0
+    mass_pole: 0.1
+    length: 0.8
+
+  mpc:
+    Fmax: 80 # Maximum force
+    N_horizon: 400 # Prediction horizon
+    use_RTI: true # Use Real-Time Iteration
+    mpc_timestep: 0.002 # seconds
+    x0: [0.0, 3.14159265, 0.0, 0.0]

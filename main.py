@@ -4,24 +4,32 @@ from controller import AcadosMPCController
 import numpy as np
 import time
 import os
+import yaml
+import argparse
 
-def main():
+def main(model):
+    # Load configuration
+    with open("config.yaml", "r") as f:
+        config = yaml.safe_load(f)[model]
+        mujoco_config = config["mujoco"]
+        mpc_config = config["mpc"]
+
     # MPC parameters
-    Fmax = 80
-    N_horizon = 200
-    use_RTI = True
-    mpc_frequency = 100  # Hz, set to None to call MPC every sim step
-    Tf = N_horizon * 1/mpc_frequency  # Time horizon
+    Fmax = mpc_config["Fmax"]
+    N_horizon = mpc_config["N_horizon"]
+    use_RTI = mpc_config["use_RTI"]
+    mpc_timestep = mpc_config["mpc_timestep"]
+    Tf = N_horizon * mpc_timestep  # Time horizon
 
     # Simulation parameters
-    sim_duration = 30.0
-    sim_framerate = 30
-    verbose = False
-    render = True
-    path = "models_xml/inverted_pendulum.xml"
+    sim_duration = mujoco_config["sim_duration"]
+    sim_framerate = mujoco_config["sim_framerate"]
+    verbose = mujoco_config["verbose"]
+    render = mujoco_config["render"]
+    path = mujoco_config["model_path"]
 
     # Initial condition
-    x0 = np.array([1.0, np.pi, 0.0, 0.0])
+    x0 = np.array(mpc_config["x0"])
 
     # Record start time
     start_time = time.time()
@@ -38,7 +46,7 @@ def main():
         model,
         data,
         duration=sim_duration,
-        mpc_frequency=mpc_frequency,
+        mpc_timestep=mpc_timestep,
         framerate=sim_framerate,
         render=render,
         controller=mpc,
@@ -63,7 +71,7 @@ def main():
         render,
         path,
         elapsed,
-        mpc_frequency,
+        mpc_timestep,
     )
 
     # Save video if frames were recorded
@@ -140,5 +148,12 @@ def save_summary(
 
     print(f"Simulation details saved to {os.path.abspath(summary_file)}")
 
+# if __name__ == "__main__":
+#     main()
+
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Load config for a given model")
+    parser.add_argument("model", type=str, help="Name of the model to load from config (e.g., 'cartpole')")
+    args = parser.parse_args()
+
+    main(args.model)
