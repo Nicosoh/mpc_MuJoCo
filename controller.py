@@ -5,7 +5,17 @@ from pin_pendulum_model import export_pin_pendulum_ode_model
 import scipy.linalg
 from casadi import vertcat
 
-def setup(x0, Fmax, N_horizon, Tf, RTI=False):
+def setup(mpc_config):
+    Fmax = mpc_config["Fmax"]
+    N_horizon = mpc_config["N_horizon"]
+    RTI = mpc_config["use_RTI"]
+    x0 = np.array(mpc_config["x0"])
+    Tf = N_horizon * mpc_config["mpc_timestep"]  # Time horizon
+    Q_mat = np.diag(mpc_config["Q_mat"]) # State cost weight matrix
+    R_mat = np.diag(mpc_config["R_mat"]) # Input cost weight matrix
+
+    print(Q_mat)
+    print(type(Q_mat))
     # Create ocp object to formulate the OCP
     ocp = AcadosOcp()
 
@@ -24,11 +34,6 @@ def setup(x0, Fmax, N_horizon, Tf, RTI=False):
     ocp.cost.cost_type = 'NONLINEAR_LS'     # Stage cost
     ocp.cost.cost_type_e = 'NONLINEAR_LS'   # Terminal cost
 
-    # Stage cost weight matrix
-    Q_mat = 2*np.diag([1e3, 5e3, 1e-2, 1e-2])
-    # Input cost weight matrix
-    R_mat = 2*np.diag([1e-2])
-
     ocp.cost.W = scipy.linalg.block_diag(Q_mat, R_mat)  # Stage cost includes both states and input penalty
     ocp.cost.W_e = Q_mat                                # Terminal cost only inlcudes states
 
@@ -39,7 +44,7 @@ def setup(x0, Fmax, N_horizon, Tf, RTI=False):
 
     # Set input constraints
     ocp.constraints.lbu = np.array([-Fmax])
-    ocp.constraints.ubu = np.array([+Fmax])
+    ocp.constraints.ubu = np.array([Fmax])
     # Apply above to the first idx in u which is F
     ocp.constraints.idxbu = np.array([0])
 
@@ -64,7 +69,6 @@ def setup(x0, Fmax, N_horizon, Tf, RTI=False):
 
     ocp.solver_options.qp_solver_cond_N = N_horizon
 
-
     # Create solver based on settings above
     solver_json = 'acados_ocp_' + model.name + '.json'
     acados_ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json)
@@ -75,9 +79,14 @@ def setup(x0, Fmax, N_horizon, Tf, RTI=False):
     return acados_ocp_solver, acados_integrator
 
 class AcadosMPCController:
-    def __init__(self, x0, Fmax, N_horizon, Tf, use_RTI=False):
-        self.use_RTI = use_RTI
-        self.ocp_solver, _ = setup(x0, Fmax, N_horizon, Tf, use_RTI)
+    def __init__(self, mpc_config):
+        # Extract parameters from config
+        self.use_RTI = mpc_config["use_RTI"]
+        x0 = np.array(mpc_config["x0"])
+        Tf = mpc_config["N_horizon"] * mpc_config["mpc_timestep"]
+
+        # Setup MPC solver
+        self.ocp_solver, _ = setup(mpc_config)
         self.nx = self.ocp_solver.acados_ocp.dims.nx
         self.nu = self.ocp_solver.acados_ocp.dims.nu
 
@@ -89,7 +98,7 @@ class AcadosMPCController:
         """Compute MPC input given MuJoCo state."""
         qpos = state["qpos"]
         qvel = state["qvel"]
-        x = np.array([qpos[0], qpos[1], qvel[0], qvel[1]])  # match Acados model
+        x = np.concatenate([qpos, qvel])  # match Acados model
 
         if self.use_RTI:
             # Preparation phase

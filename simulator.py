@@ -28,20 +28,29 @@ def init_scene_options():
     return scene_option
 
 def run_simulation(
-    x0,
+    mpc_config,
+    mujoco_config,
     model,
     data,
-    sim_duration=30.0,
-    mpc_timestep=0.002,
-    sim_framerate=30,
+    controller,
     resolution=(480, 640),
-    render=True,
-    controller=None,
-    verbose=True,
     ):
+
+    # Extract parameters from config for simulator
+    sim_duration = mujoco_config["sim_duration"]
+    verbose = mujoco_config["verbose"]
+    render = mujoco_config["render"]
+    sim_framerate = mujoco_config["sim_framerate"]
+    sim_timestep = mujoco_config["sim_timestep"]
+
+    # Extract parameters from config for MPC
+    mpc_timestep = mpc_config["mpc_timestep"]
+    x0 = np.array(mpc_config["x0"])
 
     last_u = np.zeros(model.nu)
     next_mpc_time = 0.0
+
+    model.opt.timestep = sim_timestep  # Set simulation timestep to match MPC timestep 
 
     # Reset conditions
     mujoco.mj_resetData(model, data)

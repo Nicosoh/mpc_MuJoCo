@@ -15,19 +15,9 @@ def main(model_name):
         mpc_config = config["mpc"]
         plots_config = config["plots"]
 
-    # MPC parameters
-    Fmax = mpc_config["Fmax"]
-    N_horizon = mpc_config["N_horizon"]
-    use_RTI = mpc_config["use_RTI"]
-    mpc_timestep = mpc_config["mpc_timestep"]
-    Tf = N_horizon * mpc_timestep  # Time horizon
-    x0 = np.array(mpc_config["x0"])  # Initial state
-
     # Simulation parameters
-    sim_duration = mujoco_config["sim_duration"]
+
     sim_framerate = mujoco_config["sim_framerate"]
-    verbose = mujoco_config["verbose"]
-    render = mujoco_config["render"]
     path = mujoco_config["model_path"]
 
     # Record start time
@@ -40,19 +30,15 @@ def main(model_name):
     apply_model_config(config, model)
 
     # Create MPC controller
-    mpc = AcadosMPCController(x0=x0, Fmax=Fmax, N_horizon=N_horizon, Tf=Tf, use_RTI=use_RTI)
+    mpc = AcadosMPCController(mpc_config)
 
     # Run MuJoCo simulation with MPC in the loop
     logs, frames = run_simulation(
-        x0,
+        mpc_config,
+        mujoco_config,
         model,
         data,
-        sim_duration=sim_duration,
-        mpc_timestep=mpc_timestep,
-        sim_framerate=sim_framerate,
-        render=render,
         controller=mpc,
-        verbose=verbose,
     )
 
     # Record end time and print elapsed time
