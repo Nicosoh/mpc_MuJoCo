@@ -2,16 +2,20 @@ cartpole:
   mujoco:
     model_path: "models_xml/inverted_pendulum.xml"
     timestep: 0.002 # seconds
-    sim_duration: 30.0 # seconds
+    sim_duration: 5.0 # seconds
     sim_framerate: 30  # Hz
     render: true # Render simulation
-    verbose: false # Print debug information
+    verbose: true # Print debug information
 
   model:
-    name: cartpole
-    mass_cart: 1.0
-    mass_pole: 0.1
-    length: 0.8
+    mass:
+      cart: 1.0 # kg
+      pendulum_stick: 0.0001 # kg
+      pendulum: 0.1 # kg
+    inertia:
+      cart: [0.00001, 0.00001, 0.00001] # kg*m^2
+      pendulum_stick: [0.00001, 0.00001, 0.00001] # kg*m^2
+      pendulum: [0.00001, 0.00001, 0.00001] # kg*m^2
 
   mpc:
     Fmax: 80 # Maximum force
@@ -19,3 +23,10 @@ cartpole:
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.002 # seconds
     x0: [0.0, 3.14159265, 0.0, 0.0]
+
+  plots:
+    Cart Position: ["qpos", 0, "m"]
+    Pendulum Angle: ["qpos", 1, "rad"]
+    Cart Velocity: ["qvel", 0, "m/s"]
+    Pendulum Angular Velocity: ["qvel", 1, "rad/s"]
+    Control Input: ["ctrl", 0, "N"]

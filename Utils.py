@@ -1,0 +1,159 @@
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+import mediapy as media
+
+# ========== FILE MANAGEMENT HELPERS ==========
+
+def get_next_filename(base_name, ext="txt", folder="outputs"):
+    """
+    Finds the next available filename with an incrementing number.
+    """
+    os.makedirs(folder, exist_ok=True)
+    i = 1
+    while True:
+        filename = os.path.join(folder, f"{base_name}_{i}.{ext}")
+        if not os.path.exists(filename):
+            return filename
+        i += 1
+
+
+# ========== PLOTTING ==========
+
+def plot_signals(time, logs, model, plots_config, output_dir="outputs"):
+    """
+    Processes signals based on plots_config and plots them over time.
+
+    Parameters
+    ----------
+    time : array-like
+        Shared time axis.
+    logs : dict
+        Dictionary containing signal arrays (e.g., qpos, qvel, u_applied).
+    model : object
+        Object containing model info: nq, nv, nu.
+    plots_config : dict
+        {name: (source, idx, unit)} config to specify signals to plot.
+    output_dir : str
+        Directory to save plots.
+    """
+    signals = {}
+    ylabel_units = {}
+
+    for name, (source, idx, unit) in plots_config.items():
+        if source == "qpos":
+            assert idx < model.nq, f"Index {idx} out of range for qpos (nq={model.nq})"
+            signals[name] = logs["qpos"][:, idx]
+        elif source == "qvel":
+            assert idx < model.nv, f"Index {idx} out of range for qvel (nv={model.nv})"
+            signals[name] = logs["qvel"][:, idx]
+        elif source in ["ctrl", "u_applied"]:
+            assert idx < model.nu, f"Index {idx} out of range for control (nu={model.nu})"
+            signals[name] = logs["u_applied"][:, idx]
+        else:
+            raise ValueError(f"Invalid signal source '{source}' in plots config for '{name}'")
+
+        ylabel_units[name] = unit
+
+    # Now do the plotting
+    os.makedirs(output_dir, exist_ok=True)
+    filename = get_next_filename("plot", ext="png", folder=output_dir)
+
+    n = len(signals)
+    dpi = 120
+    width, height = 800, 200 * n
+    figsize = (width / dpi, height / dpi)
+
+    fig, ax = plt.subplots(n, 1, figsize=figsize, dpi=dpi, sharex=True)
+    if n == 1:
+        ax = [ax]
+
+    for i, (name, values) in enumerate(signals.items()):
+        ax[i].plot(time, values)
+        ax[i].set_title(name)
+        ylabel = ylabel_units.get(name, "") if ylabel_units else ""
+        ax[i].set_ylabel(ylabel)
+
+    ax[-1].set_xlabel("Time (s)")
+    plt.tight_layout()
+    plt.savefig(filename)
+    print(f"Plot saved to: {os.path.abspath(filename)}")
+    plt.show()
+
+
+# ========== VIDEO SAVING ==========
+
+def save_video(frames, output_dir="outputs", base_name="video", fps=30):
+    """
+    Saves simulation frames as a video file with a running number.
+
+    Parameters
+    ----------
+    frames : list or np.ndarray
+        Video frames.
+    output_dir : str
+        Directory to save the video.
+    base_name : str
+        Prefix for the filename.
+    fps : int
+        Frames per second.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    filename = get_next_filename(base_name, ext="mp4", folder=output_dir)
+
+    media.write_video(filename, frames, fps=fps)
+    print(f"Video saved to: {os.path.abspath(filename)}")
+
+
+# ========== SUMMARY SAVING ==========
+
+def _format_value(val):
+    """
+    Format values into readable strings for summary output.
+    """
+    if isinstance(val, float):
+        return f"{val:.6g}"
+    elif isinstance(val, (list, tuple, np.ndarray)):
+        return np.array(val).tolist()
+    else:
+        return str(val)
+
+
+def save_summary(config, elapsed=None, config_path=None, output_dir="outputs"):
+    """
+    Save simulation config and details to a text file with running number.
+
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary.
+    elapsed : float, optional
+        Total runtime in seconds.
+    config_path : str, optional
+        Path to config/model file used.
+    output_dir : str
+        Directory to save summary file.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    filename = get_next_filename("summary", ext="txt", folder=output_dir)
+
+    with open(filename, "w") as f:
+        f.write("Simulation Summary\n")
+        f.write("=================\n\n")
+
+        if config_path:
+            f.write(f"Config/model file: {config_path}\n\n")
+
+        for section, params in config.items():
+            f.write(f"{section.capitalize()}:\n")
+            if isinstance(params, dict):
+                for key, val in params.items():
+                    f.write(f"  {key}: {_format_value(val)}\n")
+            else:
+                f.write(f"  {section}: {_format_value(params)}\n")
+            f.write("\n")
+
+        if elapsed is not None:
+            f.write(f"Total execution time: {elapsed:.2f} seconds\n")
+
+    print(f"Summary saved to: {os.path.abspath(filename)}")
