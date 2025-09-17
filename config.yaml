@@ -18,6 +18,10 @@ cartpole:
       pendulum_stick: [0.00001, 0.00001, 0.00001] # kg*m^2
       pendulum: [0.00001, 0.00001, 0.00001] # kg*m^2
 
+  pin:
+    nu: 1 # Number of control inputs
+    B: [1, 0] # actuation matrix, first DoF is actuated since it is moving the cart
+
   mpc:
     Fmax: 80 # Maximum force
     N_horizon: 200 # Prediction horizon

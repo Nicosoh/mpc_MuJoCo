@@ -1,0 +1,71 @@
+import casadi
+import numpy as np
+import pinocchio as pin
+import pinocchio.casadi as cpin
+
+class PinocchioCasadi:
+    """Take a Pinocchio model, turn it into a Casadi model
+    and define the appropriate graphs.
+    """
+
+    def __init__(self, model: pin.Model, timestep: float, config):
+        pin_config = config["pin"]
+        self.model = model
+        self.cmodel = cpin.Model(model)  # cast to CasADi model
+        self.cdata = self.cmodel.createData() # create CasADi data
+        self.timestep = timestep
+        self.create_dynamics(pin_config)
+        self.create_discrete_dynamics()
+
+    def create_dynamics(self, pin_config):
+        """Create the acceleration expression and acceleration function."""
+        nq = self.model.nq              # number of configuration variables
+        nu = pin_config["nu"]           # number of control inputs
+        nv = self.model.nv              # number of velocity variables
+        q = casadi.SX.sym("q", nq)      # configuration (positions)
+        v = casadi.SX.sym("v", nv)      # velocity
+        u = casadi.SX.sym("u", nu)      # control
+        self.u_node = u
+        self.q_node = q
+        self.v_node = v
+
+        B = np.array(pin_config["B"])            # actuation matrix, first DoF is actuated since it is moving the cart
+        tau = B @ u                     # robot’s generalized forces/torques
+        a = cpin.aba(self.cmodel, self.cdata, q, v, tau) # Articulated Body Algorithm
+        self.acc = a
+        self.acc_func = casadi.Function("acc", [q, v, u], [a], ["q", "v", "u"], ["a"]) # create Casadi function for acceleration
+
+    def create_discrete_dynamics(self):
+        """
+        Create the map `(q,v) -> (qnext, vnext)` using explicit Euler integration.
+        """
+        q = self.q_node
+        v = self.v_node
+        u = self.u_node
+
+        dt = self.timestep
+
+        # Compute acceleration
+        a = self.acc_func(q, v, u)
+
+        # Explicit Euler integration
+        qnext = cpin.integrate(self.cmodel, q, dt * v)  # use current velocity
+        vnext = v + a * dt                              # use current acceleration
+
+        # Define CasADi function for discrete dynamics
+        self.dyn_qv_fn_ = casadi.Function(
+            "discrete_dyn",
+            [q, v, u],
+            [qnext, vnext],
+            ["q", "v", "u"],
+            ["qnext", "vnext"],
+        )
+
+    def forward(self, x, u): # Current state and input  -> next state
+        nq = self.model.nq
+        nv = self.model.nv
+        q = x[:nq] # Filter out position
+        v = x[nq:] # Filter out velocity
+        qnext, vnext = self.dyn_qv_fn_(q, v, u) # Feeding the dynamics function(Casadi function)
+        xnext = np.concatenate((qnext, vnext)) # Concatenate position and velocity to form next state
+        return xnext

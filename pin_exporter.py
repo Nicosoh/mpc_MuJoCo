@@ -1,5 +1,5 @@
 from acados_template import AcadosModel
-from pin_models.pin_pendulum_model import CartpoleDynamics
+from pin_models import *
 from casadi import SX, vertcat
 
 def export_ode_model(config) -> AcadosModel:
@@ -12,10 +12,10 @@ def export_ode_model(config) -> AcadosModel:
     # Create selected model
     if config["model"]["name"].lower() == "cartpole":
         print("Only 'cartpole' model is currently supported with Pinocchio.")
-        pin_model = CartpoleDynamics(timestep=mpc_config["mpc_timestep"], model_config=model_config)
+        pin_model = CartpoleDynamics(timestep=mpc_config["mpc_timestep"], config=config)
 
-    # elif config["model"]["name"].lower() == "cartpole":
-    #     pin_model = CartpoleDynamics(timestep=mpc_config["mpc_timestep"], model_config=model_config)
+    elif config["model"]["name"].lower() == "pendulum":
+        pin_model = PendulumDynamics(timestep=mpc_config["mpc_timestep"], config=config)
 
     model_name = "pin_model_ode"
 
