@@ -1,18 +1,16 @@
-import sys
-
 import casadi
 import hppfcl as fcl
 import numpy as np
 import pinocchio as pin
 import pinocchio.casadi as cpin
-from pinocchio.visualize import MeshcatVisualizer
 
-def make_cartpole():
+def make_cartpole(model_config):
     model = pin.Model()
 
-    m1 = 1.0
-    m2 = 0.1
-    length = 0.5
+    m1 = model_config["mass"]["cart"]
+    m2 = model_config["mass"]["pendulum"]
+    length = 0.8
+
     base_sizes = (0.4, 0.2, 0.05)
 
     # Create Joints
@@ -61,19 +59,18 @@ def make_cartpole():
 
     return model, collision_model, visual_model
 
-
 class PinocchioCasadi:
     """Take a Pinocchio model, turn it into a Casadi model
     and define the appropriate graphs.
     """
 
-    def __init__(self, model: pin.Model, timestep=0.05):
+    def __init__(self, model: pin.Model, timestep: float):
         self.model = model
         self.cmodel = cpin.Model(model)  # cast to CasADi model
         self.cdata = self.cmodel.createData() # create CasADi data
         self.timestep = timestep
         self.create_dynamics()
-        self.create_discrete_dynamics()
+        self.create_discrete_dynamics2()
 
     def create_dynamics(self):
         """Create the acceleration expression and acceleration function."""
@@ -115,9 +112,35 @@ class PinocchioCasadi:
 
         self.dyn_qv_fn_ = casadi.Function(
             "discrete_dyn",
-            [q, dq_, v, u],
+            [q, v, u],
             [qnext, vnext],
-            ["q", "dq_", "v", "u"],
+            ["q", "v", "u"],
+            ["qnext", "vnext"],
+        )
+
+    def create_discrete_dynamics2(self):
+        """
+        Create the map `(q,v) -> (qnext, vnext)` using explicit Euler integration.
+        """
+        q = self.q_node
+        v = self.v_node
+        u = self.u_node
+
+        dt = self.timestep
+
+        # Compute acceleration
+        a = self.acc_func(q, v, u)
+
+        # Explicit Euler integration
+        qnext = cpin.integrate(self.cmodel, q, dt * v)  # use current velocity
+        vnext = v + a * dt                              # use current acceleration
+
+        # Define CasADi function for discrete dynamics
+        self.dyn_qv_fn_ = casadi.Function(
+            "discrete_dyn",
+            [q, v, u],
+            [qnext, vnext],
+            ["q", "v", "u"],
             ["qnext", "vnext"],
         )
 
@@ -130,83 +153,10 @@ class PinocchioCasadi:
         qnext, vnext = self.dyn_qv_fn_(q, dq_, v, u) # Feeding the dynamics function(Casadi function)
         xnext = np.concatenate((qnext, vnext)) # Concatenate position and velocity to form next state
         return xnext
-
-    def residual_fwd(self, x, u, xnext): # Not used in this example
-        nv = self.model.nv
-        dq = np.zeros(nv)
-        dqn = dq
-        res = self.dyn_residual(x, u, xnext, dq, dqn)
-        return res
-
-# To-do
-# The PinocchioCasadi class can be reused to convert from Pinocchio to casadi. (Also convert from semi-implicit Euler to explicit Euler)
-# The visual and collision models can be used for debugging but for nothing else. 
-# The make_cartpole function can be modified
-
+    
 class CartpoleDynamics(PinocchioCasadi):
-    def __init__(self, timestep=0.05):
-        model, collision_model, visual_model = make_cartpole()
+    def __init__(self, timestep: float, model_config):
+        model, collision_model, visual_model = make_cartpole(model_config)
         self.collision_model = collision_model
         self.visual_model = visual_model
         super().__init__(model=model, timestep=timestep)
-
-#-------------------------------
-# Actual code to run 
-
-dt = 0.02 # time step, should match the MPC timestep
-cartpole = CartpoleDynamics(timestep=dt)
-model = cartpole.model
-
-# ----------------------------
-# I think the code ends here, the rest is just testing and visualization
-# Just pass this model to ACADOS. 
-
-print(model)
-
-q0 = np.array([0.95, 0.01])
-q0 = pin.normalize(model, q0)
-v = np.zeros(model.nv)
-u = np.zeros(1)
-a0 = cartpole.acc_func(q0, v, u)
-
-print("a0:", a0)
-
-x0 = np.append(q0, v)
-xnext = cartpole.forward(x0, u)
-
-
-def integrate_no_control(x0, nsteps):
-    states_ = [x0.copy()]
-    for t in range(nsteps):
-        u = np.zeros(1)
-        xnext = cartpole.forward(states_[t], u).ravel()
-        states_.append(xnext)
-    return states_
-
-
-states_ = integrate_no_control(x0, nsteps=1000)
-states_ = np.stack(states_).T
-
-
-# ------------------------
-# Maybe add this bit of code for debugging purposes.
-
-try:
-    viz = MeshcatVisualizer(
-        model=model,
-        collision_model=cartpole.collision_model,
-        visual_model=cartpole.visual_model,
-    )
-
-    viz.initViewer()
-    viz.loadViewerModel("pinocchio")
-
-    qs_ = states_[: model.nq, :].T
-    viz.play(q_trajectory=qs_, dt=dt)
-except ImportError as err:
-    print(
-        "Error while initializing the viewer. "
-        "It seems you should install Python meshcat"
-    )
-    print(err)
-    sys.exit(0)

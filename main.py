@@ -1,9 +1,7 @@
 from simulator import load_model, run_simulation, apply_model_config
 from Utils import save_video, plot_signals, save_summary
 from controller import AcadosMPCController
-import numpy as np
 import time
-import os
 import yaml
 import argparse
 
@@ -11,14 +9,11 @@ def main(model_name):
     # Load configuration
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)[model_name]
-        mujoco_config = config["mujoco"]
-        mpc_config = config["mpc"]
-        plots_config = config["plots"]
 
     # Simulation parameters
 
-    sim_framerate = mujoco_config["sim_framerate"]
-    path = mujoco_config["model_path"]
+    sim_framerate = config["mujoco"]["sim_framerate"]
+    path = config["mujoco"]["model_path"]
 
     # Record start time
     start_time = time.time()
@@ -30,12 +25,11 @@ def main(model_name):
     apply_model_config(config, model)
 
     # Create MPC controller
-    mpc = AcadosMPCController(mpc_config)
+    mpc = AcadosMPCController(config)
 
     # Run MuJoCo simulation with MPC in the loop
     logs, frames = run_simulation(
-        mpc_config,
-        mujoco_config,
+        config,
         model,
         data,
         controller=mpc,
@@ -58,7 +52,7 @@ def main(model_name):
         time=logs["time"],
         logs=logs,
         model=model,
-        plots_config=plots_config,
+        plots_config=config["plots"],
     )
 
 if __name__ == "__main__":

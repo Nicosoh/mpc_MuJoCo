@@ -28,13 +28,15 @@ def init_scene_options():
     return scene_option
 
 def run_simulation(
-    mpc_config,
-    mujoco_config,
+    config,
     model,
     data,
     controller,
     resolution=(480, 640),
     ):
+
+    mpc_config = config["mpc"]
+    mujoco_config = config["mujoco"]
 
     # Extract parameters from config for simulator
     sim_duration = mujoco_config["sim_duration"]
@@ -119,9 +121,9 @@ def run_simulation(
         if verbose:
             print(
                 f"t = {data.time:.3f}s | "
-                f"qpos = {np.round(data.qpos, 3)} | "
-                f"qvel = {np.round(data.qvel, 3)} | "
-                f"ctrl = {np.round(data.ctrl, 3)}"
+                f"qpos = {np.round(data.qpos, 2)} | "
+                f"qvel = {np.round(data.qvel, 2)} | "
+                f"ctrl = {np.round(data.ctrl, 2)}"
             )
 
         # Render if enabled

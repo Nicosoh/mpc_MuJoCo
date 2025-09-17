@@ -1,11 +1,13 @@
 import numpy as np
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
-from pendulum_model import export_pendulum_ode_model
-from pin_pendulum_model import export_pin_pendulum_ode_model
+# from archive.pendulum_model import export_pendulum_ode_model
+from pin_exporter import export_ode_model
 import scipy.linalg
 from casadi import vertcat
 
-def setup(mpc_config):
+def setup(config):
+    mpc_config = config["mpc"]
+
     Fmax = mpc_config["Fmax"]
     N_horizon = mpc_config["N_horizon"]
     RTI = mpc_config["use_RTI"]
@@ -14,14 +16,12 @@ def setup(mpc_config):
     Q_mat = np.diag(mpc_config["Q_mat"]) # State cost weight matrix
     R_mat = np.diag(mpc_config["R_mat"]) # Input cost weight matrix
 
-    print(Q_mat)
-    print(type(Q_mat))
     # Create ocp object to formulate the OCP
     ocp = AcadosOcp()
 
     # Call model creation function
     # model = export_pendulum_ode_model()
-    model = export_pin_pendulum_ode_model()
+    model = export_ode_model(config)
     ocp.model = model
 
     # Extract state and input dimensions
@@ -79,14 +79,15 @@ def setup(mpc_config):
     return acados_ocp_solver, acados_integrator
 
 class AcadosMPCController:
-    def __init__(self, mpc_config):
+    def __init__(self, config):
+        mpc_config = config["mpc"]
+
         # Extract parameters from config
         self.use_RTI = mpc_config["use_RTI"]
         x0 = np.array(mpc_config["x0"])
-        Tf = mpc_config["N_horizon"] * mpc_config["mpc_timestep"]
 
         # Setup MPC solver
-        self.ocp_solver, _ = setup(mpc_config)
+        self.ocp_solver, _ = setup(config)
         self.nx = self.ocp_solver.acados_ocp.dims.nx
         self.nu = self.ocp_solver.acados_ocp.dims.nu
 
