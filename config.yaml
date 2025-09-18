@@ -1,6 +1,6 @@
 cartpole:
   mujoco:
-    model_path: "models_xml/inverted_pendulum.xml"
+    model_path: "models_xml/cartpole.xml"
     sim_timestep: 0.001 # seconds
     sim_duration: 5.0 # seconds
     sim_framerate: 30  # Hz
@@ -36,4 +36,38 @@ cartpole:
     Pendulum Angle: ["qpos", 1, "rad"]
     Cart Velocity: ["qvel", 0, "m/s"]
     Pendulum Angular Velocity: ["qvel", 1, "rad/s"]
+    Control Input: ["ctrl", 0, "N"]
+
+pendulum:
+  mujoco:
+    model_path: "models_xml/pendulum.xml"
+    sim_timestep: 0.001 # seconds
+    sim_duration: 5.0 # seconds
+    sim_framerate: 30  # Hz
+    render: true # Render simulation
+    verbose: false # Print debug information
+
+  model:
+    name: "pendulum"
+    mass:
+      pendulum: 1 # kg
+    inertia:
+      pendulum: [0.00001, 0.00001, 0.00001] # kg*m^2
+
+  pin:
+    nu: 1 # Number of control inputs
+    B: [1] # actuation matrix, first DoF is actuated since it is moving the cart
+
+  mpc:
+    Fmax: 80 # Maximum force
+    N_horizon: 200 # Prediction horizon
+    use_RTI: true # Use Real-Time Iteration
+    mpc_timestep: 0.002 # seconds
+    x0: [3.14159265, 0.0]
+    Q_mat: [2000, 0.02] # State cost weights
+    R_mat: [0.02] # Input cost weights
+
+  plots:
+    Pendulum Angle: ["qpos", 0, "rad"]
+    Pendulum Angular Velocity: ["qvel", 0, "rad/s"]
     Control Input: ["ctrl", 0, "N"]

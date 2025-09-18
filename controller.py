@@ -20,7 +20,6 @@ def setup(config):
     ocp = AcadosOcp()
 
     # Call model creation function
-    # model = export_pendulum_ode_model()
     model = export_ode_model(config)
     ocp.model = model
 

@@ -7,11 +7,9 @@ def export_ode_model(config) -> AcadosModel:
     Converts a Pinocchio-based model into an AcadosModel for OCP solving.
     """
     mpc_config = config["mpc"]
-    model_config=config["model"]
 
     # Create selected model
     if config["model"]["name"].lower() == "cartpole":
-        print("Only 'cartpole' model is currently supported with Pinocchio.")
         pin_model = CartpoleDynamics(timestep=mpc_config["mpc_timestep"], config=config)
 
     elif config["model"]["name"].lower() == "pendulum":

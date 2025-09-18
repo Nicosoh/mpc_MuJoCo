@@ -1,15 +1,14 @@
 import hppfcl as fcl
 import numpy as np
 import pinocchio as pin
-from pin_models.base_pin_class import PinocchioCasadi
+from pin_models.pin_base_class import PinocchioCasadi
 
-def make_pendulum(model_config):
+def make_pendulum(config):
+    model_config = config["model"]
     model = pin.Model()
 
     m1 = model_config["mass"]["pendulum"]
     length = 0.8
-
-    base_sizes = (0.4, 0.2, 0.05)
 
     # Create Joints
     pendulum = pin.JointModelRY()
