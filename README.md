@@ -1,31 +1,61 @@
-### Notes
-#### ACADOS Installation
-For ACADOS installation, the commands listed at https://docs.acados.org/installation/index.html.
-```
-mkdir -p build
-```
-This command is required for the cmake files to go into the build directory. Edit flags as necessary.
+# Simulator - Controller for Model Predicitve Control
+## Overview
+![Block Diagram](assets/block_diagram.jpg)
+This repository provides a modular framework for simulating and controlling robotic systems (e.g., cartpole, pendulum) using Model Predictive Control (MPC) with MuJoCo and Pinocchio. The codebase supports uses MuJoCo for the simulator with acados and pinocchio for optimal control.
 
+---
+
+## Structure
+
+- **main.py**: Entry point for running MuJoCo simulations with MPC.
+- **controller.py**: Implements the [`AcadosMPCController`](controller.py) class and MPC setup using ACADOS.
+- **simulator.py**: Contains MuJoCo simulation loop ([`run_simulation`](simulator.py)), model loading, and configuration utilities.
+- **pin_models/**: Pinocchio-based models and dynamics classes
+- **pin_exporter.py**: Converts Pinocchio models to ACADOS ODE models ([`export_ode_model`](pin_exporter.py)).
+- **Utils.py**: Helpers for plotting ([`plot_signals`](Utils.py)), saving videos ([`save_video`](Utils.py)), and run summaries ([`save_summary`](Utils.py)).
+- **pin_visualizer.py**: Visualizes Pinocchio models using Meshcat.
+- **config.yaml**: Central configuration for models, MPC, and simulation parameters.
+
+---
+
+## Getting Started
+
+The codebase uses pixi to manage and run all the tasks.
+
+1. Clone the repo
+2. 
 ```
-cmake .. -DACADOS_WITH_QPOASES=ON -DACADOS_WITH_OSQP=ON -DACADOS_WITH_QPDUNES=ON
+cd mpc_mujoco
+pixi install
+```
+3. 
+Build and install acados from source
+```
+pixi run acados_full
+```
+4. Test acados installation
+```
+pixi run minimal_example
+```
+5. Run cartpole model
+```
+pixi run main_cartpole
+```
+Results are saved in the outputs folder. A video, config and also graph. If render is set to false, the video will not be recorded.
+
+## Customisation
+
+To create new models, a .xml will need to be created for the model in [models_xml](models_xml). It can then be visualised with:
+```
+pixi shell
+python -m mujoco.viewer
 ```
 
-Then to run 
+A similar model will also need to be created for pinocchio in [pin_models](pin_models). It can also be visualized with meshcat:
 ```
-cd build
-make install -j4
+python pin_visualizer.py pendulum
 ```
+The new model will need to be added to the if statement at the top of the [pin_visualizer.py](pin_visualizer.py) and [pin_exporter.py](pin_exporter.py)
 
-#### Adding ACADOS to UV .venv
-Assuming that acados was installed in a sister folder to this directory, then add the python bindings to the .venv. In this case, to a uv project.
-
-```
-uv add ../acados/interfaces/acados_template
-```
-
-#### Allowing the script to find the ACADOS directory
-```
-export LD_LIBRARY_PATH=absolute_path_to/acados/lib
-export ACADOS_SOURCE_DIR=absolute_path_to/acados
-```
-<!-- /home/nicodemus-soh/Documents/acados -->
+## Notes
+Add the configs to the [config.yaml]](config.yaml) by creating a new section for your model. Some settings like the lengths or pole/beams can't be added in and will need to be defined in the [models_xml](models_xml) and [pin_models](pin_models) instead.

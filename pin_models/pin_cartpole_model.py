@@ -1,4 +1,4 @@
-from pin_models.base_pin_class import PinocchioCasadi
+from pin_models.pin_base_class import PinocchioCasadi
 import hppfcl as fcl
 import numpy as np
 import pinocchio as pin
