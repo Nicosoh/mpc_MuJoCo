@@ -51,6 +51,7 @@ def run_simulation(
 
     last_u = np.zeros(model.nu)
     next_mpc_time = 0.0
+    cost = 0.0
 
     model.opt.timestep = sim_timestep  # Set simulation timestep to match MPC timestep 
 
@@ -80,6 +81,7 @@ def run_simulation(
         "qpos": [],
         "qvel": [],
         "u_applied": [],
+        "cost": [],
     }
     height, width = resolution
 
@@ -100,7 +102,7 @@ def run_simulation(
         # Call MPC only at specified intervals
         if controller is not None and data.time >= next_mpc_time:
             try:
-                last_u = controller(state)
+                last_u, cost = controller(state)
             except RuntimeError as e:
                 print(f"[ERROR] MPC solver failed at t={data.time:.3f}s: {e}")
                 break
@@ -117,13 +119,15 @@ def run_simulation(
         logs["qpos"].append(np.copy(data.qpos))
         logs["qvel"].append(np.copy(data.qvel))
         logs["u_applied"].append(np.copy(data.ctrl))
+        logs["cost"].append(cost)
 
         if verbose:
             print(
                 f"t = {data.time:.3f}s | "
                 f"qpos = {np.round(data.qpos, 2)} | "
                 f"qvel = {np.round(data.qvel, 2)} | "
-                f"ctrl = {np.round(data.ctrl, 2)}"
+                f"ctrl = {np.round(data.ctrl, 2)} | "
+                f"cost = {np.round(cost, 2)}"
             )
 
         # Render if enabled
@@ -133,7 +137,7 @@ def run_simulation(
             frames.append(pixels)
 
     # Convert logs to arrays
-    for key in ["qpos", "qvel", "u_applied"]:
+    for key in ["qpos", "qvel", "u_applied", "cost"]:
         logs[key] = np.array(logs[key])
     logs["time"] = np.array(logs["time"])
 

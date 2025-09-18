@@ -24,7 +24,7 @@ cartpole:
 
   mpc:
     Fmax: 80 # Maximum force
-    N_horizon: 200 # Prediction horizon
+    N_horizon: 400 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.002 # seconds
     x0: [0.0, 3.14159265, 0.0, 0.0]
@@ -36,6 +36,7 @@ cartpole:
     Pendulum Angle: ["qpos", 1, "rad"]
     Cart Velocity: ["qvel", 0, "m/s"]
     Pendulum Angular Velocity: ["qvel", 1, "rad/s"]
+    MPC Cost: ["cost", 0, "Cost"]
     Control Input: ["ctrl", 0, "N"]
 
 pendulum:
@@ -70,4 +71,5 @@ pendulum:
   plots:
     Pendulum Angle: ["qpos", 0, "rad"]
     Pendulum Angular Velocity: ["qvel", 0, "rad/s"]
+    MPC Cost: ["cost", 0, "Cost"]
     Control Input: ["ctrl", 0, "N"]

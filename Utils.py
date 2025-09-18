@@ -50,6 +50,10 @@ def plot_signals(time, logs, model, plots_config, output_dir="outputs"):
         elif source in ["ctrl", "u_applied"]:
             assert idx < model.nu, f"Index {idx} out of range for control (nu={model.nu})"
             signals[name] = logs["u_applied"][:, idx]
+        elif source == "cost":
+            # Cost is a 1D array, no indexing needed
+            assert "cost" in logs, "Cost not found in logs"
+            signals[name] = logs["cost"]
         else:
             raise ValueError(f"Invalid signal source '{source}' in plots config for '{name}'")
 

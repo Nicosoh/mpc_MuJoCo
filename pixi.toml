@@ -67,7 +67,6 @@ acados_full = "pixi run acados_clone && pixi run acados_configure && pixi run ac
 
 # Run the minimal Python example
 minimal_example = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python external/acados/examples/acados_python/getting_started/minimal_example_ocp.py"
-minimal_example_sim = "python external/acados/examples/acados_python/getting_started/minimal_example_ocp.py"
 
 main_cartpole = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py cartpole"
 viz_cartpole = "python pin_visualizer.py cartpole"

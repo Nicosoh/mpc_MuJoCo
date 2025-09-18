@@ -100,6 +100,19 @@ class AcadosMPCController:
         qvel = state["qvel"]
         x = np.concatenate([qpos, qvel])  # match Acados model
 
+        # === Set time-varying reference ===
+        # if state["time"] < 3.0:
+        #     yref = np.array([0.0, 0.0, 0.0, 0.0, 0.0])  # size ny = nx + nu
+        # else:
+        #     yref = np.array([1.0, 0.0, 0.0, 0.0, 0.0])
+
+        # N = self.ocp_solver.acados_ocp.dims.N
+
+        # for stage in range(N):
+        #     self.ocp_solver.cost_set(stage, "yref", yref)
+        # self.ocp_solver.cost_set(N, "y_ref", yref[:self.nx])  # Terminal reference (only x)
+        # ==================================
+
         if self.use_RTI:
             # Preparation phase
             self.ocp_solver.options_set('rti_phase', 1)
@@ -119,10 +132,12 @@ class AcadosMPCController:
             if status != 0:
                 print("MPC solver returned status: ", status)
 
+            # Get first control input
             u = self.ocp_solver.get(0, "u")
 
         else: # Without RTI
             # Solve ocp and get next control input
             u = self.ocp_solver.solve_for_x0(x0_bar=x)
 
-        return u
+        cost = self.ocp_solver.get_cost()
+        return u, cost
