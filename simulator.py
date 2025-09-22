@@ -1,9 +1,24 @@
 import mujoco
 import numpy as np
+from robot_descriptions import iiwa14_mj_description
+from tqdm import tqdm
 
+MENAGERIE_MODELS = {
+    "iiwa14_mj_description": iiwa14_mj_description,
+}
+
+# Load model from xml file
 def load_model(model_path: str):
     """Load a MuJoCo model and create associated data object."""
     model = mujoco.MjModel.from_xml_path(model_path)
+    data = mujoco.MjData(model)
+    return model, data
+
+# Load model from model mujoco_menagerie
+def load_model_from_menagerie(menagerie_name):
+    """Load a MuJoCo model from mujoco_menagerie and create associated data object."""
+    name = MENAGERIE_MODELS[menagerie_name]
+    model = mujoco.MjModel.from_xml_path(name.MJCF_PATH)
     data = mujoco.MjData(model)
     return model, data
 
@@ -90,6 +105,10 @@ def run_simulation(
         scene_option = init_scene_options()
         renderer = mujoco.Renderer(model, height, width)
 
+    # Calculate number of steps (for tqdm total)
+    steps = int(sim_duration / sim_timestep)
+    pbar = tqdm(total=steps, desc="Simulating")
+
     # Main simulation loop
     while data.time < sim_duration:
         # Gather state
@@ -135,6 +154,9 @@ def run_simulation(
             renderer.update_scene(data, scene_option=scene_option)
             pixels = renderer.render()
             frames.append(pixels)
+
+        # Update progress bar
+        pbar.update(1)
 
     # Convert logs to arrays
     for key in ["qpos", "qvel", "u_applied", "cost"]:

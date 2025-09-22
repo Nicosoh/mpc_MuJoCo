@@ -12,7 +12,7 @@ def main(model_name):
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)[model_name]
     
-    dt = 0.02
+    dt = 0.002
 
     # Create selected model
     if config["model"]["name"].lower() == "cartpole":
@@ -21,6 +21,10 @@ def main(model_name):
     elif config["model"]["name"].lower() == "pendulum":
         pin_model = PendulumDynamics(timestep=dt, config=config)
 
+    elif config["model"]["name"].lower() == "iiwa14":
+        pin_model = iiwa14Dynamics(timestep=dt, config=config)
+
+    nu = config["pin"]["nu"]
     model = pin_model.model
 
     print(model)
@@ -28,7 +32,7 @@ def main(model_name):
     q0 = np.random.rand(model.nq)
     q0 = pin.normalize(model, q0)
     v = np.zeros(model.nv)
-    u = np.zeros(1)
+    u = np.zeros(nu)
     a0 = pin_model.acc_func(q0, v, u)
 
     print("a0:", a0)
@@ -39,7 +43,7 @@ def main(model_name):
     def integrate_no_control(x0, nsteps):
         states_ = [x0.copy()]
         for t in range(nsteps):
-            u = np.zeros(1)
+            u = np.zeros(nu)
             xnext = pin_model.forward(states_[t], u).ravel()
             states_.append(xnext)
         return states_

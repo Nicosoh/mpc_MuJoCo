@@ -15,6 +15,9 @@ def export_ode_model(config) -> AcadosModel:
     elif config["model"]["name"].lower() == "pendulum":
         pin_model = PendulumDynamics(timestep=mpc_config["mpc_timestep"], config=config)
 
+    elif config["model"]["name"].lower() == "iiwa14":
+        pin_model = iiwa14Dynamics(timestep=mpc_config["mpc_timestep"], config=config)
+
     model_name = "pin_model_ode"
 
     # Use already-created Casadi symbolic variables

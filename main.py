@@ -1,4 +1,4 @@
-from simulator import load_model, run_simulation, apply_model_config
+from simulator import load_model, run_simulation, apply_model_config, load_model_from_menagerie
 from Utils import save_video, plot_signals, save_summary
 from controller import AcadosMPCController
 import time
@@ -14,15 +14,19 @@ def main(model_name):
 
     sim_framerate = config["mujoco"]["sim_framerate"]
     path = config["mujoco"]["model_path"]
-
+    urdf_available = config["mujoco"]["urdf_available"]
+    menagerie_name =  config["mujoco"]["menagerie_name"]
+    
     # Record start time
     start_time = time.time()
 
-    # Load MuJoCo model
-    model, data = load_model(path)
-
-    # Update model parameters from config for MuJoCo
-    apply_model_config(config, model)
+    # Load MuJoCo model from path or URDF if available
+    if urdf_available:
+        model, data = load_model_from_menagerie(menagerie_name)
+    else:
+        model, data = load_model(path)
+        # Update model parameters from config for MuJoCo
+        apply_model_config(config, model)
 
     # Create MPC controller
     mpc = AcadosMPCController(config)

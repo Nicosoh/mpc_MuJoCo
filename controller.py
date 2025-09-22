@@ -42,10 +42,10 @@ def setup(config):
     ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference as zeros for states only
 
     # Set input constraints
-    ocp.constraints.lbu = np.array([-Fmax])
-    ocp.constraints.ubu = np.array([Fmax])
+    ocp.constraints.lbu = -np.array(Fmax)
+    ocp.constraints.ubu = np.array(Fmax)
     # Apply above to the first idx in u which is F
-    ocp.constraints.idxbu = np.array([0])
+    ocp.constraints.idxbu = np.zeros(nu)
 
     # Set initial constraint
     ocp.constraints.x0 = x0

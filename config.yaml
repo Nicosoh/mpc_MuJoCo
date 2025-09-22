@@ -1,5 +1,10 @@
+# ----------------------------------------------------------------------------------------
+# CARTPOLE MODEL CONFIGURATION
+# ----------------------------------------------------------------------------------------
 cartpole:
   mujoco:
+    urdf_available: false
+    menagerie_name: 
     model_path: "models_xml/cartpole.xml"
     sim_timestep: 0.001 # seconds
     sim_duration: 5.0 # seconds
@@ -23,7 +28,7 @@ cartpole:
     B: [1, 0] # actuation matrix, first DoF is actuated since it is moving the cart
 
   mpc:
-    Fmax: 80 # Maximum force
+    Fmax: [80] # Maximum force
     N_horizon: 400 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.002 # seconds
@@ -39,8 +44,13 @@ cartpole:
     MPC Cost: ["cost", 0, "Cost"]
     Control Input: ["ctrl", 0, "N"]
 
+# ----------------------------------------------------------------------------------------
+# PENDULUM MODEL CONFIGURATION
+# ----------------------------------------------------------------------------------------
 pendulum:
   mujoco:
+    urdf_available: false
+    menagerie_name:
     model_path: "models_xml/pendulum.xml"
     sim_timestep: 0.001 # seconds
     sim_duration: 5.0 # seconds
@@ -60,7 +70,7 @@ pendulum:
     B: [1] # actuation matrix, first DoF is actuated since it is moving the cart
 
   mpc:
-    Fmax: 80 # Maximum force
+    Fmax: [80] # Maximum force
     N_horizon: 200 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.002 # seconds
@@ -73,3 +83,57 @@ pendulum:
     Pendulum Angular Velocity: ["qvel", 0, "rad/s"]
     MPC Cost: ["cost", 0, "Cost"]
     Control Input: ["ctrl", 0, "N"]
+
+# ----------------------------------------------------------------------------------------
+# Iiwa14 MODEL CONFIGURATION
+# ----------------------------------------------------------------------------------------
+iiwa14:
+  mujoco:
+    urdf_available: true
+    menagerie_name: iiwa14_mj_description
+    model_path: "models_xml/pendulum.xml"
+    sim_timestep: 0.001 # seconds
+    sim_duration: 5.0 # seconds
+    sim_framerate: 30  # Hz
+    render: true # Render simulation
+    verbose: false # Print debug information
+
+  model:
+    name: "iiwa14"
+
+  pin:
+    nu: 7 # Number of control inputs
+    B: [1, 1, 1, 1, 1, 1, 1] # actuation matrix, first DoF is actuated since it is moving the cart
+
+  mpc:
+    Fmax: [320, 320, 176, 176, 110, 40, 40] # Maximum torque
+    N_horizon: 300 # Prediction horizon
+    use_RTI: true # Use Real-Time Iteration
+    mpc_timestep: 0.002 # seconds
+    x0: [1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    Q_mat: [2000, 1800, 1600, 1400, 1200, 1000, 800, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] # State cost weights
+    R_mat: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] # Input cost weights
+
+  plots:
+    Joint 1 Angle: ["qpos", 0, "rad"]
+    Joint 2 Angle: ["qpos", 1, "rad"]
+    Joint 3 Angle: ["qpos", 2, "rad"]
+    Joint 4 Angle: ["qpos", 3, "rad"]
+    Joint 5 Angle: ["qpos", 4, "rad"]
+    Joint 6 Angle: ["qpos", 5, "rad"]
+    Joint 7 Angle: ["qpos", 6, "rad"]
+    Joint 1 Angular Velocity: ["qvel", 0, "rad/s"]
+    Joint 2 Angular Velocity: ["qvel", 1, "rad/s"]
+    Joint 3 Angular Velocity: ["qvel", 2, "rad/s"]
+    Joint 4 Angular Velocity: ["qvel", 3, "rad/s"]
+    Joint 5 Angular Velocity: ["qvel", 4, "rad/s"]
+    Joint 6 Angular Velocity: ["qvel", 5, "rad/s"]
+    Joint 7 Angular Velocity: ["qvel", 6, "rad/s"]
+    MPC Cost: ["cost", 0, "Cost"]
+    Control Input 1: ["ctrl", 0, "N"]
+    Control Input 2: ["ctrl", 1, "N"]
+    Control Input 3: ["ctrl", 2, "N"]
+    Control Input 4: ["ctrl", 3, "N"]
+    Control Input 5: ["ctrl", 4, "N"]
+    Control Input 6: ["ctrl", 5, "N"]
+    Control Input 7: ["ctrl", 6, "N"]

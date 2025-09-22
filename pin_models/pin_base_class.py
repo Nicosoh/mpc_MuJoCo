@@ -29,7 +29,8 @@ class PinocchioCasadi:
         self.q_node = q
         self.v_node = v
 
-        B = np.array(pin_config["B"])            # actuation matrix, first DoF is actuated since it is moving the cart
+        # B = np.array(pin_config["B"])            # actuation matrix, first DoF is actuated since it is moving the cart
+        B = np.diag(pin_config["B"])
         tau = B @ u                     # robot’s generalized forces/torques
         a = cpin.aba(self.cmodel, self.cdata, q, v, tau) # Articulated Body Algorithm
         self.acc = a
