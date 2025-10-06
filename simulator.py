@@ -2,6 +2,7 @@ import mujoco
 import numpy as np
 from robot_descriptions import iiwa14_mj_description
 from tqdm import tqdm
+from robot_descriptions.loaders.mujoco import load_robot_description
 
 MENAGERIE_MODELS = {
     "iiwa14_mj_description": iiwa14_mj_description,
@@ -14,11 +15,17 @@ def load_model(model_path: str):
     data = mujoco.MjData(model)
     return model, data
 
-# Load model from model mujoco_menagerie
-def load_model_from_menagerie(menagerie_name):
-    """Load a MuJoCo model from mujoco_menagerie and create associated data object."""
-    name = MENAGERIE_MODELS[menagerie_name]
-    model = mujoco.MjModel.from_xml_path(name.MJCF_PATH)
+# # Load model from robot_descriptions
+# def load_model(menagerie_name):
+#     """Load a MuJoCo model from mujoco_menagerie and create associated data object."""
+#     name = MENAGERIE_MODELS[menagerie_name]
+#     model = mujoco.MjModel.from_xml_path(name.MJCF_PATH)
+#     data = mujoco.MjData(model)
+#     return model, data
+
+def load_model_from_robot_descriptions(description_name: str):
+    """Load a MuJoCo model and data using robot_descriptions."""
+    model = load_robot_description(description_name)  # Loads and parses the MJCF
     data = mujoco.MjData(model)
     return model, data
 
