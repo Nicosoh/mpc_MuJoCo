@@ -12,10 +12,8 @@ def main(model_name):
 
     # Simulation parameters
     sim_framerate = config["mujoco"]["sim_framerate"]
-    # path = config["mujoco"]["model_path"]
     urdf_available = config["mujoco"]["urdf_available"]
-    # menagerie_name =  config["mujoco"]["menagerie_name"]
-    # import pdb; pdb.set_trace()
+
     # Record start time
     start_time = time.time()
 

@@ -64,6 +64,7 @@ def main(model_name):
         viz.loadViewerModel("pinocchio")
 
         qs_ = states_[: model.nq, :].T
+        print(qs_.shape)
         viz.play(q_trajectory=qs_, dt=dt)
     except ImportError as err:
         print(

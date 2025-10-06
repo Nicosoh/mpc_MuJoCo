@@ -20,7 +20,8 @@ class PinocchioCasadi:
     def create_dynamics(self, pin_config):
         """Create the acceleration expression and acceleration function."""
         nq = self.model.nq              # number of configuration variables
-        nu = pin_config["nu"]           # number of control inputs
+        # nu = pin_config["nu"]           # number of control inputs
+        nu = len(pin_config["actuated_joints"])
         nv = self.model.nv              # number of velocity variables
         q = casadi.SX.sym("q", nq)      # configuration (positions)
         v = casadi.SX.sym("v", nv)      # velocity
@@ -29,8 +30,14 @@ class PinocchioCasadi:
         self.q_node = q
         self.v_node = v
 
+        nu = len(pin_config["actuated_joints"])
+        B = np.zeros((nq, nu))
+
+        for i, joint_idx in enumerate(pin_config["actuated_joints"]):
+            B[joint_idx, i] = 1.0
+        
         # B = np.array(pin_config["B"])            # actuation matrix, first DoF is actuated since it is moving the cart
-        B = np.diag(pin_config["B"])
+        # B = np.diag(pin_config["B"])
         tau = B @ u                     # robot’s generalized forces/torques
         a = cpin.aba(self.cmodel, self.cdata, q, v, tau) # Articulated Body Algorithm
         self.acc = a

@@ -72,9 +72,12 @@ minimal_example = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PA
 
 main_cartpole = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py cartpole"
 viz_cartpole = "python pin_visualizer.py cartpole"
+OCP_cartpole = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python solve_OCP.py cartpole"
 
 main_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py pendulum"
 viz_pendulum = "python pin_visualizer.py pendulum"
+OCP_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python solve_OCP.py pendulum"
 
 main_iiwa14 = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py iiwa14"
 viz_iiwa14 = "python pin_visualizer.py iiwa14"
+OCP_iiwa14 = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python solve_OCP.py iiwa14"

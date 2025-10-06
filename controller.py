@@ -1,6 +1,5 @@
 import numpy as np
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
-# from archive.pendulum_model import export_pendulum_ode_model
 from pin_exporter import export_ode_model
 import scipy.linalg
 from casadi import vertcat
@@ -93,6 +92,50 @@ class AcadosMPCController:
         # Warm start
         for _ in range(5):
             self.ocp_solver.solve_for_x0(x0_bar=x0)
+    
+    def get_full_OCP(self, state):
+        """Compute MPC input and return full trajectory and control sequence."""
+        qpos = state["qpos"]
+        qvel = state["qvel"]
+        x = np.concatenate([qpos, qvel])  # match Acados model
+
+        if self.use_RTI:
+            # RTI preparation phase
+            self.ocp_solver.options_set('rti_phase', 1)
+            status = self.ocp_solver.solve()
+            if status != 0:
+                print("MPC solver returned status in RTI phase 1: ", status)
+
+            self.ocp_solver.set(0, "lbx", x)
+            self.ocp_solver.set(0, "ubx", x)
+
+            # RTI feedback phase
+            self.ocp_solver.options_set('rti_phase', 2)
+            status = self.ocp_solver.solve()
+            if status != 0:
+                print("MPC solver returned status in RTI phase 2: ", status)
+        else:
+            # Without RTI
+            self.ocp_solver.solve_for_x0(x0_bar=x)
+
+        # Extract solution over the prediction horizon
+        N = self.ocp_solver.acados_ocp.dims.N  # horizon length
+
+        x_traj = []
+        u_traj = []
+
+        for i in range(N):
+            xi = self.ocp_solver.get(i, "x")
+            ui = self.ocp_solver.get(i, "u")
+            x_traj.append(xi)
+            u_traj.append(ui)
+
+        # Get final state (at step N)
+        xN = self.ocp_solver.get(N, "x")
+        x_traj.append(xN)
+        
+        # Full trajs, control input
+        return np.array(x_traj), np.array(u_traj)
 
     def __call__(self, state):
         """Compute MPC input given MuJoCo state."""
@@ -119,7 +162,7 @@ class AcadosMPCController:
             
             status = self.ocp_solver.solve()
             if status != 0:
-                print("MPC solver returned status: ", status)
+                print("MPC solver returned status in RTI phase 1: ", status)
 
             # Set initial state
             self.ocp_solver.set(0, "lbx", x)
@@ -130,7 +173,7 @@ class AcadosMPCController:
 
             status = self.ocp_solver.solve()
             if status != 0:
-                print("MPC solver returned status: ", status)
+                print("MPC solver returned status in RTI phase 2: ", status)
 
             # Get first control input
             u = self.ocp_solver.get(0, "u")
