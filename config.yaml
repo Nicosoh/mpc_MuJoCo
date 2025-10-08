@@ -29,7 +29,7 @@ cartpole:
   mpc:
     Fmax: [80] # Maximum force
     N_horizon: 500 # Prediction horizon
-    use_RTI: false # Use Real-Time Iteration
+    use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.002 # seconds
     x0: [0.0, 3.14159265, 0.0, 0.0]
     Q_mat: [2000, 10000, 0.02, 0.02] # State cost weights

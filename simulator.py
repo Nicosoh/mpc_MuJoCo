@@ -4,24 +4,12 @@ from robot_descriptions import iiwa14_mj_description
 from tqdm import tqdm
 from robot_descriptions.loaders.mujoco import load_robot_description
 
-MENAGERIE_MODELS = {
-    "iiwa14_mj_description": iiwa14_mj_description,
-}
-
 # Load model from xml file
 def load_model(model_path: str):
     """Load a MuJoCo model and create associated data object."""
     model = mujoco.MjModel.from_xml_path(model_path)
     data = mujoco.MjData(model)
     return model, data
-
-# # Load model from robot_descriptions
-# def load_model(menagerie_name):
-#     """Load a MuJoCo model from mujoco_menagerie and create associated data object."""
-#     name = MENAGERIE_MODELS[menagerie_name]
-#     model = mujoco.MjModel.from_xml_path(name.MJCF_PATH)
-#     data = mujoco.MjData(model)
-#     return model, data
 
 def load_model_from_robot_descriptions(description_name: str):
     """Load a MuJoCo model and data using robot_descriptions."""
@@ -49,10 +37,32 @@ def init_scene_options():
     # scene_option.frame = mujoco.mjtFrame.mjFRAME_GEOM
     return scene_option
 
+def get_yref_at_time(t_now, yref):
+    """
+    Get the most recent reference (no interpolation) for the given time.
+
+    Args:
+        t_now (float): Current time in seconds.
+
+    Returns:
+        ref (np.ndarray): Reference state at or before time t_now.
+    """
+    times = yref[:, 0]
+    states = yref[:, 1:]
+
+    # If before first timestamp, return the first reference
+    if t_now <= times[0]:
+        return states[0]
+    
+    # Find the last index where time <= t_now
+    idx = np.searchsorted(times, t_now, side='right') - 1
+    return states[idx]
+
 def run_simulation(
     config,
     model,
     data,
+    yref,
     controller,
     resolution=(480, 640),
     ):
@@ -128,7 +138,8 @@ def run_simulation(
         # Call MPC only at specified intervals
         if controller is not None and data.time >= next_mpc_time:
             try:
-                last_u, cost = controller(state)
+                yref_now = get_yref_at_time(data.time, yref)
+                last_u, cost = controller(state, yref_now)
             except RuntimeError as e:
                 print(f"[ERROR] MPC solver failed at t={data.time:.3f}s: {e}")
                 break

@@ -1,5 +1,6 @@
 from simulator import load_model, run_simulation, apply_model_config, load_model_from_robot_descriptions
 from Utils import save_video, plot_signals, save_summary
+from yref import yref
 from controller import AcadosMPCController
 import time
 import yaml
@@ -35,7 +36,8 @@ def main(model_name):
         config,
         model,
         data,
-        controller=mpc,
+        yref,
+        controller=mpc
     )
 
     # Record end time and print elapsed time

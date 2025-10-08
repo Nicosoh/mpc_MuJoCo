@@ -88,6 +88,7 @@ class AcadosMPCController:
         self.ocp_solver, _ = setup(config)
         self.nx = self.ocp_solver.acados_ocp.dims.nx
         self.nu = self.ocp_solver.acados_ocp.dims.nu
+        self.N = self.ocp_solver.acados_ocp.dims.N
 
         # Warm start
         for _ in range(5):
@@ -137,11 +138,16 @@ class AcadosMPCController:
         # Full trajs, control input
         return np.array(x_traj), np.array(u_traj)
 
-    def __call__(self, state):
+    def __call__(self, state, yref_now):
         """Compute MPC input given MuJoCo state."""
         qpos = state["qpos"]
         qvel = state["qvel"]
         x = np.concatenate([qpos, qvel])  # match Acados model
+
+        # Set yref
+        for stage in range(self.N):
+            self.ocp_solver.cost_set(stage, "yref", yref_now)
+        self.ocp_solver.cost_set(self.N, "y_ref", yref_now[:self.nx])  # Terminal reference (only x)
 
         # === Set time-varying reference ===
         # if state["time"] < 3.0:
