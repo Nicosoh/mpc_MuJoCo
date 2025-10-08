@@ -78,6 +78,10 @@ main_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH
 viz_pendulum = "python pin_visualizer.py pendulum"
 OCP_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python solve_OCP.py pendulum"
 
+main_double_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py double_pendulum"
+viz_double_pendulum = "python pin_visualizer.py double_pendulum"
+OCP_double_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python solve_OCP.py double_pendulum"
+
 main_iiwa14 = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py iiwa14"
 viz_iiwa14 = "python pin_visualizer.py iiwa14"
 OCP_iiwa14 = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python solve_OCP.py iiwa14"

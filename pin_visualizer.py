@@ -12,7 +12,7 @@ def main(model_name):
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)[model_name]
     
-    dt = 0.002
+    dt = 0.02
 
     # Create selected model
     if config["model"]["name"].lower() == "cartpole":
@@ -23,6 +23,12 @@ def main(model_name):
 
     elif config["model"]["name"].lower() == "iiwa14":
         pin_model = iiwa14Dynamics(timestep=dt, config=config)
+    
+    elif config["model"]["name"].lower() == "double_pendulum":
+        pin_model = DoublePendulumDynamics(timestep=dt, config=config)
+    
+    else:
+        raise ValueError(f"Unknown model name '{config['model']['name']}'. Add in elif statement for new models")
 
     nu = config["pin"]["nu"]
     model = pin_model.model
@@ -64,7 +70,7 @@ def main(model_name):
         viz.loadViewerModel("pinocchio")
 
         qs_ = states_[: model.nq, :].T
-        print(qs_.shape)
+
         viz.play(q_trajectory=qs_, dt=dt)
     except ImportError as err:
         print(

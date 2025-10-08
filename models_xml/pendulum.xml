@@ -1,4 +1,4 @@
-<mujoco model="inverted_pendulum">
+<mujoco model="pendulum">
     
     <!-- Background texture -->
     <asset>
