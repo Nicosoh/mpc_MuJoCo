@@ -20,7 +20,7 @@ def get_next_filename(base_name, ext="txt", folder="outputs"):
 
 # ========== PLOTTING ==========
 
-def plot_signals(time, logs, model, plots_config, output_dir="outputs"):
+def plot_signals(time, logs, model, plots_config, yref, output_dir="outputs"):
     """
     Processes signals based on plots_config and plots them over time.
 
@@ -40,6 +40,16 @@ def plot_signals(time, logs, model, plots_config, output_dir="outputs"):
     signals = {}
     ylabel_units = {}
 
+    yref_full = expand_yref_over_time(yref, time)
+
+    # Offsets to access yref by type
+    source_offsets = {
+        "qpos": 0,
+        "qvel": model.nq,
+        "ctrl": model.nq + model.nv,
+        "u_applied": model.nq + model.nv,  # treat alias like 'ctrl'
+    }
+    
     for name, (source, idx, unit) in plots_config.items():
         if source == "qpos":
             assert idx < model.nq, f"Index {idx} out of range for qpos (nq={model.nq})"
@@ -72,11 +82,26 @@ def plot_signals(time, logs, model, plots_config, output_dir="outputs"):
     if n == 1:
         ax = [ax]
 
+    # for i, (name, values) in enumerate(signals.items()):
+    #     ax[i].plot(time, values)
+    #     ax[i].set_title(name)
+    #     ylabel = ylabel_units.get(name, "") if ylabel_units else ""
+    #     ax[i].set_ylabel(ylabel)
+    
     for i, (name, values) in enumerate(signals.items()):
-        ax[i].plot(time, values)
+        ax[i].plot(time, values, label="Actual")
+
+        source, idx, _ = plots_config[name]
+        yref_idx = None
+        if source in source_offsets:
+            yref_idx = source_offsets[source] + idx
+
+        if yref_idx is not None and yref_idx < yref_full.shape[1]:
+            ax[i].plot(time, yref_full[:, yref_idx], "--", label="Ref")
+
         ax[i].set_title(name)
-        ylabel = ylabel_units.get(name, "") if ylabel_units else ""
-        ax[i].set_ylabel(ylabel)
+        ax[i].set_ylabel(ylabel_units.get(name, ""))
+        ax[i].legend(loc="best")
 
     ax[-1].set_xlabel("Time (s)")
     plt.tight_layout()
@@ -84,6 +109,35 @@ def plot_signals(time, logs, model, plots_config, output_dir="outputs"):
     print(f"Plot saved to: {os.path.abspath(filename)}")
     plt.show()
 
+def expand_yref_over_time(yref, time):
+    """
+    Expand sparse yref definitions into a full yref array aligned with `time`.
+
+    Parameters
+    ----------
+    yref_raw : np.ndarray
+        Array of shape (T_ref, ny+1) where first column is time.
+    time : np.ndarray
+        Simulation time vector of shape (T_sim,).
+
+    Returns
+    -------
+    yref_full : np.ndarray
+        Array of shape (T_sim, ny), repeated using zero-order hold.
+    """
+    yref_times = yref[:, 0]
+    yref_values = yref[:, 1:]
+
+    yref_full = np.zeros((len(time), yref_values.shape[1]))
+    current_index = 0
+
+    for i, t in enumerate(time):
+        # Move to the latest reference before or at time t
+        while (current_index + 1 < len(yref_times)) and (yref_times[current_index + 1] <= t):
+            current_index += 1
+        yref_full[i] = yref_values[current_index]
+
+    return yref_full
 
 # ========== VIDEO SAVING ==========
 

@@ -57,6 +57,7 @@ def main(model_name):
         time=logs["time"],
         logs=logs,
         model=model,
+        yref = yref,
         plots_config=config["plots"],
     )
 
