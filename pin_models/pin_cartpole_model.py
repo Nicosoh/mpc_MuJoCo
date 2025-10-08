@@ -36,6 +36,10 @@ def make_cartpole(config):
     model.appendBodyToJoint(base_id, base_inertia, base_body_pl) # attach body to joint
     model.appendBodyToJoint(pendulum_id, pendulum_inertia, pendulum_body_pl) # attach body to joint
 
+    # Get frame IDs
+    base_frame_id = model.getJointId("base")
+    pendulum_frame_id = model.getJointId("pendulum")
+
     # make visual/collision models (not used in dynamics)
     collision_model = pin.GeometryModel()
     shape_base = fcl.Box(*base_sizes)
@@ -45,11 +49,11 @@ def make_cartpole(config):
     shape_pend = fcl.Sphere(radius_pend)
     RED_COLOR = np.array([1, 0.0, 0.0, 1.0])
     WHITE_COLOR = np.array([1, 1.0, 1.0, 1.0])
-    geom_base = pin.GeometryObject("link_base", base_id, shape_base, base_body_pl)
+    geom_base = pin.GeometryObject("link_base", base_id, base_frame_id, base_body_pl, shape_base)
     geom_base.meshColor = WHITE_COLOR
-    geom_pole = pin.GeometryObject("link_pole", pendulum_id, shape_pole, pole_body_pl)
+    geom_pole = pin.GeometryObject("link_pole", pendulum_id, pendulum_frame_id, pole_body_pl, shape_pole)
     geom_pole.meshColor = RED_COLOR
-    geom_pend = pin.GeometryObject("link_pend", pendulum_id, shape_pend, pendulum_body_pl)
+    geom_pend = pin.GeometryObject("link_pend", pendulum_id, pendulum_frame_id, pendulum_body_pl, shape_pend)
     geom_pend.meshColor = RED_COLOR
 
     collision_model.addGeometryObject(geom_base)

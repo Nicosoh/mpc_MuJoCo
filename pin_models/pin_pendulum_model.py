@@ -26,7 +26,10 @@ def make_pendulum(config):
 
     model.appendBodyToJoint(pendulum_id, pendulum_inertia, pendulum_body_pl) # attach body to joint
 
-    # make visual/collision models (not used in dynamics)
+    # Frame ID
+    pendulum_frame_id = model.getJointId("pendulum")
+
+    # Make visual/collision models (not used in dynamics)
     collision_model = pin.GeometryModel()
     radius = 0.01
     shape_pole = fcl.Capsule(radius, length)
@@ -34,9 +37,9 @@ def make_pendulum(config):
     shape_pend = fcl.Sphere(radius_pend)
     RED_COLOR = np.array([1, 0.0, 0.0, 1.0])
     WHITE_COLOR = np.array([1, 1.0, 1.0, 1.0])
-    geom_pole = pin.GeometryObject("link_pole", pendulum_id, shape_pole, pole_body_pl)
+    geom_pole = pin.GeometryObject("link_pole", pendulum_id, pendulum_frame_id, pole_body_pl, shape_pole)
     geom_pole.meshColor = WHITE_COLOR
-    geom_pend = pin.GeometryObject("link_pend", pendulum_id, shape_pend, pendulum_body_pl)
+    geom_pend = pin.GeometryObject("link_pend", pendulum_id, pendulum_frame_id, pendulum_body_pl, shape_pend)
     geom_pend.meshColor = RED_COLOR
 
     collision_model.addGeometryObject(geom_pole)
