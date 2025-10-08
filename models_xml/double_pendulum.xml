@@ -22,7 +22,7 @@
             <!-- Mass on the end of the pendulum -->
             <body name="pendulum1" pos="0 0 0.8">
                 <geom name="pendulum_geom1" type="sphere" size="0.1"/>
-                <inertial mass="0.1" diaginertia="4e-4 4e-4 4e-4" pos="0 0 0"/>
+                <inertial mass="0.5" diaginertia="2e-3 2e-3 2e-3" pos="0 0 0"/>
             </body>
 
             <body name="pendulum_stick2" pos="0 0 0.8">
@@ -33,7 +33,7 @@
                 <!-- Mass on the end of the pendulum -->
                 <body name="pendulum2" pos="0 0 0.8">
                     <geom name="pendulum_geom2" type="sphere" size="0.1"/>
-                    <inertial mass="0.1" diaginertia="4e-4 4e-4 4e-4" pos="0 0 0"/>
+                    <inertial mass="0.5" diaginertia="2e-3 2e-3 2e-3" pos="0 0 0"/>
                 </body>
             </body>
         </body>

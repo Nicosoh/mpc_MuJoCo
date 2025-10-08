@@ -99,26 +99,26 @@ double_pendulum:
     name: "double_pendulum"
     mass:
       pendulum_stick1: 0.0001 # kg
-      pendulum1: 0.1 # kg
+      pendulum1: 0.5 # kg
       pendulum_stick2: 0.0001 # kg
-      pendulum2: 0.1 # kg
+      pendulum2: 0.5 # kg
     inertia:
       pendulum_stick1: [0.00001, 0.00001, 0.00001] # kg*m^2
-      pendulum1: [0.0004, 0.0004, 0.0004] # kg*m^2
+      pendulum1: [0.002, 0.002, 0.002] # kg*m^2
       pendulum_stick2: [0.00001, 0.00001, 0.00001] # kg*m^2
-      pendulum2: [0.0004, 0.0004, 0.0004] # kg*m^2
+      pendulum2: [0.002, 0.002, 0.002] # kg*m^2
 
   pin:
     nu: 1 # Number of control inputs
     actuated_joints: [0] # First and only joint
 
   mpc:
-    Fmax: [80] # Maximum force
+    Fmax: [200] # Maximum force
     N_horizon: 1000 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.001 # seconds
     x0: [3.14159265, 0.0, 0.0, 0.0]
-    Q_mat: [2000, 2000, 0.02, 0.02] # State cost weights
+    Q_mat: [1500, 2000, 0.02, 0.02] # State cost weights
     R_mat: [0.02] # Input cost weights
 
   plots:
