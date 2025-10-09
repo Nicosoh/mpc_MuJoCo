@@ -26,6 +26,9 @@ def main(model_name):
     
     elif config["model"]["name"].lower() == "double_pendulum":
         pin_model = DoublePendulumDynamics(timestep=dt, config=config)
+
+    elif config["model"]["name"].lower() == "cartpole_double_pendulum":
+        pin_model = CartpoleDoublePendulumDynamics(timestep=dt, config=config)
     
     else:
         raise ValueError(f"Unknown model name '{config['model']['name']}'. Add in elif statement for new models")

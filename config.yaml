@@ -114,11 +114,11 @@ double_pendulum:
 
   mpc:
     Fmax: [200] # Maximum force
-    N_horizon: 1000 # Prediction horizon
+    N_horizon: 2000 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.001 # seconds
     x0: [3.14159265, 0.0, 0.0, 0.0]
-    Q_mat: [1500, 2000, 0.02, 0.02] # State cost weights
+    Q_mat: [200, 300, 0.02, 0.02] # State cost weights
     R_mat: [0.02] # Input cost weights
 
   plots:
@@ -126,6 +126,57 @@ double_pendulum:
     Pendulum 2 Angle: ["qpos", 1, "rad"]
     Pendulum 1 Angular Velocity: ["qvel", 0, "rad/s"]
     Pendulum 2 Angular Velocity: ["qvel", 1, "rad/s"]
+    MPC Cost: ["cost", 0, "Cost"]
+    Control Input: ["ctrl", 0, "N"]
+
+# ----------------------------------------------------------------------------------------
+# CARTPOLE DOUBLE PENDULUM MODEL CONFIGURATION
+# ----------------------------------------------------------------------------------------
+cartpole_double_pendulum:
+  mujoco:
+    urdf_available: false
+    model_path: "models_xml/cartpole_double_pendulum.xml"
+    sim_timestep: 0.001 # seconds
+    sim_duration: 3.0 # seconds
+    sim_framerate: 30  # Hz
+    render: true # Render simulation
+    verbose: false # Print debug information
+
+  model:
+    name: "cartpole_double_pendulum"
+    mass:
+      cart: 1.0 # kg
+      pendulum_stick1: 0.0001 # kg
+      pendulum1: 0.5 # kg
+      pendulum_stick2: 0.0001 # kg
+      pendulum2: 0.5 # kg
+    inertia:
+      cart: [0.00001, 0.00001, 0.00001] # kg*m^2
+      pendulum_stick1: [0.00001, 0.00001, 0.00001] # kg*m^2
+      pendulum1: [0.002, 0.002, 0.002] # kg*m^2
+      pendulum_stick2: [0.00001, 0.00001, 0.00001] # kg*m^2
+      pendulum2: [0.002, 0.002, 0.002] # kg*m^2
+
+  pin:
+    nu: 1 # Number of control inputs
+    actuated_joints: [0] # First and only joint
+
+  mpc:
+    Fmax: [200] # Maximum force
+    N_horizon: 3000 # Prediction horizon
+    use_RTI: true # Use Real-Time Iteration
+    mpc_timestep: 0.001 # seconds
+    x0: [0.0, 3.14159265, 0.0, 0.0, 0.0, 0.0]
+    Q_mat: [100, 300, 300, 0.02, 0.02, 0.02] # State cost weights
+    R_mat: [0.02] # Input cost weights
+
+  plots:
+    Cart Position: ["qpos", 0, "m"]
+    Pendulum 1 Angle: ["qpos", 1, "rad"]
+    Pendulum 2 Angle: ["qpos", 2, "rad"]
+    Cart Velocity: ["qvel", 0, "m/s"]
+    Pendulum 1 Angular Velocity: ["qvel", 1, "rad/s"]
+    Pendulum 2 Angular Velocity: ["qvel", 2, "rad/s"]
     MPC Cost: ["cost", 0, "Cost"]
     Control Input: ["ctrl", 0, "N"]
 

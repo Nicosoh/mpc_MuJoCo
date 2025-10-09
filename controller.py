@@ -148,7 +148,6 @@ class AcadosMPCController:
         for stage in range(self.N):
             self.ocp_solver.cost_set(stage, "yref", yref_now)
         self.ocp_solver.cost_set(self.N, "y_ref", yref_now[:self.nx])  # Terminal reference (only x)
-
         # === Set time-varying reference ===
         # if state["time"] < 3.0:
         #     yref = np.array([0.0, 0.0, 0.0, 0.0, 0.0])  # size ny = nx + nu

@@ -20,6 +20,9 @@ def export_ode_model(config) -> AcadosModel:
 
     elif config["model"]["name"].lower() == "double_pendulum":
         pin_model = DoublePendulumDynamics(timestep=mpc_config["mpc_timestep"], config=config)
+    
+    elif config["model"]["name"].lower() == "cartpole_double_pendulum":
+        pin_model = CartpoleDoublePendulumDynamics(timestep=mpc_config["mpc_timestep"], config=config)
 
     else:
         raise ValueError(f"Unknown model name '{config['model']['name']}'. Add in elif statement for new models")
