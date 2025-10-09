@@ -85,7 +85,7 @@ def run_simulation(
     next_mpc_time = 0.0
     cost = 0.0
 
-    model.opt.timestep = sim_timestep  # Set simulation timestep to match MPC timestep 
+    model.opt.timestep = sim_timestep  # Set simulation timestep
 
     # Reset conditions
     mujoco.mj_resetData(model, data)

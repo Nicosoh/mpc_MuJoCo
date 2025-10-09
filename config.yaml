@@ -113,12 +113,12 @@ double_pendulum:
     actuated_joints: [0] # First and only joint
 
   mpc:
-    Fmax: [200] # Maximum force
-    N_horizon: 2000 # Prediction horizon
+    Fmax: [2000] # Maximum force
+    N_horizon: 1000 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.001 # seconds
-    x0: [3.14159265, 0.0, 0.0, 0.0]
-    Q_mat: [200, 300, 0.02, 0.02] # State cost weights
+    x0: [0.0, 0.0, 0.0, 0.0]
+    Q_mat: [2000, 3000, 0.02, 0.02] # State cost weights
     R_mat: [0.02] # Input cost weights
 
   plots:

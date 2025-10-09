@@ -3,6 +3,7 @@ import yaml
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+from yref import yref
 
 def main(model_name):
     # Load configuration
@@ -12,7 +13,7 @@ def main(model_name):
     x0 = np.array(config["mpc"]["x0"])
 
     # Create MPC controller
-    mpc = AcadosMPCController(config)
+    mpc = AcadosMPCController(config, yref)
 
     nq = int(mpc.nx/2)
 

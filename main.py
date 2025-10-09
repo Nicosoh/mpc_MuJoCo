@@ -29,7 +29,7 @@ def main(model_name):
         apply_model_config(config, model)
 
     # Create MPC controller
-    mpc = AcadosMPCController(config)
+    mpc = AcadosMPCController(config, yref)
 
     # Run MuJoCo simulation with MPC in the loop
     logs, frames = run_simulation(

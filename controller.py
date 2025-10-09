@@ -4,7 +4,7 @@ from pin_exporter import export_ode_model
 import scipy.linalg
 from casadi import vertcat
 
-def setup(config):
+def setup(config, yref):
     mpc_config = config["mpc"]
 
     Fmax = mpc_config["Fmax"]
@@ -37,8 +37,10 @@ def setup(config):
 
     ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
     ocp.model.cost_y_expr_e = model.x                   # Terminal cost only inlcudes states
-    ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references as zero for all states and inputs
-    ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference as zeros for states only
+    ocp.cost.yref  = yref[0, 1:]                        # Set stage references to match first entry of yref for all states and inputs
+    ocp.cost.yref_e = yref[0, 1:ny_e+1]                 # Set terminal reference to match first entry of yref for states only
+    # ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references as zero for all states and inputs
+    # ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference as zeros for states only
 
     # Set input constraints
     ocp.constraints.lbu = -np.array(Fmax)
@@ -77,7 +79,7 @@ def setup(config):
     return acados_ocp_solver, acados_integrator
 
 class AcadosMPCController:
-    def __init__(self, config):
+    def __init__(self, config, yref):
         mpc_config = config["mpc"]
 
         # Extract parameters from config
@@ -85,7 +87,7 @@ class AcadosMPCController:
         x0 = np.array(mpc_config["x0"])
 
         # Setup MPC solver
-        self.ocp_solver, _ = setup(config)
+        self.ocp_solver, _ = setup(config, yref)
         self.nx = self.ocp_solver.acados_ocp.dims.nx
         self.nu = self.ocp_solver.acados_ocp.dims.nu
         self.N = self.ocp_solver.acados_ocp.dims.N
