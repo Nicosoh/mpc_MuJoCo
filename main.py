@@ -1,6 +1,6 @@
 from simulator import load_model, run_simulation, apply_model_config, load_model_from_robot_descriptions
-from Utils import save_video, plot_signals, save_summary
-from yref import yref
+from utils import save_video, plot_signals, save_summary, load_yref
+from yrefs.cartpole_yref import yref
 from controller import AcadosMPCController
 import time
 import yaml
@@ -27,6 +27,9 @@ def main(model_name):
         model, data = load_model(path)
         # Update model parameters from config for MuJoCo
         apply_model_config(config, model)
+
+    # Load reference trajectory
+    yref = load_yref(model_name)
 
     # Create MPC controller
     mpc = AcadosMPCController(config, yref)

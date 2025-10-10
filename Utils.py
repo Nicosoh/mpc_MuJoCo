@@ -2,6 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import mediapy as media
+import importlib
 
 # ========== FILE MANAGEMENT HELPERS ==========
 
@@ -215,3 +216,10 @@ def save_summary(config, elapsed=None, config_path=None, output_dir="outputs"):
             f.write(f"Total execution time: {elapsed:.2f} seconds\n")
 
     print(f"Summary saved to: {os.path.abspath(filename)}")
+
+def load_yref(model_name):
+    try:
+        yref_module = importlib.import_module(f"yrefs.{model_name}_yref")
+        return yref_module.yref
+    except ModuleNotFoundError:
+        raise ValueError(f"No yref file found for model '{model_name}'")
