@@ -1,5 +1,5 @@
 from simulator import load_model, run_simulation, apply_model_config, load_model_from_robot_descriptions
-from utils import save_video, plot_signals, save_summary, load_yref
+from utils import save_video, plot_signals, save_summary, load_yref, randomise_x0
 from yrefs.cartpole_yref import yref
 from controller import AcadosMPCController
 import time
@@ -15,6 +15,12 @@ def main(model_name):
     sim_framerate = config["mujoco"]["sim_framerate"]
     urdf_available = config["mujoco"]["urdf_available"]
 
+    # Randomise inital state if specified
+    if config["mpc"]["x0_random"]:
+        x0 = randomise_x0(config)
+        config["mpc"]["x0"] = x0
+        print(f"Randomised initial state: {x0}")
+
     # Record start time
     start_time = time.time()
 
@@ -28,7 +34,7 @@ def main(model_name):
         # Update model parameters from config for MuJoCo
         apply_model_config(config, model)
 
-    # Load reference trajectory
+    # Load reference trajectory/endpoint
     yref = load_yref(model_name)
 
     # Create MPC controller

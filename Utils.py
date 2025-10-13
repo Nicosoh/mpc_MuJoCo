@@ -223,3 +223,15 @@ def load_yref(model_name):
         return yref_module.yref
     except ModuleNotFoundError:
         raise ValueError(f"No yref file found for model '{model_name}'")
+    
+def randomise_x0(config):
+    x0_range = config["mpc"]["x0_range"]
+    x0 = config["mpc"]["x0"]
+    sampling = config["mpc"]["x0_sampling"]
+
+    if sampling == "uniform":
+        for i in range(len(x0)):
+            x0[i] = np.random.uniform(low=x0_range[i][0], high=x0_range[i][1])
+    else:
+        raise ValueError(f"Unsupported x0_sampling method: {sampling}")
+    return x0

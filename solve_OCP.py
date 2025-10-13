@@ -3,7 +3,7 @@ import yaml
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-from utils import load_yref
+from utils import load_yref, randomise_x0
 from datetime import datetime
 import os
 
@@ -19,7 +19,13 @@ def main(model_name):
     filename = f"{model_name}_OCP_{timestamp}.png"
     filepath = os.path.join(output_dir, filename)
 
-    x0 = np.array(config["mpc"]["x0"])
+    # Randomise inital state if specified
+    if config["mpc"]["x0_random"]:
+        x0 = randomise_x0(config)
+        config["mpc"]["x0"] = x0
+        print(f"Randomised initial state: {x0}")
+    else:
+        x0 = np.array(config["mpc"]["x0"])
 
     # Load reference trajectory
     yref = load_yref(model_name)

@@ -32,6 +32,9 @@ cartpole:
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.002 # seconds
     x0: [0.0, 3.14159265, 0.0, 0.0]
+    x0_random: true # If true, x0 above will not be used
+    x0_range: [[-1.0, 1.0], [-3.142, 3.142], [-0.5, 0.5], [-0.5, 0.5]] # Range for random x0
+    x0_sampling: "uniform" # Only uniform for now
     Q_mat: [2000, 10000, 0.02, 0.02] # State cost weights
     R_mat: [0.02] # Input cost weights
 
@@ -188,7 +191,7 @@ iiwa14:
     urdf_available: true
     menagerie_name: iiwa14_mj_description
     sim_timestep: 0.001 # seconds
-    sim_duration: 1.0 # seconds
+    sim_duration: 3.0 # seconds
     sim_framerate: 30  # Hz
     render: true # Render simulation
     verbose: false # Print debug information
@@ -202,11 +205,11 @@ iiwa14:
 
   mpc:
     Fmax: [320, 320, 176, 176, 110, 40, 40] # Maximum torque
-    N_horizon: 1000 # Prediction horizon
+    N_horizon: 800 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.001 # seconds
     x0: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    Q_mat: [2000, 2000, 1600, 1400, 1200, 1000, 800, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] # State cost weights
+    Q_mat: [100, 200, 300, 400, 500, 600, 700, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01] # State cost weights
     R_mat: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01] # Input cost weights
 
   plots:
