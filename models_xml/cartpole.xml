@@ -18,7 +18,7 @@
             <!-- Sliding joint only in the x direction -->
             <joint name="cart_slide" type="slide" axis="1 0 0"/>
             <!-- Size is half size -->
-            <geom name="cart_geom" type="box" size="0.2 0.1 0.1" rgba="0.2 0.6 0.8 0.2"/>
+            <geom name="cart_geom" type="box" size="0.2 0.1 0.1" rgba="0.2 0.6 0.8 1"/>
             <inertial mass="1" diaginertia="1e-5 1e-5 1e-5" pos="0 0 0"/>
 
             <!-- Weightless pendulum -->
