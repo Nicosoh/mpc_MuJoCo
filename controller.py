@@ -37,7 +37,7 @@ def setup(config, yref):
 
     ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
     ocp.model.cost_y_expr_e = model.x                   # Terminal cost only inlcudes states
-    ocp.cost.yref  = yref[0, 1:]                        # Set stage references to match first entry of yref for all states and inputs
+    ocp.cost.yref  = yref[0, 1:ny+1]                        # Set stage references to match first entry of yref for all states and inputs
     ocp.cost.yref_e = yref[0, 1:ny_e+1]                 # Set terminal reference to match first entry of yref for states only
     # ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references as zero for all states and inputs
     # ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference as zeros for states only
@@ -45,8 +45,8 @@ def setup(config, yref):
     # Set input constraints
     ocp.constraints.lbu = -np.array(Fmax)
     ocp.constraints.ubu = np.array(Fmax)
-    # Apply above to the first idx in u which is F
-    ocp.constraints.idxbu = np.zeros(nu)
+    # Apply above to all inputs
+    ocp.constraints.idxbu = np.arange(nu)
 
     # Set initial constraint
     ocp.constraints.x0 = x0
@@ -148,8 +148,9 @@ class AcadosMPCController:
 
         # Set yref
         for stage in range(self.N):
-            self.ocp_solver.cost_set(stage, "yref", yref_now)
-        self.ocp_solver.cost_set(self.N, "y_ref", yref_now[:self.nx])  # Terminal reference (only x)
+            self.ocp_solver.cost_set(stage, "yref", yref_now, api='new')
+        self.ocp_solver.cost_set(self.N, "y_ref", yref_now[:self.nx], api='new')  # Terminal reference (only x)
+
         # === Set time-varying reference ===
         # if state["time"] < 3.0:
         #     yref = np.array([0.0, 0.0, 0.0, 0.0, 0.0])  # size ny = nx + nu
@@ -188,6 +189,6 @@ class AcadosMPCController:
         else: # Without RTI
             # Solve ocp and get next control input
             u = self.ocp_solver.solve_for_x0(x0_bar=x)
-
+ 
         cost = self.ocp_solver.get_cost()
         return u, cost

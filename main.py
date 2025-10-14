@@ -1,6 +1,5 @@
 from simulator import load_model, run_simulation, apply_model_config, load_model_from_robot_descriptions
 from utils import save_video, plot_signals, save_summary, load_yref, randomise_x0
-from yrefs.cartpole_yref import yref
 from controller import AcadosMPCController
 import time
 import yaml

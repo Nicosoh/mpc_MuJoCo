@@ -15,6 +15,11 @@ def load_model_from_robot_descriptions(description_name: str):
     """Load a MuJoCo model and data using robot_descriptions."""
     model = load_robot_description(description_name)  # Loads and parses the MJCF
     data = mujoco.MjData(model)
+
+    # model.actuator_biastype = np.array([0, 0, 0, 0, 0, 0, 0]) # removes bias by setting it to "none"
+    # model.actuator_gainprm = np.ones((7,10))   # sets gain to 1
+    # model.actuator_ctrlrange = np.array([[-320, 320], [-320, 320], [-176,176], [-176,176], [-110,110], [-40,40], [-40,40]]) # sets control range
+    
     return model, data
 
 def apply_model_config(config, model):
@@ -166,7 +171,7 @@ def run_simulation(
                 f"ctrl = {np.round(data.ctrl, 2)} | "
                 f"cost = {np.round(cost, 2)}"
             )
-
+        # print("qfrc: ", data.qfrc_actuator)
         # Render if enabled
         if render and len(frames) < data.time * sim_framerate:
             renderer.update_scene(data, scene_option=scene_option)

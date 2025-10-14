@@ -2,7 +2,7 @@ import numpy as np
 
 # First index is time in seconds
 # Second onwards is the reference state
-
+# Followed by control inputs
 
 ### For the iiwa14 (time, 
 # theta1, theta2, theta3, theta4, theta5, theta6, theta7, 
@@ -11,11 +11,11 @@ import numpy as np
 
 yref = np.array([
     [0.0,
-     0.1,  0.1,  0.1,  0.1,  0.1,  0.1,  0.1,  
+     0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  
      0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  
      0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0],
-    [2.0,  
-     0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  
-     0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0, 
-     0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0],
+    # [2.0,
+    #  0.3,  0.3,  0.3,  0.3,  0.3,  0.3,  0.0,  
+    #  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  
+    #  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0],
 ])

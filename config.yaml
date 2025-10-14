@@ -191,10 +191,10 @@ iiwa14:
     urdf_available: true
     menagerie_name: iiwa14_mj_description
     sim_timestep: 0.001 # seconds
-    sim_duration: 3.0 # seconds
+    sim_duration: 1 # seconds
     sim_framerate: 30  # Hz
     render: true # Render simulation
-    verbose: false # Print debug information
+    verbose: true # Print debug information
 
   model:
     name: "iiwa14"
@@ -203,14 +203,29 @@ iiwa14:
     nu: 7 # Number of control inputs
     actuated_joints: [0, 1, 2, 3, 4, 5, 6] # all 7 joints
 
+  # mpc:
+  #   Fmax: [320, 320, 176, 176, 110, 40, 40] # Maximum torque
+  #   N_horizon: 800 # Prediction horizon
+  #   use_RTI: true # Use Real-Time Iteration
+  #   mpc_timestep: 0.001 # seconds
+  #   x0: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  #   x0_random: false # If true, x0 above will not be used
+  #   x0_range: [[-1.0, 1.0], [-3.142, 3.142], [-0.5, 0.5], [-0.5, 0.5]] # Range for random x0
+  #   x0_sampling: "uniform" # Only uniform for now
+  #   Q_mat: [2000, 5000, 2000, 5000, 2000, 3000, 100, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01] # State cost weights
+  #   R_mat: [0.01, 0.01, 0.01, 0.01, 0.1, 0.01, 0.01] # Input cost weights
+  
   mpc:
-    Fmax: [320, 320, 176, 176, 110, 40, 40] # Maximum torque
-    N_horizon: 800 # Prediction horizon
-    use_RTI: true # Use Real-Time Iteration
-    mpc_timestep: 0.001 # seconds
+    Fmax: [320, 320, 176, 176, 110, 40, 40]
+    N_horizon: 1000
+    use_RTI: true
+    mpc_timestep: 0.001
     x0: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    Q_mat: [100, 200, 300, 400, 500, 600, 700, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01] # State cost weights
-    R_mat: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01] # Input cost weights
+    x0_random: false # If true, x0 above will not be used
+    x0_range: [[-1.0, 1.0], [-3.142, 3.142], [-0.5, 0.5], [-0.5, 0.5]] # Range for random x0
+    x0_sampling: "uniform" # Only uniform for now
+    Q_mat: [2000.0, 4000.0, 1600.0, 4000.0, 1200.0, 4000.0, 800.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+    R_mat: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
 
   plots:
     Joint 1 Angle: ["qpos", 0, "rad"]
