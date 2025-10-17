@@ -23,7 +23,7 @@ def setup(config, yref):
     ocp.model = model
 
     # Extract state and input dimensions
-    nx = model.x.rows()
+    nx = model.x.rows() # Possible to extract the last predicted state here to insert into NN. maybe...
     nu = model.u.rows()
     ny = nx + nu
     ny_e = nx

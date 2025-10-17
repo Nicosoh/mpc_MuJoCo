@@ -59,3 +59,11 @@ The new model will need to be added to the if statement at the top of the [pin_v
 
 ## Notes
 Add the configs to the [config.yaml]](config.yaml) by creating a new section for your model. Some settings like the lengths or pole/beams can't be added in and will need to be defined in the [models_xml](models_xml) and [pin_models](pin_models) instead.
+
+## Data Structure
+To perform offline training of the neural networks, data will be collected. In the simpliest case, it will be the states (pos & vel) with the associated cost as queried from acados. Respectively, this will form the input and output of the model which acts as the long horizon oracle. 
+
+### Cartpole
+`states = (x, theta, x_dot, theta_dot)`
+`cost = cost`
+

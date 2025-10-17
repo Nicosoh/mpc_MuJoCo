@@ -27,6 +27,11 @@ mujoco = ">=3.3.2,<4"
 mediapy = ">=1.2.4,<2"
 example-robot-data = ">=4.3.0,<5"
 robot_descriptions = ">=1.21.0,<2"
+pink = ">=3.4.0,<4"
+
+[pypi-dependencies]
+tqdm = "*"
+torch = ">=2.2.2, <3"
 
 [activation.env]
 # Path to acados source (needed by acados_template)
@@ -63,6 +68,9 @@ acados_install = "cmake --install build/acados --prefix $CONDA_PREFIX"
 
 # Install the Python interface (editable)
 acados_python = "python -m pip install -e external/acados/interfaces/acados_template"
+
+# Other installations
+# pip install tqdm
 
 # One-shot: clone + configure + build + install + python interface
 acados_full = "pixi run acados_clone && pixi run acados_configure && pixi run acados_build && pixi run acados_install && pixi run acados_python"
