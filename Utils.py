@@ -82,12 +82,6 @@ def plot_signals(time, logs, model, plots_config, yref, output_dir="outputs"):
     fig, ax = plt.subplots(n, 1, figsize=figsize, dpi=dpi, sharex=True)
     if n == 1:
         ax = [ax]
-
-    # for i, (name, values) in enumerate(signals.items()):
-    #     ax[i].plot(time, values)
-    #     ax[i].set_title(name)
-    #     ylabel = ylabel_units.get(name, "") if ylabel_units else ""
-    #     ax[i].set_ylabel(ylabel)
     
     for i, (name, values) in enumerate(signals.items()):
         ax[i].plot(time, values, label="Actual")
@@ -177,8 +171,7 @@ def _format_value(val):
     else:
         return str(val)
 
-
-def save_summary(config, elapsed=None, config_path=None, output_dir="outputs"):
+def save_summary(config, elapsed=None, config_path=None, output_dir="outputs", sub_name=None):
     """
     Save simulation config and details to a text file with running number.
 
@@ -192,9 +185,13 @@ def save_summary(config, elapsed=None, config_path=None, output_dir="outputs"):
         Path to config/model file used.
     output_dir : str
         Directory to save summary file.
+    sub_name : str, optional
+        Prefix name for the summary file. If None, defaults to 'summary'.
     """
     os.makedirs(output_dir, exist_ok=True)
-    filename = get_next_filename("summary", ext="txt", folder=output_dir)
+
+    prefix = sub_name if sub_name else "summary"
+    filename = get_next_filename(prefix, ext="txt", folder=output_dir)
 
     with open(filename, "w") as f:
         f.write("Simulation Summary\n")
@@ -216,6 +213,7 @@ def save_summary(config, elapsed=None, config_path=None, output_dir="outputs"):
             f.write(f"Total execution time: {elapsed:.2f} seconds\n")
 
     print(f"Summary saved to: {os.path.abspath(filename)}")
+
 
 def load_yref(model_name):
     try:

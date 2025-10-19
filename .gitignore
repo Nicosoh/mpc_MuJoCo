@@ -17,6 +17,7 @@ outputs
 outputs_OCP
 external
 .DS_Store
+data
 
 # Virtual environments
 .venv

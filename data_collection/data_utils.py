@@ -3,51 +3,67 @@ import os
 
 def save_npz(
     filename,
-    compressed=False,
-    **arrays
+    data,
+    sep="/",
+    output_dir=None
 ):
     """
-    Save NumPy arrays to an .npz file with options.
+    Save a nested dictionary of NumPy arrays to a .npz file.
 
     Parameters:
-    - filename (str): Output file path (should end with .npz)
-    - compressed (bool): If True, use np.savez_compressed
-    - **arrays: Named arrays to save (e.g., X=X_data, y=y_data)
+    - filename (str): Base filename without number and extension (e.g., 'logs')
+    - data (dict): Nested dictionary like {run_id: {var_name: array}}
+    - sep (str): Separator for flattened keys
+    - output_dir (str or None): Directory to save the file. If None, save in current directory.
     """
 
-    # Check file extension
-    if not filename.endswith('.npz'):
-        raise ValueError("Filename must end with '.npz'")
+    # Prepare output directory
+    if output_dir is not None:
+        os.makedirs(output_dir, exist_ok=True)
+    else:
+        output_dir = ""
 
-    # Handle existing file
-    if os.path.exists(filename):
-        base, ext = os.path.splitext(filename)
-        i = 1
-        new_filename = f"{base}_{i}{ext}"
-        while os.path.exists(new_filename):
-            i += 1
-            new_filename = f"{base}_{i}{ext}"
-        filename = new_filename
-        print(f"File exists. Saving as '{filename}' instead.")
+    # Strip extension if user passed it
+    base_name = filename
+    if filename.endswith('.npz'):
+        base_name = filename[:-4]
+
+    # Find next available filename with increasing number suffix
+    i = 1
+    while True:
+        numbered_filename = f"{base_name}_{i}.npz"
+        full_path = os.path.join(output_dir, numbered_filename)
+        if not os.path.exists(full_path):
+            break
+        i += 1
+
+    # Flatten the nested dictionary keys
+    flat_data = {}
+    for outer_key, inner_dict in data.items():
+        for inner_key, value in inner_dict.items():
+            flat_key = f"{outer_key}{sep}{inner_key}"
+            flat_data[flat_key] = value
 
     # Save the file
-    if compressed:
-        np.savez_compressed(filename, **arrays)
-    else:
-        np.savez(filename, **arrays)
+    np.savez(full_path, **flat_data)
 
-    print(f"Saved file: {filename}")
+    print(f"Saved file: {full_path}")
 
-def load_npz(filename):
+def load_npz(filename, sep="/", input_dir=None):
     """
-    Load arrays from an .npz file and print detailed info.
+    Load arrays from a .npz file and reconstruct nested dict structure.
 
     Parameters:
-    - filename (str): Path to the .npz file
+    - filename (str): Name of the .npz file
+    - sep (str): Separator used in flattened keys (default is "/")
+    - input_dir (str or None): Directory where the file is located. If None, current directory is used.
 
     Returns:
-    - dict: Dictionary of NumPy arrays
+    - dict: Nested dictionary of arrays {outer_key: {inner_key: array}}
     """
+    if input_dir is not None:
+        filename = os.path.join(input_dir, filename)
+
     if not os.path.exists(filename):
         raise FileNotFoundError(f"File '{filename}' does not exist.")
 
@@ -57,17 +73,29 @@ def load_npz(filename):
     data = np.load(filename)
     output = {}
 
-    print(f"\n Loaded file: {filename}")
-    print(f" Contains {len(data.files)} array(s):\n")
+    for flat_key in data.files:
+        array = data[flat_key]
 
-    for key in data.files:
-        array = data[key]
-        print(f"   Name   : {key}")
-        print(f"   Shape  : {array.shape}")
-        print(f"   Dtype  : {array.dtype}")
-        print()
+        if sep in flat_key:
+            outer_key, inner_key = flat_key.split(sep, 1)
+        else:
+            outer_key, inner_key = "default", flat_key
 
-        output[key] = array
+        if outer_key not in output:
+            output[outer_key] = {}
+        output[outer_key][inner_key] = array
 
     data.close()
+
+    # Print summary
+    run_keys = list(output.keys())
+    print(f"\nLoaded file: {filename}")
+    print(f"Total runs loaded: {len(run_keys)}")
+    print(f"Runs: {run_keys}")
+
+    # Print unique inner keys (assuming same keys for all runs)
+    if run_keys:
+        inner_keys = list(output[run_keys[0]].keys())
+        print(f"Variables per run: {inner_keys}")
+
     return output

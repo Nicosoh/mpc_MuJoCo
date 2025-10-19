@@ -1,5 +1,4 @@
 # number of iterations, termination tolernace when close to reference point/trajectory, 
 
 data_collector:
-  max_steps: 1000
-  goal_tolerance: 0.01
+  runs: 50

@@ -6,50 +6,38 @@
 # Saves collected data to .npz file
 
 import numpy as np
-from data_collection.data_utils import *
-
+from data_collection import save_npz
 import argparse
 from main import main
+from utils import save_summary
+import yaml
 
 def run_data_collector(model_name):
     # Load data collection config
-    import yaml
     with open("data_collection/data_config.yaml", "r") as f:
-        config = yaml.safe_load(f)["data_collector"]
+        data_config = yaml.safe_load(f)["data_collector"]
 
-    max_steps = config["max_steps"]
-    goal_tolerance = config["goal_tolerance"]
+    runs = data_config["runs"]
+
+    total_elapsed = 0.0
+    all_logs = {}
 
     # Run main simulation loop and collect data
-    # This is a placeholder for actual data collection logic
-    # Replace with your actual data collection code
-    traj = []
-    controls = []
-    costs = []
-
-    for step in range(max_steps):
-        # Simulate one step, get state, control, cost
-        state = ...  # Get current state from simulation
-        control = ...  # Get control input applied
-        cost = ...  # Get cost at this step
-
-        traj.append(state)
-        controls.append(control)
-        costs.append(cost)
-
-        # Check termination condition
-        if np.linalg.norm(state - desired_state) < goal_tolerance:
-            print(f"Goal reached at step {step}")
-            break
-
+    for step in range(runs):
+        # Simulate one OCP, get state, control, cost
+        logs, elapsed, config = main(model_name, data_collection=True)
+        total_elapsed += elapsed
+        run_key = f"run_{step:03d}"
+        all_logs[run_key] = logs
+        print(f"Completed data collection run {step+1}/{runs}")
+    
+    save_summary(config, config_path="config.yaml", output_dir="data")
+    save_summary(data_config, elapsed=total_elapsed, config_path="data_collection/data_config.yaml", output_dir="data", sub_name="data_collection")
+    
     # Save collected data
-    save_npz(
-        filename=f"data_collection/{model_name}_data.npz",
-        traj=np.array(traj),
-        controls=np.array(controls),
-        costs=np.array(costs),
-        compressed=True
-    )
+    save_npz("logs.npz", data=all_logs, output_dir="data")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run a model by name")
     parser.add_argument("model", type=str, help="Name of the model to run")

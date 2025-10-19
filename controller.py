@@ -121,26 +121,24 @@ class AcadosMPCController:
             # Without RTI
             self.ocp_solver.solve_for_x0(x0_bar=x)
 
-        # Extract solution over the prediction horizon
-        N = self.ocp_solver.acados_ocp.dims.N  # horizon length
-
+        # Extract full state and control trajectories
         x_traj = []
         u_traj = []
 
-        for i in range(N):
+        for i in range(self.N):
             xi = self.ocp_solver.get(i, "x")
             ui = self.ocp_solver.get(i, "u")
             x_traj.append(xi)
             u_traj.append(ui)
 
         # Get final state (at step N)
-        xN = self.ocp_solver.get(N, "x")
+        xN = self.ocp_solver.get(self.N, "x")
         x_traj.append(xN)
         
         # Full trajs, control input
         return np.array(x_traj), np.array(u_traj)
 
-    def __call__(self, state, yref_now):
+    def __call__(self, state, yref_now, data_collection):
         """Compute MPC input given MuJoCo state."""
         qpos = state["qpos"]
         qvel = state["qvel"]
@@ -150,19 +148,6 @@ class AcadosMPCController:
         for stage in range(self.N):
             self.ocp_solver.cost_set(stage, "yref", yref_now, api='new')
         self.ocp_solver.cost_set(self.N, "y_ref", yref_now[:self.nx], api='new')  # Terminal reference (only x)
-
-        # === Set time-varying reference ===
-        # if state["time"] < 3.0:
-        #     yref = np.array([0.0, 0.0, 0.0, 0.0, 0.0])  # size ny = nx + nu
-        # else:
-        #     yref = np.array([1.0, 0.0, 0.0, 0.0, 0.0])
-
-        # N = self.ocp_solver.acados_ocp.dims.N
-
-        # for stage in range(N):
-        #     self.ocp_solver.cost_set(stage, "yref", yref)
-        # self.ocp_solver.cost_set(N, "y_ref", yref[:self.nx])  # Terminal reference (only x)
-        # ==================================
 
         if self.use_RTI:
             # Preparation phase
@@ -189,6 +174,21 @@ class AcadosMPCController:
         else: # Without RTI
             # Solve ocp and get next control input
             u = self.ocp_solver.solve_for_x0(x0_bar=x)
- 
+
+        x_traj = []
+        u_traj = []
+
+        if data_collection: # Extract full state, control trajectories
+            for i in range(self.N):
+                xi = self.ocp_solver.get(i, "x")
+                ui = self.ocp_solver.get(i, "u")
+                x_traj.append(xi)
+                u_traj.append(ui)
+
+            # Get final state (at step N)
+            xN = self.ocp_solver.get(self.N, "x")
+            x_traj.append(xN)
+        
         cost = self.ocp_solver.get_cost()
-        return u, cost
+
+        return u, cost, x_traj, u_traj

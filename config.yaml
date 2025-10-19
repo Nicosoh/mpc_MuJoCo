@@ -6,9 +6,9 @@ cartpole:
     urdf_available: false
     model_path: "models_xml/cartpole.xml"
     sim_timestep: 0.001 # seconds
-    sim_duration: 5.0 # seconds
+    sim_duration: 1 # seconds
     sim_framerate: 30  # Hz
-    render: true # Render simulation
+    render: false # Render simulation
     verbose: false # Print debug information
 
   model:

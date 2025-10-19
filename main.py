@@ -5,7 +5,7 @@ import time
 import yaml
 import argparse
 
-def main(model_name):
+def main(model_name, data_collection=False):
     # Load configuration
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)[model_name]
@@ -41,10 +41,11 @@ def main(model_name):
 
     # Run MuJoCo simulation with MPC in the loop
     logs, frames = run_simulation(
-        config,
-        model,
-        data,
-        yref,
+        config=config,
+        model=model,
+        data=data,
+        yref=yref,
+        data_collection=data_collection,
         controller=mpc
     )
 
@@ -53,6 +54,9 @@ def main(model_name):
     elapsed = end_time - start_time
     print(f"\nTotal execution time: {elapsed:.2f} seconds")
 
+    if data_collection: #quit here if data collection
+        return logs, elapsed, config
+    
     # Save run summary
     save_summary(config=config, elapsed=elapsed, config_path="config.yaml")
 
