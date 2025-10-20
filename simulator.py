@@ -185,7 +185,10 @@ def run_simulation(
             renderer.update_scene(data, scene_option=scene_option)
             pixels = renderer.render()
             frames.append(pixels)
-        
+
+        # Update progress bar
+        pbar.update(1)
+
         # Check for early termination condition
         if np.all(np.abs(np.hstack((data.qpos, data.qvel)) - yref_now[:nq+nv]) < termination_tolerance):
             termination_counter += 1
@@ -194,10 +197,6 @@ def run_simulation(
                 break
         else:
             termination_counter = 0
-            print(np.abs(np.hstack((data.qpos, data.qvel)) - yref_now[:nq+nv]))
-            
-        # Update progress bar
-        pbar.update(1)
 
     # Convert logs to arrays
     for key in ["qpos", "qvel", "u_applied", "cost", "x_traj", "u_traj", "time"]:

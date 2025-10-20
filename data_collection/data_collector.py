@@ -29,9 +29,9 @@ def run_data_collector(model_name):
         total_elapsed += elapsed
         run_key = f"run_{step:03d}"
         all_logs[run_key] = logs
+        save_summary(config, config_path="config.yaml", output_dir="data", sub_name="run")
         print(f"Completed data collection run {step+1}/{runs}")
     
-    save_summary(config, config_path="config.yaml", output_dir="data")
     save_summary(data_config, elapsed=total_elapsed, config_path="data_collection/data_config.yaml", output_dir="data", sub_name="data_collection")
     
     # Save collected data

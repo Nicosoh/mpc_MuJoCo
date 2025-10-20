@@ -55,6 +55,8 @@ def main(model_name, data_collection=False):
     print(f"\nTotal execution time: {elapsed:.2f} seconds")
 
     if data_collection: #quit here if data collection
+        # add yref to the logs
+        logs["yref"] = yref
         return logs, elapsed, config
     
     # Save run summary

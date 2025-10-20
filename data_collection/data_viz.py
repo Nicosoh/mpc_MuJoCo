@@ -5,33 +5,49 @@ import matplotlib.pyplot as plt
 import numpy as np
 import random
 import matplotlib as mpl
+import os
 
-def main(model_name, log_file, run, samples):
-    # Load config for the model
+def main(model_name, log_file, run, samples, mode):
+        # Load config for the model
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f).get(model_name)
 
     # Load data
     all_logs = load_npz(f"{log_file}.npz", input_dir="data")
-    plot_traj(all_logs, samples=samples, config=config, run_filter=run)
 
-def plot_traj(all_logs, samples=None, seed=44, config=None, run_filter=None):
+    # Dispatch based on mode
+    if mode == "main":
+        plot_traj(all_logs, samples=samples, config=config, run_filter=run)
+    elif mode == "dist":
+        plot_dist(all_logs, samples=samples, config=config, run_filter=run)
+
+def plot_traj(
+    all_logs,
+    samples=None,
+    seed=44,
+    config=None,
+    run_filter=None,
+    tstep=10,    # <- Plot predicted trajectories every tstep steps
+    hstep=10,     # <- Subsample points within each horizon prediction
+    save_dir="outputs",
+    ):
+
+    os.makedirs(save_dir, exist_ok=True) # Create output directory if it doesn't exist
+
     run_keys = sorted(all_logs.keys())
 
-    # Filter if a specific run is provided
+    # Filter specific run
     if run_filter:
         if run_filter in run_keys:
             run_keys = [run_filter]
         else:
             print(f"Run '{run_filter}' not found in logs.")
             return
-
-    # Else, sample randomly
     elif samples is not None and samples < len(run_keys):
         random.seed(seed)
         run_keys = random.sample(run_keys, samples)
 
-    # Extract plot configuration
+    # Get all qpos plots
     qpos_plots = {
         plot_name: index
         for plot_name, (source, index, unit) in config["plots"].items()
@@ -40,32 +56,33 @@ def plot_traj(all_logs, samples=None, seed=44, config=None, run_filter=None):
 
     base_cmap = plt.get_cmap("plasma")
 
-    # Find maximum number of timesteps (for color normalization)
+    # Normalize for color mapping
     max_t = max(all_logs[run_key]["x_traj"].shape[0] for run_key in run_keys)
     norm = mpl.colors.Normalize(vmin=0, vmax=max_t - 1)
 
-    # Loop through each qpos plot and create individual figures
+    # Loop through each qpos variable and make a figure
     for state_name, idx in qpos_plots.items():
         fig, ax = plt.subplots(figsize=(10, 5))
 
         for run_key in run_keys:
             x_traj = all_logs[run_key]["x_traj"]  # shape: (timesteps, horizon, state_dim)
-            qpos = all_logs[run_key]["qpos"]      # (timesteps, 2)
+            qpos = all_logs[run_key]["qpos"]      # shape: (timesteps, state_dim)
             num_timesteps, horizon = x_traj.shape[:2]
 
-            for t in range(num_timesteps):
-                traj = x_traj[t, :, :]  # shape: (horizon, state_dim)
+            # Subsample prediction lines
+            for t in range(0, num_timesteps, tstep):
+                traj = x_traj[t, ::hstep, :]  # Subsample within horizon
                 color = base_cmap(norm(t))
-                time_axis = np.arange(t, t + horizon)
+                time_axis = np.arange(t, t + horizon)[::hstep]
                 state_values = traj[:, idx]
-                ax.plot(time_axis, state_values, color=color, alpha=0.05)
-            
-            # Plot ground truth line
+                ax.plot(time_axis, state_values, color=color, alpha=0.1)
+
+            # Plot full actual trajectory
             time_series = np.arange(len(qpos))
             true_state = qpos[:, idx]
-            ax.plot(time_series, true_state, color="black", linewidth=2, label=run_key)
+            ax.plot(time_series, true_state, color="black", linewidth=1, label=run_key, alpha=0.5)
 
-            # Annotate the run_key at the start point
+            # Annotate the run at the beginning
             ax.annotate(
                 run_key,
                 xy=(time_series[0], true_state[0]),
@@ -79,13 +96,113 @@ def plot_traj(all_logs, samples=None, seed=44, config=None, run_filter=None):
             )
 
         ax.set_ylabel(state_name)
-        ax.set_title(f"{state_name} over timestep (colored by prediction time t)")
-        ax.set_xlabel("Timestep (not seconds)")
+        ax.set_title(f"{state_name} over time\n(Predictions every {tstep} steps, horizon subsampled by {hstep})")
+        ax.set_xlabel("Timestep")
         ax.grid(True)
-
         fig.tight_layout()
+        fig.savefig(os.path.join(save_dir, f"{state_name}_trajectory.png"))
+    
+    # === PLOT COST OVER TIME ===
+    fig_cost, ax_cost = plt.subplots(figsize=(10, 4))
+    for run_key in run_keys:
+        cost = all_logs[run_key]["cost"]  # shape: (timesteps,)
+        timesteps = np.arange(len(cost))
+        ax_cost.plot(timesteps, cost, label=run_key, alpha=0.7)
+
+    ax_cost.set_title("MPC Cost over Time")
+    ax_cost.set_xlabel("Timestep")
+    ax_cost.set_ylabel("Cost")
+    ax_cost.grid(True)
+    ax_cost.legend()
+    fig_cost.tight_layout()
+    fig_cost.savefig(os.path.join(save_dir, "mpc_cost_over_time.png"))
+
+    # === PLOT INPUT OVER TIME ===
+    fig_input, ax_input = plt.subplots(figsize=(10, 4))
+    for run_key in run_keys:
+        u_applied = all_logs[run_key]["u_applied"]  # shape: (timesteps, input_dim)
+        timesteps = np.arange(u_applied.shape[0])
+        for i in range(u_applied.shape[1]):
+            ax_input.plot(timesteps, u_applied[:, i], label=f"{run_key} - u_applied {i}", alpha=0.7)
+
+    ax_input.set_title("MPC Input over Time")
+    ax_input.set_xlabel("Timestep")
+    ax_input.set_ylabel("Input Value")
+    ax_input.grid(True)
+    ax_input.legend()
+    fig_input.tight_layout()
+    fig_input.savefig(os.path.join(save_dir, "mpc_input_over_time.png"))
+
+    # Show all plots
+    plt.show()
+
+def plot_dist(
+    all_logs,
+    samples=None,
+    seed=44,
+    config=None,
+    run_filter=None,
+    save_dir="outputs",
+):
+    import os
+    os.makedirs(save_dir, exist_ok=True)
+
+    run_keys = sorted(all_logs.keys())
+
+    # Filter specific runs
+    if run_filter:
+        if run_filter in run_keys:
+            run_keys = [run_filter]
+        else:
+            print(f"Run '{run_filter}' not found.")
+            return
+    elif samples is not None and samples < len(run_keys):
+        random.seed(seed)
+        run_keys = random.sample(run_keys, samples)
+
+    # Get qpos indices from config
+    qpos_plots = {
+        plot_name: index
+        for plot_name, (source, index, unit) in config["plots"].items()
+        if source == "qpos"
+    }
+
+    # === HISTOGRAMS for state values ===
+    for state_name, idx in qpos_plots.items():
+        fig, ax = plt.subplots(figsize=(8, 4))
+
+        all_values = []
+        for run_key in run_keys:
+            qpos = all_logs[run_key]["qpos"]  # shape: (timesteps, state_dim)
+            all_values.append(qpos[:, idx])   # gather values for this axis
+
+        all_values = np.concatenate(all_values)  # flatten across runs
+        ax.hist(all_values, bins=40, color="teal", alpha=0.75)
+        ax.set_title(f"Distribution of {state_name}")
+        ax.set_xlabel(state_name)
+        ax.set_ylabel("Frequency")
+        ax.grid(True)
+        fig.tight_layout()
+        fig.savefig(os.path.join(save_dir, f"{state_name}_histogram.png"))
+
+    # === HISTOGRAM for cost ===
+    fig_cost, ax_cost = plt.subplots(figsize=(8, 4))
+    all_costs = []
+    for run_key in run_keys:
+        cost = all_logs[run_key]["cost"]
+        all_costs.append(cost)
+
+    all_costs = np.concatenate(all_costs)
+    ax_cost.hist(all_costs, bins=40, color="crimson", alpha=0.7)
+    ax_cost.set_title("Distribution of MPC Cost")
+    ax_cost.set_xlabel("Cost")
+    ax_cost.set_ylabel("Frequency")
+    ax_cost.grid(True)
+    fig_cost.tight_layout()
+    fig_cost.savefig(os.path.join(save_dir, "mpc_cost_histogram.png"))
 
     plt.show()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Visualize data for a model")
@@ -93,6 +210,9 @@ if __name__ == "__main__":
     parser.add_argument("log_file", type=str, help="Base name of the logs npz file (without extension)")
     parser.add_argument("--run", type=str, default=None, help="Optional: specific run key (e.g., run_001)")
     parser.add_argument("--samples", type=int, default=5, help="Optional: number of samples to plot")
+    parser.add_argument("--mode", type=str, choices=["main", "dist"], default="main",
+                        help="Run mode: 'main' for normal plotting, 'dist' for distribution plots.")
     args = parser.parse_args()
 
-    main(args.model, args.log_file, args.run, args.samples)
+    # Call main with all args
+    main(args.model, args.log_file, args.run, args.samples, args.mode)

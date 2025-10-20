@@ -81,6 +81,8 @@ minimal_example = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PA
 main_cartpole = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py cartpole"
 viz_cartpole = "python pin_visualizer.py cartpole"
 OCP_cartpole = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python solve_OCP.py cartpole"
+data_cartpole = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python -m data_collection.data_collector cartpole"
+data_viz_cartpole = "python -m data_collection.data_viz cartpole"
 
 main_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py pendulum"
 viz_pendulum = "python pin_visualizer.py pendulum"
