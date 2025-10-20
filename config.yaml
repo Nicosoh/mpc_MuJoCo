@@ -6,7 +6,7 @@ cartpole:
     urdf_available: false
     model_path: "models_xml/cartpole.xml"
     sim_timestep: 0.001 # seconds
-    sim_duration: 1 # seconds
+    sim_duration: 5 # seconds
     sim_framerate: 30  # Hz
     render: false # Render simulation
     verbose: false # Print debug information
@@ -32,11 +32,13 @@ cartpole:
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.002 # seconds
     x0: [0.0, 3.14159265, 0.0, 0.0]
-    x0_random: true # If true, x0 above will not be used
+    x0_random: false # If true, x0 above will not be used
     x0_range: [[-1.0, 1.0], [-3.142, 3.142], [-0.5, 0.5], [-0.5, 0.5]] # Range for random x0
     x0_sampling: "uniform" # Only uniform for now
     Q_mat: [2000, 10000, 0.02, 0.02] # State cost weights
     R_mat: [0.02] # Input cost weights
+    min_termination_steps: 10 # Minimum steps within tolerance before terminating MPC early
+    termination_tolerance: [0.05, 0.05, 0.05, 0.05] # Tolerance for early termination (Must match state dimension)
 
   plots:
     Cart Position: ["qpos", 0, "m"]

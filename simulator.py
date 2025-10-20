@@ -69,6 +69,7 @@ def run_simulation(
     data,
     yref,
     controller,
+    data_collection,
     resolution=(480, 640),
     ):
 
@@ -84,11 +85,14 @@ def run_simulation(
 
     # Extract parameters from config for MPC
     mpc_timestep = mpc_config["mpc_timestep"]
+    min_termination_steps = mpc_config["min_termination_steps"]
+    termination_tolerance = np.array(mpc_config["termination_tolerance"])
     x0 = np.array(mpc_config["x0"])
 
     last_u = np.zeros(model.nu)
     next_mpc_time = 0.0
     cost = 0.0
+    termination_counter = 0
 
     model.opt.timestep = sim_timestep  # Set simulation timestep
 
@@ -119,6 +123,8 @@ def run_simulation(
         "qvel": [],
         "u_applied": [],
         "cost": [],
+        "x_traj": [],
+        "u_traj": [],
     }
     height, width = resolution
 
@@ -144,7 +150,7 @@ def run_simulation(
         if controller is not None and data.time >= next_mpc_time:
             try:
                 yref_now = get_yref_at_time(data.time, yref)
-                last_u, cost = controller(state, yref_now)
+                last_u, cost, x_traj, u_traj = controller(state, yref_now, data_collection)
             except RuntimeError as e:
                 print(f"[ERROR] MPC solver failed at t={data.time:.3f}s: {e}")
                 break
@@ -162,6 +168,8 @@ def run_simulation(
         logs["qvel"].append(np.copy(data.qvel))
         logs["u_applied"].append(np.copy(data.ctrl))
         logs["cost"].append(cost)
+        logs["x_traj"].append(x_traj)
+        logs["u_traj"].append(u_traj)
 
         if verbose:
             print(
@@ -177,13 +185,22 @@ def run_simulation(
             renderer.update_scene(data, scene_option=scene_option)
             pixels = renderer.render()
             frames.append(pixels)
-
+        
+        # Check for early termination condition
+        if np.all(np.abs(np.hstack((data.qpos, data.qvel)) - yref_now[:nq+nv]) < termination_tolerance):
+            termination_counter += 1
+            if termination_counter >= min_termination_steps:
+                print(f"Terminating early at t = {data.time:.2f}s after {termination_counter} steps within tolerance.")
+                break
+        else:
+            termination_counter = 0
+            print(np.abs(np.hstack((data.qpos, data.qvel)) - yref_now[:nq+nv]))
+            
         # Update progress bar
         pbar.update(1)
 
     # Convert logs to arrays
-    for key in ["qpos", "qvel", "u_applied", "cost"]:
+    for key in ["qpos", "qvel", "u_applied", "cost", "x_traj", "u_traj", "time"]:
         logs[key] = np.array(logs[key])
-    logs["time"] = np.array(logs["time"])
 
     return logs, frames
