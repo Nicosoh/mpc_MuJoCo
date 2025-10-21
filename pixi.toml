@@ -82,7 +82,7 @@ main_cartpole = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH
 viz_cartpole = "python pin_visualizer.py cartpole"
 OCP_cartpole = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python solve_OCP.py cartpole"
 data_cartpole = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python -m data_collection.data_collector cartpole"
-data_viz_cartpole = "python -m data_collection.data_viz cartpole"
+
 
 main_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py pendulum"
 viz_pendulum = "python pin_visualizer.py pendulum"
@@ -99,3 +99,5 @@ OCP_cartpole_double_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DY
 main_iiwa14 = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py iiwa14"
 viz_iiwa14 = "python pin_visualizer.py iiwa14"
 OCP_iiwa14 = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python solve_OCP.py iiwa14"
+
+data_viz = "python -m data_collection.data_viz"

@@ -1,4 +1,4 @@
 # number of iterations, termination tolernace when close to reference point/trajectory, 
 
 data_collector:
-  runs: 10
+  runs: 50
