@@ -18,7 +18,6 @@ def get_next_filename(base_name, ext="txt", folder="outputs"):
             return filename
         i += 1
 
-
 # ========== PLOTTING ==========
 
 def plot_signals(time, logs, model, plots_config, yref, output_dir="outputs"):
@@ -233,3 +232,11 @@ def randomise_x0(config):
     else:
         raise ValueError(f"Unsupported x0_sampling method: {sampling}")
     return x0
+
+def load_x0(config):
+    # Randomise inital state if specified
+    if config["mpc"]["x0_random"]:
+        x0 = randomise_x0(config)
+        config["mpc"]["x0"] = x0
+        print(f"Randomised initial state: {x0}")
+    return config

@@ -10,6 +10,7 @@ cartpole:
     sim_framerate: 30  # Hz
     render: false # Render simulation
     verbose: false # Print debug information
+    resolution: [480, 640]
 
   model:
     name: "cartpole"
@@ -37,9 +38,10 @@ cartpole:
     x0_sampling: "uniform" # Only uniform for now
     Q_mat: [2000, 10000, 0.02, 0.02] # State cost weights
     R_mat: [0.02] # Input cost weights
-    min_termination_steps: 5 # Minimum steps within tolerance before terminating MPC early
-    termination_tolerance: [0.2, 0.2, 0.2, 0.2] # Tolerance for early termination (Must match state dimension)
-
+    termination_cost: 0.1 # Tolerance for early termination cost
+    solve_ocp: false # Enable if only a single step is required
+    full_traj: true # If above is true, then this needs to be true as well
+    
   plots:
     Cart Position: ["qpos", 0, "m"]
     Pendulum Angle: ["qpos", 1, "rad"]
@@ -60,6 +62,7 @@ pendulum:
     sim_framerate: 30  # Hz
     render: true # Render simulation
     verbose: false # Print debug information
+    resolution: [480, 640]
 
   model:
     name: "pendulum"
@@ -99,6 +102,7 @@ double_pendulum:
     sim_framerate: 30  # Hz
     render: true # Render simulation
     verbose: false # Print debug information
+    resolution: [480, 640]
 
   model:
     name: "double_pendulum"
@@ -146,6 +150,7 @@ cartpole_double_pendulum:
     sim_framerate: 30  # Hz
     render: true # Render simulation
     verbose: false # Print debug information
+    resolution: [480, 640]
 
   model:
     name: "cartpole_double_pendulum"
@@ -197,6 +202,7 @@ iiwa14:
     sim_framerate: 30  # Hz
     render: true # Render simulation
     verbose: true # Print debug information
+    resolution: [480, 640]
 
   model:
     name: "iiwa14"

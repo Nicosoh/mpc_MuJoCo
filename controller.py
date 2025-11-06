@@ -78,7 +78,7 @@ def setup(config, yref):
 
     return acados_ocp_solver, acados_integrator
 
-class AcadosMPCController:
+class BaseMPCController:
     def __init__(self, config, yref):
         mpc_config = config["mpc"]
 
@@ -96,54 +96,50 @@ class AcadosMPCController:
         for _ in range(5):
             self.ocp_solver.solve_for_x0(x0_bar=x0)
     
-    def get_full_OCP(self, state):
-        """Compute MPC input and return full trajectory and control sequence."""
-        qpos = state["qpos"]
-        qvel = state["qvel"]
-        x = np.concatenate([qpos, qvel])  # match Acados model
+    # def get_full_OCP(self, state):
+    #     """Compute MPC input and return full trajectory and control sequence."""
+    #     qpos = state["qpos"]
+    #     qvel = state["qvel"]
+    #     x = np.concatenate([qpos, qvel])  # match Acados model
 
-        if self.use_RTI:
-            # RTI preparation phase
-            self.ocp_solver.options_set('rti_phase', 1)
-            status = self.ocp_solver.solve()
-            if status != 0:
-                print("MPC solver returned status in RTI phase 1: ", status)
+    #     if self.use_RTI:
+    #         # RTI preparation phase
+    #         self.ocp_solver.options_set('rti_phase', 1)
+    #         status = self.ocp_solver.solve()
+    #         if status != 0:
+    #             print("MPC solver returned status in RTI phase 1: ", status)
 
-            self.ocp_solver.set(0, "lbx", x)
-            self.ocp_solver.set(0, "ubx", x)
+    #         self.ocp_solver.set(0, "lbx", x)
+    #         self.ocp_solver.set(0, "ubx", x)
 
-            # RTI feedback phase
-            self.ocp_solver.options_set('rti_phase', 2)
-            status = self.ocp_solver.solve()
-            if status != 0:
-                print("MPC solver returned status in RTI phase 2: ", status)
-        else:
-            # Without RTI
-            self.ocp_solver.solve_for_x0(x0_bar=x)
+    #         # RTI feedback phase
+    #         self.ocp_solver.options_set('rti_phase', 2)
+    #         status = self.ocp_solver.solve()
+    #         if status != 0:
+    #             print("MPC solver returned status in RTI phase 2: ", status)
+    #     else:
+    #         # Without RTI
+    #         self.ocp_solver.solve_for_x0(x0_bar=x)
 
-        # Extract full state and control trajectories
-        x_traj = []
-        u_traj = []
+    #     # Extract full state and control trajectories
+    #     x_traj = []
+    #     u_traj = []
 
-        for i in range(self.N):
-            xi = self.ocp_solver.get(i, "x")
-            ui = self.ocp_solver.get(i, "u")
-            x_traj.append(xi)
-            u_traj.append(ui)
+    #     for i in range(self.N):
+    #         xi = self.ocp_solver.get(i, "x")
+    #         ui = self.ocp_solver.get(i, "u")
+    #         x_traj.append(xi)
+    #         u_traj.append(ui)
 
-        # Get final state (at step N)
-        xN = self.ocp_solver.get(self.N, "x")
-        x_traj.append(xN)
+    #     # Get final state (at step N)
+    #     xN = self.ocp_solver.get(self.N, "x")
+    #     x_traj.append(xN)
         
-        # Full trajs, control input
-        return np.array(x_traj), np.array(u_traj)
+    #     # Full trajs, control input
+    #     return np.array(x_traj), np.array(u_traj)
 
-    def __call__(self, state, yref_now, data_collection):
+    def __call__(self, x, yref_now, full_traj):
         """Compute MPC input given MuJoCo state."""
-        qpos = state["qpos"]
-        qvel = state["qvel"]
-        x = np.concatenate([qpos, qvel])  # match Acados model
-
         # Set yref
         for stage in range(self.N):
             self.ocp_solver.cost_set(stage, "yref", yref_now, api='new')
@@ -178,7 +174,7 @@ class AcadosMPCController:
         x_traj = []
         u_traj = []
 
-        if data_collection: # Extract full state, control trajectories
+        if full_traj: # Extract full state, control trajectories
             for i in range(self.N):
                 xi = self.ocp_solver.get(i, "x")
                 ui = self.ocp_solver.get(i, "u")

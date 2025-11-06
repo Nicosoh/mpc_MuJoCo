@@ -28,6 +28,7 @@ mediapy = ">=1.2.4,<2"
 example-robot-data = ">=4.3.0,<5"
 robot_descriptions = ">=1.21.0,<2"
 pink = ">=3.4.0,<4"
+plotly = ">=6.4.0,<7"
 
 [pypi-dependencies]
 tqdm = "*"
@@ -82,7 +83,6 @@ main_cartpole = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH
 viz_cartpole = "python pin_visualizer.py cartpole"
 OCP_cartpole = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python solve_OCP.py cartpole"
 data_cartpole = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python -m data_collection.data_collector cartpole"
-
 
 main_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py pendulum"
 viz_pendulum = "python pin_visualizer.py pendulum"
