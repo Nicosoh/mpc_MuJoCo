@@ -27,3 +27,8 @@ data
 # pixi environments
 .pixi/*
 !.pixi/config.toml
+test.py
+.gitignore
+sim.py
+test.ipynb
+test.py
