@@ -4,23 +4,9 @@ import matplotlib.pyplot as plt
 import mediapy as media
 import importlib
 
-# ========== FILE MANAGEMENT HELPERS ==========
-
-def get_next_filename(base_name, ext="txt", folder="outputs"):
-    """
-    Finds the next available filename with an incrementing number.
-    """
-    os.makedirs(folder, exist_ok=True)
-    i = 1
-    while True:
-        filename = os.path.join(folder, f"{base_name}_{i}.{ext}")
-        if not os.path.exists(filename):
-            return filename
-        i += 1
-
 # ========== PLOTTING ==========
 
-def plot_signals(time, logs, model, plots_config, yref, output_dir="outputs"):
+def plot_signals(time, logs, model, plots_config, yref, output_dir, file_name="plot"):
     """
     Processes signals based on plots_config and plots them over time.
 
@@ -71,7 +57,7 @@ def plot_signals(time, logs, model, plots_config, yref, output_dir="outputs"):
 
     # Now do the plotting
     os.makedirs(output_dir, exist_ok=True)
-    filename = get_next_filename("plot", ext="png", folder=output_dir)
+    full_path = os.path.join(output_dir, f"{file_name}.jpg")
 
     n = len(signals)
     dpi = 120
@@ -99,8 +85,8 @@ def plot_signals(time, logs, model, plots_config, yref, output_dir="outputs"):
 
     ax[-1].set_xlabel("Time (s)")
     plt.tight_layout()
-    plt.savefig(filename)
-    print(f"Plot saved to: {os.path.abspath(filename)}")
+    plt.savefig(full_path)
+    print(f"Plot saved to: {os.path.abspath(full_path)}")
     plt.show()
 
 def expand_yref_over_time(yref, time):
@@ -135,7 +121,7 @@ def expand_yref_over_time(yref, time):
 
 # ========== VIDEO SAVING ==========
 
-def save_video(frames, output_dir="outputs", base_name="video", fps=30):
+def save_video(frames, output_dir, file_name="video", fps=30):
     """
     Saves simulation frames as a video file with a running number.
 
@@ -145,17 +131,16 @@ def save_video(frames, output_dir="outputs", base_name="video", fps=30):
         Video frames.
     output_dir : str
         Directory to save the video.
-    base_name : str
-        Prefix for the filename.
+    file_name : str
+        Filename.
     fps : int
         Frames per second.
     """
     os.makedirs(output_dir, exist_ok=True)
-    filename = get_next_filename(base_name, ext="mp4", folder=output_dir)
+    full_path = os.path.join(output_dir, f"{file_name}.mp4")
 
-    media.write_video(filename, frames, fps=fps)
-    print(f"Video saved to: {os.path.abspath(filename)}")
-
+    media.write_video(full_path, frames, fps=fps)
+    print(f"Video saved to: {os.path.abspath(full_path)}")
 
 # ========== SUMMARY SAVING ==========
 
@@ -170,7 +155,7 @@ def _format_value(val):
     else:
         return str(val)
 
-def save_summary(config, elapsed=None, config_path=None, output_dir="outputs", sub_name=None):
+def save_summary(config, output_dir, elapsed=None, file_name="summary"):
     """
     Save simulation config and details to a text file with running number.
 
@@ -180,24 +165,17 @@ def save_summary(config, elapsed=None, config_path=None, output_dir="outputs", s
         Configuration dictionary.
     elapsed : float, optional
         Total runtime in seconds.
-    config_path : str, optional
-        Path to config/model file used.
     output_dir : str
         Directory to save summary file.
-    sub_name : str, optional
-        Prefix name for the summary file. If None, defaults to 'summary'.
+    file_name : str, optional
+        Name for the summary file. If None, defaults to 'summary'.
     """
     os.makedirs(output_dir, exist_ok=True)
+    full_path = os.path.join(output_dir, f"{file_name}.txt")
 
-    prefix = sub_name if sub_name else "summary"
-    filename = get_next_filename(prefix, ext="txt", folder=output_dir)
-
-    with open(filename, "w") as f:
+    with open(full_path, "w") as f:
         f.write("Simulation Summary\n")
         f.write("=================\n\n")
-
-        if config_path:
-            f.write(f"Config/model file: {config_path}\n\n")
 
         for section, params in config.items():
             f.write(f"{section.capitalize()}:\n")
@@ -211,7 +189,7 @@ def save_summary(config, elapsed=None, config_path=None, output_dir="outputs", s
         if elapsed is not None:
             f.write(f"Total execution time: {elapsed:.2f} seconds\n")
 
-    print(f"Summary saved to: {os.path.abspath(filename)}")
+    print(f"Summary saved to: {os.path.abspath(full_path)}")
 
 
 def load_yref(model_name):

@@ -8,7 +8,7 @@ cartpole:
     sim_timestep: 0.001 # seconds
     sim_duration: 5 # seconds
     sim_framerate: 30  # Hz
-    render: false # Render simulation
+    render: true # Render simulation
     verbose: false # Print debug information
     resolution: [480, 640]
 
@@ -31,7 +31,7 @@ cartpole:
     Fmax: [80] # Maximum force
     N_horizon: 300 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
-    mpc_timestep: 0.002 # seconds
+    mpc_timestep: 0.01 # seconds
     x0: [0.0, 3.14159265, 0.0, 0.0]
     x0_random: true # If true, x0 above will not be used
     x0_range: [[-1.0, 1.0], [-3.142, 3.142], [-0.5, 0.5], [-0.5, 0.5]] # Range for random x0

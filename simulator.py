@@ -79,147 +79,6 @@ def get_yref_at_time(t_now, yref):
     idx = np.searchsorted(times, t_now, side='right') - 1
     return states[idx]
 
-def run_simulation(
-    config,
-    model,
-    data,
-    yref,
-    controller,
-    data_collection,
-    resolution=(480, 640),
-    ):
-
-    mpc_config = config["mpc"]
-    mujoco_config = config["mujoco"]
-
-    # Extract parameters from config for simulator
-    sim_duration = mujoco_config["sim_duration"]
-    verbose = mujoco_config["verbose"]
-    render = mujoco_config["render"]
-    sim_framerate = mujoco_config["sim_framerate"]
-    sim_timestep = mujoco_config["sim_timestep"]
-
-    # Extract parameters from config for MPC
-    mpc_timestep = mpc_config["mpc_timestep"]
-    min_termination_steps = mpc_config["min_termination_steps"]
-    termination_tolerance = np.array(mpc_config["termination_tolerance"])
-    x0 = np.array(mpc_config["x0"])
-
-    last_u = np.zeros(model.nu)
-    next_mpc_time = 0.0
-    cost = 0.0
-    termination_counter = 0
-
-    model.opt.timestep = sim_timestep  # Set simulation timestep
-
-    # Reset conditions
-    mujoco.mj_resetData(model, data)
-    
-    nq = model.nq
-    nv = model.nv
-
-    # Check x0 length vs nq + nv
-    if len(x0) != nq + nv:
-        raise ValueError(f"x0 should have length {nq + nv} (qpos + qvel), got {len(x0)}")
-
-    # Set initial position and velocity from x0
-    data.qpos[:] = x0[:nq]
-    data.qvel[:] = x0[nq:]
-
-    mujoco.mj_forward(model, data) # Step forward to compute derived quantities
-    print(f"Model has {nq} DoFs (qpos), {nv} velocities (qvel), and {model.nu} actuators.")
-    print("Initial qpos:", data.qpos)
-    print("Initial qvel:", data.qvel)
-
-    # Prepare recording
-    frames = []
-    logs = {
-        "time": [],
-        "qpos": [],
-        "qvel": [],
-        "u_applied": [],
-        "cost": [],
-        "x_traj": [],
-        "u_traj": [],
-    }
-    height, width = resolution
-
-    # Use renderer only if True
-    if render:
-        scene_option = init_scene_options()
-        renderer = mujoco.Renderer(model, height, width)
-
-    # Calculate number of steps (for tqdm total)
-    steps = int(sim_duration / sim_timestep)
-    pbar = tqdm(total=steps, desc="Simulating")
-
-    # Main simulation loop
-    while data.time < sim_duration:
-        # Gather state
-        state = {
-            "qpos": np.copy(data.qpos),
-            "qvel": np.copy(data.qvel),
-            "time": data.time,
-        }
-
-        # Call MPC only at specified intervals
-        if controller is not None and data.time >= next_mpc_time:
-            try:
-                yref_now = get_yref_at_time(data.time, yref)
-                last_u, cost, x_traj, u_traj = controller(state, yref_now, data_collection)
-            except RuntimeError as e:
-                print(f"[ERROR] MPC solver failed at t={data.time:.3f}s: {e}")
-                break
-            next_mpc_time += mpc_timestep
-
-        # Apply last computed control
-        data.ctrl[:] = last_u
-
-        # Step simulation
-        mujoco.mj_step(model, data)
-
-        # Log data
-        logs["time"].append(data.time)
-        logs["qpos"].append(np.copy(data.qpos))
-        logs["qvel"].append(np.copy(data.qvel))
-        logs["u_applied"].append(np.copy(data.ctrl))
-        logs["cost"].append(cost)
-        logs["x_traj"].append(x_traj)
-        logs["u_traj"].append(u_traj)
-
-        if verbose:
-            print(
-                f"t = {data.time:.3f}s | "
-                f"qpos = {np.round(data.qpos, 2)} | "
-                f"qvel = {np.round(data.qvel, 2)} | "
-                f"ctrl = {np.round(data.ctrl, 2)} | "
-                f"cost = {np.round(cost, 2)}"
-            )
-
-        # Render if enabled
-        if render and len(frames) < data.time * sim_framerate:
-            renderer.update_scene(data, scene_option=scene_option)
-            pixels = renderer.render()
-            frames.append(pixels)
-
-        # Update progress bar
-        pbar.update(1)
-
-        # Check for early termination condition
-        if np.all(np.abs(np.hstack((data.qpos, data.qvel)) - yref_now[:nq+nv]) < termination_tolerance):
-            termination_counter += 1
-            if termination_counter >= min_termination_steps:
-                print(f"Terminating early at t = {data.time:.2f}s after {termination_counter} steps within tolerance.")
-                break
-        else:
-            termination_counter = 0
-
-    # Convert logs to arrays
-    for key in ["qpos", "qvel", "u_applied", "cost", "x_traj", "u_traj", "time"]:
-        logs[key] = np.array(logs[key])
-
-    return logs, frames
-
 class MuJoCoSimulator:
     def __init__(self, config):
         self.config = load_x0(config=config)                        # Load x0
@@ -345,14 +204,15 @@ class MuJoCoSimulator:
             # Step simulation
             cost, x_traj, u_traj = self.step_sim()
 
-            # Log data
-            self.logs["time"].append(np.copy(self.data.time))
-            self.logs["qpos"].append(np.copy(self.data.qpos))
-            self.logs["qvel"].append(np.copy(self.data.qvel))
-            self.logs["u_applied"].append(np.copy(self.data.ctrl))
-            self.logs["cost"].append(cost)
-            self.logs["x_traj"].append(x_traj)
-            self.logs["u_traj"].append(u_traj)
+            # Only log data if MPC actually produced new control
+            if cost is not None and x_traj is not None and u_traj is not None:
+                self.logs["time"].append(np.copy(self.data.time))
+                self.logs["qpos"].append(np.copy(self.data.qpos))
+                self.logs["qvel"].append(np.copy(self.data.qvel))
+                self.logs["u_applied"].append(np.copy(self.data.ctrl))
+                self.logs["cost"].append(cost)
+                self.logs["x_traj"].append(x_traj)
+                self.logs["u_traj"].append(u_traj)
 
             if verbose:
                 print(
@@ -370,36 +230,50 @@ class MuJoCoSimulator:
                 self.frames.append(pixels)
             
             if solve_ocp:
-                print("Exiting simulation after one step.")
+                pbar.write("Exiting simulation after one step.")
                 break
 
             # Check for early termination condition
-            if cost < termination_cost:
-                print(f"Terminating early at t = {self.data.time:.2f}s with cost = {cost:.2f} ")
+            if cost is not None and cost < termination_cost:
+                pbar.write(f"Terminating early at t = {self.data.time:.2f}s with cost = {cost:.2f}")
                 break
 
             # Update progress bar
             pbar.update(1)
 
+        pbar.close()
+        
         # Convert logs to arrays
         for key in ["qpos", "qvel", "u_applied", "cost", "x_traj", "u_traj", "time"]:
             self.logs[key] = np.array(self.logs[key])
 
-    def step_sim(self, x):
-        x = np.concatenate([self.data.qpos, self.data.qvel])    # Form state matrix
+    def step_sim(self):
+        x = np.concatenate([self.data.qpos, self.data.qvel])
+        cost = None
+        x_traj = None
+        u_traj = None
 
-        # Get control input based on current state
+        # Only update MPC if needed
         if self.data.time >= self.next_mpc_time:
             try:
+                # Get reference trajectory at the current time
                 yref_now = get_yref_at_time(self.data.time, self.yref)
-                self.logs["yref"].append(yref_now)
-                last_u, cost, x_traj, u_traj = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
+                self.logs["yref"].append(yref_now)  # Keep track of the reference
+
+                # Run MPC to compute control input, cost, and trajectory
+                self.last_u, cost, x_traj, u_traj = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
+
+                # Store control trajectory to be applied
+                self.next_mpc_time += self.mpc_timestep
             except RuntimeError as e:
                 print(f"[ERROR] MPC solver failed at t={self.data.time:.3f}s: {e}")
-            self.next_mpc_time += self.mpc_timestep
+                # Handle the failure gracefully, e.g., keep the previous control
+                cost = np.nan
+                x_traj = np.nan
+                u_traj = np.nan
 
         # Apply last computed control
-        self.data.ctrl[:] = last_u
+        self.data.ctrl[:] = self.last_u
 
         # Step simulation
         mujoco.mj_step(self.model, self.data)
