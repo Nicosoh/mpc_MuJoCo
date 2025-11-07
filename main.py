@@ -3,7 +3,7 @@ import yaml
 import argparse
 import os
 from datetime import datetime
-from utils import save_video, plot_signals, save_summary
+from utils import save_video, plot_signals, save_summary, ocp_plot
 from simulator import MuJoCoSimulator
 
 def main(model_name, data_collection=False, output_dir=None):
@@ -41,6 +41,8 @@ def main(model_name, data_collection=False, output_dir=None):
     
     if data_collection: #quit here if data collection
         return simulator.logs
+    elif config["mpc"]["solve_ocp"]:
+        ocp_plot(simulator, run_dir)
     
     # Save video if frames were recorded
     if simulator.frames:

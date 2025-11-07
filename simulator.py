@@ -244,7 +244,7 @@ class MuJoCoSimulator:
         pbar.close()
         
         # Convert logs to arrays
-        for key in ["qpos", "qvel", "u_applied", "cost", "x_traj", "u_traj", "time"]:
+        for key in ["qpos", "qvel", "u_applied", "cost", "x_traj", "u_traj", "time", "yref"]:
             self.logs[key] = np.array(self.logs[key])
 
     def step_sim(self):
@@ -259,7 +259,6 @@ class MuJoCoSimulator:
                 # Get reference trajectory at the current time
                 yref_now = get_yref_at_time(self.data.time, self.yref)
                 self.logs["yref"].append(yref_now)  # Keep track of the reference
-
                 # Run MPC to compute control input, cost, and trajectory
                 self.last_u, cost, x_traj, u_traj = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
 
