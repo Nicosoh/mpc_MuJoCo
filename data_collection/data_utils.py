@@ -4,8 +4,9 @@ import os
 def save_npz(
     filename,
     data,
+    output_dir,
     sep="/",
-    output_dir=None
+    
 ):
     """
     Save a nested dictionary of NumPy arrays to a .npz file.
@@ -18,24 +19,15 @@ def save_npz(
     """
 
     # Prepare output directory
-    if output_dir is not None:
-        os.makedirs(output_dir, exist_ok=True)
-    else:
-        output_dir = ""
+    os.makedirs(output_dir, exist_ok=True)
 
     # Strip extension if user passed it
     base_name = filename
     if filename.endswith('.npz'):
         base_name = filename[:-4]
-
-    # Find next available filename with increasing number suffix
-    i = 1
-    while True:
-        numbered_filename = f"{base_name}_{i}.npz"
-        full_path = os.path.join(output_dir, numbered_filename)
-        if not os.path.exists(full_path):
-            break
-        i += 1
+    
+    # Build full output path
+    full_path = os.path.join(output_dir, f"{base_name}.npz")
 
     # Flatten the nested dictionary keys
     flat_data = {}

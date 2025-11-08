@@ -7,17 +7,24 @@ from utils import save_video, plot_signals, save_summary, ocp_plot
 from simulator import MuJoCoSimulator
 import shutil
 
-def main(model_name, data_collection=False, output_dir=None):
+def main(model_name, data_collection=False, output_dir=None, timestamp=None, data_config=None):
     # Load configuration
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)[model_name]
     
     # Base output directory
     output_dir = output_dir or "data"
-    os.makedirs(output_dir, exist_ok=True)  
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Replace simulation time with max steps and set full_traj to true
+    if data_collection:
+        config["mujoco"]["sim_duration"] = config["mpc"]["mpc_timestep"]*data_config["max_steps"]
+        config["mpc"]["full_traj"] = True
+        config["mujoco"]["render"] = False
 
     # Create a subfolder with date, time and model name
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    if timestamp is None: #takes timestamp from data collector if given
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     folder_name = f"{timestamp}_{model_name}"
     run_dir = os.path.join(output_dir, folder_name)
     os.makedirs(run_dir, exist_ok=True)
@@ -61,22 +68,17 @@ def main(model_name, data_collection=False, output_dir=None):
         )
 
     except Exception as e:
+        import traceback
         print(f"\nRun failed: {e}")
 
-        if os.path.exists(run_dir):
-            files = [f for f in os.listdir(run_dir)]
-            num_files = len(files)
-
-            if num_files <= 1:
-                print(f"Deleting incomplete run folder: {run_dir}")
-                if files:
-                    print(f"   Contained file(s): {', '.join(files)}")
-                else:
-                    print("   Folder was empty.")
-                shutil.rmtree(run_dir)
-                print(f"Deleted folder with {num_files} file(s).")
-            else:
-                print(f"Keeping folder (has {num_files} file(s)) for debugging: {run_dir}")
+        # Save the error info in the run folder
+        error_log_path = os.path.join(run_dir, "error.log")
+        with open(error_log_path, "w") as f:
+            f.write("=== Simulation Run Failed ===\n")
+            f.write(f"Timestamp: {datetime.now()}\n\n")
+            f.write(f"Error: {e}\n\n")
+            f.write("=== Traceback ===\n")
+            traceback.print_exc(file=f)
 
         raise
 

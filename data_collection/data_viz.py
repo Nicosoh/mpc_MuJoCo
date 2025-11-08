@@ -7,29 +7,33 @@ import random
 import matplotlib as mpl
 import os
 
-def main(model_name, log_file, run, samples, mode):
+def main(model_name, log_dir, run, samples, mode):
         # Load config for the model
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f).get(model_name)
 
+    log_file= log_dir[:-16]
+    log_file = os.path.join("data", log_dir, f"{log_file}_logs.npz")
+    plots_dir = os.path.join("data", log_dir, "plots")
+
     # Load data
-    all_logs = load_npz(f"{log_file}.npz", input_dir="data")
+    all_logs = load_npz(log_file)
 
     # Dispatch based on mode
-    if mode == "main":
-        plot_traj(all_logs, samples=samples, config=config, run_filter=run)
+    if mode == "norm":
+        plot_traj(all_logs, save_dir=plots_dir, samples=samples, config=config, run_filter=run)
     elif mode == "dist":
-        plot_dist(all_logs, samples=samples, config=config, run_filter=run)
+        plot_dist(all_logs, save_dir=plots_dir, samples=samples, config=config, run_filter=run)
 
 def plot_traj(
     all_logs,
+    save_dir,
     samples=None,
     seed=44,
     config=None,
     run_filter=None,
-    tstep=10,    # <- Plot predicted trajectories every tstep steps
+    tstep=1,    # <- Plot predicted trajectories every tstep steps
     hstep=10,     # <- Subsample points within each horizon prediction
-    save_dir="outputs",
     ):
 
     os.makedirs(save_dir, exist_ok=True) # Create output directory if it doesn't exist
@@ -46,7 +50,10 @@ def plot_traj(
     elif samples is not None and samples < len(run_keys):
         random.seed(seed)
         run_keys = random.sample(run_keys, samples)
-
+    # If 'samples' is None, plot all runs (explicit)
+    else:
+        print(f"No sampling requested — plotting all {len(run_keys)} runs.")
+        
     # Get all qpos plots
     qpos_plots = {
         plot_name: index
@@ -138,11 +145,11 @@ def plot_traj(
 
 def plot_dist(
     all_logs,
+    save_dir,
     samples=None,
     seed=44,
     config=None,
     run_filter=None,
-    save_dir="outputs",
 ):
     import os
     os.makedirs(save_dir, exist_ok=True)
@@ -209,9 +216,9 @@ if __name__ == "__main__":
     parser.add_argument("model", type=str, help="Model name to load from config.yaml")
     parser.add_argument("log_file", type=str, help="Base name of the logs npz file (without extension)")
     parser.add_argument("--run", type=str, default=None, help="Optional: specific run key (e.g., run_001)")
-    parser.add_argument("--samples", type=int, default=5, help="Optional: number of samples to plot")
-    parser.add_argument("--mode", type=str, choices=["main", "dist"], default="main",
-                        help="Run mode: 'main' for normal plotting, 'dist' for distribution plots.")
+    parser.add_argument("--samples", type=int, default=None, help="Optional: number of samples to plot")
+    parser.add_argument("--mode", type=str, choices=["norm", "dist"], default="main",
+                        help="Run mode: 'norm' for normal plotting, 'dist' for distribution plots.")
     args = parser.parse_args()
 
     # Call main with all args

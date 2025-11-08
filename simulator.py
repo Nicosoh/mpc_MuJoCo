@@ -262,14 +262,13 @@ class MuJoCoSimulator:
                 # Run MPC to compute control input, cost, and trajectory
                 self.last_u, cost, x_traj, u_traj = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
 
-                # Store control trajectory to be applied
+                # += to next mpc time step
                 self.next_mpc_time += self.mpc_timestep
+
             except RuntimeError as e:
                 print(f"[ERROR] MPC solver failed at t={self.data.time:.3f}s: {e}")
-                # Handle the failure gracefully, e.g., keep the previous control
-                cost = np.nan
-                x_traj = np.nan
-                u_traj = np.nan
+                # self.logs["errors"].append(yref_now)
+                raise
 
         # Apply last computed control
         self.data.ctrl[:] = self.last_u

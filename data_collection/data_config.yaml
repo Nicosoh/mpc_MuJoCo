@@ -1,4 +1,8 @@
-# number of iterations, termination tolernace when close to reference point/trajectory, 
+# Number of samples to collect
+# Each sample will terminate when either the termination condition is reached or 
+# the max steps refers to the number of times MPC is called during a single ramdomization
+# Hence, the max number of samples will be runs multiplied max_steps
 
 data_collector:
-  runs: 50
+  runs: 100
+  max_steps: 10
