@@ -225,12 +225,12 @@ def ocp_plot(simulator, output_dir, file_name="OCP_plot"):
 
     config = simulator.config
     logs = simulator.logs
-
+    # import pdb; pdb.set_trace()
     x_traj = logs["x_traj"][0]
     u_traj = logs["u_traj"][0]
-    yref = logs["yref"][0]
+    yref = logs["yref"]
     nq = simulator.model.nq
-    # import pdb; pdb.set_trace()
+    
     dt = config["mpc"]["mpc_timestep"]
     T = x_traj.shape[0]  # Total time steps (N+1)
     time = np.arange(T) * dt  # Time axis for states
@@ -242,10 +242,10 @@ def ocp_plot(simulator, output_dir, file_name="OCP_plot"):
     qvel_traj = x_traj[:, nq:]
 
     # Extract constant reference from first yref entry (ignore time)
-    yref_qpos = np.tile(yref[0, 1 : 1 + nq], (T, 1))       # shape (T, nq)
-    yref_qvel = np.tile(yref[0, 1 + nq : 1 + 2 * nq], (T, 1))  # shape (T, nq)
-    yref_u = np.tile(yref[0, 1 + 2 * nq :], (u_traj.shape[0], 1))  # shape (T-1, nu)
-
+    yref_qpos = np.tile(yref[0, : nq], (T, 1))       # shape (T, nq)
+    yref_qvel = np.tile(yref[0, nq : 2 * nq], (T, 1))  # shape (T, nq)
+    yref_u = np.tile(yref[0, 2 * nq :], (u_traj.shape[0], 1))  # shape (T-1, nu)
+    # pdb.set_trace()
     fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
     # Plot positions
