@@ -39,8 +39,8 @@ cartpole:
     Q_mat: [2000, 10000, 0.02, 0.02] # State cost weights
     R_mat: [0.02] # Input cost weights
     termination_cost: 0.1 # Tolerance for early termination cost
-    solve_ocp: false # Enable if only a single step is required
-    full_traj: false # If above is true, then this needs to be true as well
+    solve_ocp: true # Enable if only a single step is required
+    full_traj: true # If above is true, then this needs to be true as well
     
   plots:
     Cart Position: ["qpos", 0, "m"]

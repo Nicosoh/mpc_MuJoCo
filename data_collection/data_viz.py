@@ -6,8 +6,10 @@ import numpy as np
 import random
 import matplotlib as mpl
 import os
+import mplcursors
+import seaborn as sns
 
-def main(model_name, log_dir, run, samples, mode):
+def main(model_name, log_dir, run, samples):
         # Load config for the model
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f).get(model_name)
@@ -19,11 +21,9 @@ def main(model_name, log_dir, run, samples, mode):
     # Load data
     all_logs = load_npz(log_file)
 
-    # Dispatch based on mode
-    if mode == "norm":
-        plot_traj(all_logs, save_dir=plots_dir, samples=samples, config=config, run_filter=run)
-    elif mode == "dist":
-        plot_dist(all_logs, save_dir=plots_dir, samples=samples, config=config, run_filter=run)
+    # Run plotting functions
+    # plot_traj(all_logs, save_dir=plots_dir, samples=samples, config=config, run_filter=run)
+    plot_dist(all_logs, save_dir=plots_dir, samples=samples, config=config, run_filter=run)
 
 def plot_traj(
     all_logs,
@@ -53,7 +53,7 @@ def plot_traj(
     # If 'samples' is None, plot all runs (explicit)
     else:
         print(f"No sampling requested — plotting all {len(run_keys)} runs.")
-        
+
     # Get all qpos plots
     qpos_plots = {
         plot_name: index
@@ -82,30 +82,19 @@ def plot_traj(
                 color = base_cmap(norm(t))
                 time_axis = np.arange(t, t + horizon)[::hstep]
                 state_values = traj[:, idx]
-                ax.plot(time_axis, state_values, color=color, alpha=0.1)
+                ax.plot(time_axis, state_values, color=color, label=run_key, alpha=0.1)
 
             # Plot full actual trajectory
             time_series = np.arange(len(qpos))
             true_state = qpos[:, idx]
             ax.plot(time_series, true_state, color="black", linewidth=1, label=run_key, alpha=0.5)
 
-            # Annotate the run at the beginning
-            ax.annotate(
-                run_key,
-                xy=(time_series[0], true_state[0]),
-                xytext=(-5, 5),
-                textcoords="offset points",
-                fontsize=9,
-                color="black",
-                bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="black", lw=0.5),
-                ha='right',
-                va='bottom',
-            )
-
         ax.set_ylabel(state_name)
         ax.set_title(f"{state_name} over time\n(Predictions every {tstep} steps, horizon subsampled by {hstep})")
         ax.set_xlabel("Timestep")
         ax.grid(True)
+        cursor = mplcursors.cursor(ax.lines, hover=False)
+        cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
         fig.tight_layout()
         fig.savefig(os.path.join(save_dir, f"{state_name}_trajectory.png"))
     
@@ -120,7 +109,8 @@ def plot_traj(
     ax_cost.set_xlabel("Timestep")
     ax_cost.set_ylabel("Cost")
     ax_cost.grid(True)
-    ax_cost.legend()
+    cursor = mplcursors.cursor(ax_cost.lines, hover=False)
+    cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
     fig_cost.tight_layout()
     fig_cost.savefig(os.path.join(save_dir, "mpc_cost_over_time.png"))
 
@@ -136,7 +126,8 @@ def plot_traj(
     ax_input.set_xlabel("Timestep")
     ax_input.set_ylabel("Input Value")
     ax_input.grid(True)
-    ax_input.legend()
+    cursor = mplcursors.cursor(ax_input.lines, hover=False)
+    cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
     fig_input.tight_layout()
     fig_input.savefig(os.path.join(save_dir, "mpc_input_over_time.png"))
 
@@ -184,11 +175,24 @@ def plot_dist(
             all_values.append(qpos[:, idx])   # gather values for this axis
 
         all_values = np.concatenate(all_values)  # flatten across runs
-        ax.hist(all_values, bins=40, color="teal", alpha=0.75)
+        counts, bins, patches = ax.hist(all_values, bins=80, color="teal", alpha=0.75)
         ax.set_title(f"Distribution of {state_name}")
         ax.set_xlabel(state_name)
         ax.set_ylabel("Frequency")
         ax.grid(True)
+
+        # --- Add count labels above bars ---
+        for count, bin_left, bin_right in zip(counts, bins[:-1], bins[1:]):
+            if count > 0:
+                ax.text(
+                    (bin_left + bin_right) / 2,  # center of the bar
+                    count,                      # height position
+                    f"{int(count)}",
+                    ha="center", va="bottom",
+                    fontsize=8,
+                    rotation=90,                # vertical label for compactness
+                )
+
         fig.tight_layout()
         fig.savefig(os.path.join(save_dir, f"{state_name}_histogram.png"))
 
@@ -200,16 +204,27 @@ def plot_dist(
         all_costs.append(cost)
 
     all_costs = np.concatenate(all_costs)
-    ax_cost.hist(all_costs, bins=40, color="crimson", alpha=0.7)
+    counts, bins, patches = ax_cost.hist(all_costs, bins=80, color="crimson", alpha=0.7)
     ax_cost.set_title("Distribution of MPC Cost")
     ax_cost.set_xlabel("Cost")
     ax_cost.set_ylabel("Frequency")
     ax_cost.grid(True)
+
+    # --- Add count labels above bars ---
+    for count, bin_left, bin_right in zip(counts, bins[:-1], bins[1:]):
+        if count > 0:
+            ax_cost.text(
+                (bin_left + bin_right) / 2,  # center of the bar
+                count,                      # height position
+                f"{int(count)}",
+                ha="center", va="bottom",
+                fontsize=8,
+                rotation=90,                # vertical label for compactness
+            )
     fig_cost.tight_layout()
     fig_cost.savefig(os.path.join(save_dir, "mpc_cost_histogram.png"))
 
     plt.show()
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Visualize data for a model")
@@ -217,9 +232,7 @@ if __name__ == "__main__":
     parser.add_argument("log_file", type=str, help="Base name of the logs npz file (without extension)")
     parser.add_argument("--run", type=str, default=None, help="Optional: specific run key (e.g., run_001)")
     parser.add_argument("--samples", type=int, default=None, help="Optional: number of samples to plot")
-    parser.add_argument("--mode", type=str, choices=["norm", "dist"], default="main",
-                        help="Run mode: 'norm' for normal plotting, 'dist' for distribution plots.")
     args = parser.parse_args()
 
     # Call main with all args
-    main(args.model, args.log_file, args.run, args.samples, args.mode)
+    main(args.model, args.log_file, args.run, args.samples)

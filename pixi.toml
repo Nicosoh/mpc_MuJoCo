@@ -29,6 +29,8 @@ example-robot-data = ">=4.3.0,<5"
 robot_descriptions = ">=1.21.0,<2"
 pink = ">=3.4.0,<4"
 plotly = ">=6.4.0,<7"
+mplcursors = ">=0.7,<0.8"
+seaborn = ">=0.13.2,<0.14"
 
 [pypi-dependencies]
 tqdm = "*"

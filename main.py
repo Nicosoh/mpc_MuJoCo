@@ -51,7 +51,7 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         if data_collection: #quit here if data collection
             return simulator.logs
         elif config["mpc"]["solve_ocp"]: #quit here if only solving for single OCP
-            ocp_plot(simulator, run_dir)
+             return ocp_plot(simulator, run_dir)
         
         # Save video if frames were recorded
         if simulator.frames:
