@@ -38,6 +38,7 @@ cartpole:
     x0_sampling: "uniform" # Only uniform for now
     Q_mat: [2000, 10000, 0.02, 0.02] # State cost weights
     R_mat: [0.02] # Input cost weights
+    early_termination: true # Enable early termination based on cost
     termination_cost: 0.1 # Tolerance for early termination cost
     solve_ocp: true # Enable if only a single step is required
     full_traj: true # If above is true, then this needs to be true as well
@@ -67,7 +68,7 @@ pendulum:
   model:
     name: "pendulum"
     mass:
-      pendulum: 1 # kg
+      pendulum: 0.1 # kg
     inertia:
       pendulum: [0.00001, 0.00001, 0.00001] # kg*m^2
 
@@ -76,19 +77,26 @@ pendulum:
     actuated_joints: [0] # First and only joint
 
   mpc:
-    Fmax: [80] # Maximum force
-    N_horizon: 600 # Prediction horizon
+    Fmax: [50] # Maximum force
+    N_horizon: 300 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
-    mpc_timestep: 0.002 # seconds
-    x0: [0.0, 0.0]
+    mpc_timestep: 0.01 # seconds
+    x0: [3.142, 0.0]
+    x0_random: true # If true, x0 above will not be used
+    x0_range: [[-3.142, 3.142], [-0.5, 0.5]] # Range for random x0
+    x0_sampling: "uniform" # Only uniform for now
     Q_mat: [2000, 0.02] # State cost weights
     R_mat: [0.02] # Input cost weights
+    early_termination: true # Enable early termination based on cost
+    termination_cost: 0.01 # Tolerance for early termination cost
+    solve_ocp: false # Enable if only a single step is required
+    full_traj: true # If above is true, then this needs to be true as well
 
   plots:
     Pendulum Angle: ["qpos", 0, "rad"]
     Pendulum Angular Velocity: ["qvel", 0, "rad/s"]
     MPC Cost: ["cost", 0, "Cost"]
-    Control Input: ["ctrl", 0, "N"]
+    Control Input: ["ctrl", 0, "Nm"]
 
 # ----------------------------------------------------------------------------------------
 # DOUBLE PENDULUM MODEL CONFIGURATION
@@ -108,9 +116,9 @@ double_pendulum:
     name: "double_pendulum"
     mass:
       pendulum_stick1: 0.0001 # kg
-      pendulum1: 0.5 # kg
+      pendulum1: 0.1 # kg
       pendulum_stick2: 0.0001 # kg
-      pendulum2: 0.5 # kg
+      pendulum2: 0.1 # kg
     inertia:
       pendulum_stick1: [0.00001, 0.00001, 0.00001] # kg*m^2
       pendulum1: [0.002, 0.002, 0.002] # kg*m^2
@@ -122,13 +130,21 @@ double_pendulum:
     actuated_joints: [0] # First and only joint
 
   mpc:
-    Fmax: [2000] # Maximum force
-    N_horizon: 1000 # Prediction horizon
+    Fmax: [50] # Maximum force
+    N_horizon: 200 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
-    mpc_timestep: 0.001 # seconds
-    x0: [0.0, 0.0, 0.0, 0.0]
-    Q_mat: [2000, 3000, 0.02, 0.02] # State cost weights
-    R_mat: [0.02] # Input cost weights
+    mpc_timestep: 0.005 # seconds
+    # x0: [3.142, 0.0, 0.0, 0.0]
+    x0: [0.28162133355537833, 0.6486856333467466, 0.1335314005349817, -0.30590895094011517]
+    x0_random: true # If true, x0 above will not be used
+    x0_range: [[-3.142, 3.142], [-3.142, 3.142], [-0.5, 0.5], [-0.5, 0.5]] # Range for random x0
+    x0_sampling: "uniform" # Only uniform for now
+    Q_mat: [4000, 4000, 0.02, 0.02] # State cost weights
+    R_mat: [200] # Input cost weights
+    early_termination: true # Enable early termination based on cost
+    termination_cost: 0.05 # Tolerance for early termination cost
+    solve_ocp: false # Enable if only a single step is required
+    full_traj: true # If above is true, then this needs to be true as well
 
   plots:
     Pendulum 1 Angle: ["qpos", 0, "rad"]
@@ -136,7 +152,7 @@ double_pendulum:
     Pendulum 1 Angular Velocity: ["qvel", 0, "rad/s"]
     Pendulum 2 Angular Velocity: ["qvel", 1, "rad/s"]
     MPC Cost: ["cost", 0, "Cost"]
-    Control Input: ["ctrl", 0, "N"]
+    Control Input: ["ctrl", 0, "Nm"]
 
 # ----------------------------------------------------------------------------------------
 # CARTPOLE DOUBLE PENDULUM MODEL CONFIGURATION

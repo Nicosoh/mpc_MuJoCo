@@ -165,6 +165,7 @@ class MuJoCoSimulator:
 
         # Extract parameters from config for MPC
         self.mpc_timestep = mpc_config["mpc_timestep"]
+        early_termination = mpc_config["early_termination"]
         termination_cost = np.array(mpc_config["termination_cost"])
         x0 = np.array(mpc_config["x0"])
         solve_ocp = mpc_config["solve_ocp"]
@@ -182,7 +183,8 @@ class MuJoCoSimulator:
             "yref": [],
             "u_applied": [],
             "cost": [],
-            "x_traj": [],
+            "qpos_traj": [],
+            "qvel_traj": [],
             "u_traj": [],
         }
 
@@ -202,16 +204,17 @@ class MuJoCoSimulator:
         # Main simulation loop
         while self.data.time < sim_duration:
             # Step simulation
-            cost, x_traj, u_traj = self.step_sim()
+            cost, qpos_traj, qvel_traj, u_traj = self.step_sim()
 
             # Only log data if MPC actually produced new control
-            if cost is not None and x_traj is not None and u_traj is not None:
+            if cost is not None and qpos_traj is not None and qvel_traj is not None and u_traj is not None:
                 self.logs["time"].append(np.copy(self.data.time))
                 self.logs["qpos"].append(np.copy(self.data.qpos))
                 self.logs["qvel"].append(np.copy(self.data.qvel))
                 self.logs["u_applied"].append(np.copy(self.data.ctrl))
                 self.logs["cost"].append(cost)
-                self.logs["x_traj"].append(x_traj)
+                self.logs["qpos_traj"].append(qpos_traj)
+                self.logs["qvel_traj"].append(qvel_traj)
                 self.logs["u_traj"].append(u_traj)
 
             if verbose:
@@ -234,7 +237,7 @@ class MuJoCoSimulator:
                 break
 
             # Check for early termination condition
-            if cost is not None and cost < termination_cost:
+            if cost is not None and cost < termination_cost and early_termination:
                 pbar.write(f"Terminating early at t = {self.data.time:.2f}s with cost = {cost:.2f}")
                 break
 
@@ -244,13 +247,14 @@ class MuJoCoSimulator:
         pbar.close()
         
         # Convert logs to arrays
-        for key in ["qpos", "qvel", "u_applied", "cost", "x_traj", "u_traj", "time", "yref"]:
+        for key in ["qpos", "qvel", "u_applied", "cost", "qpos_traj", "qvel_traj", "u_traj", "time", "yref"]:
             self.logs[key] = np.array(self.logs[key])
 
     def step_sim(self):
         x = np.concatenate([self.data.qpos, self.data.qvel])
         cost = None
-        x_traj = None
+        qpos_traj = None
+        qvel_traj = None
         u_traj = None
 
         # Only update MPC if needed
@@ -260,7 +264,7 @@ class MuJoCoSimulator:
                 yref_now = get_yref_at_time(self.data.time, self.yref)
                 self.logs["yref"].append(yref_now)  # Keep track of the reference
                 # Run MPC to compute control input, cost, and trajectory
-                self.last_u, cost, x_traj, u_traj = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
+                self.last_u, cost, qpos_traj, qvel_traj, u_traj = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
 
                 # += to next mpc time step
                 self.next_mpc_time += self.mpc_timestep
@@ -276,4 +280,4 @@ class MuJoCoSimulator:
         # Step simulation
         mujoco.mj_step(self.model, self.data)
 
-        return cost, x_traj, u_traj
+        return cost, qpos_traj, qvel_traj, u_traj

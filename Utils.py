@@ -26,6 +26,11 @@ def plot_signals(time, logs, model, plots_config, yref, output_dir, file_name="p
     signals = {}
     ylabel_units = {}
 
+    # Ensure logs entries are numpy arrays
+    for key, val in logs.items():
+        if isinstance(val, list):
+            logs[key] = np.array(val)
+
     yref_full = expand_yref_over_time(yref, time)
 
     # Offsets to access yref by type
@@ -226,20 +231,17 @@ def ocp_plot(simulator, output_dir, file_name="OCP_plot"):
     config = simulator.config
     logs = simulator.logs
     # import pdb; pdb.set_trace()
-    x_traj = logs["x_traj"][0]
+    qpos_traj = logs["qpos_traj"][0]
+    qvel_traj = logs["qvel_traj"][0]
     u_traj = logs["u_traj"][0]
     yref = logs["yref"]
     nq = simulator.model.nq
     
     dt = config["mpc"]["mpc_timestep"]
-    T = x_traj.shape[0]  # Total time steps (N+1)
+    T = qpos_traj.shape[0]  # Total time steps (N+1)
     time = np.arange(T) * dt  # Time axis for states
 
     time_u = np.arange(u_traj.shape[0]) * dt  # Time axis for control inputs
-
-    # Split state into positions and velocities
-    qpos_traj = x_traj[:, :nq]
-    qvel_traj = x_traj[:, nq:]
 
     # Extract constant reference from first yref entry (ignore time)
     yref_qpos = np.tile(yref[0, : nq], (T, 1))       # shape (T, nq)

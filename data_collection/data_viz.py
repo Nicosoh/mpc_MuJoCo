@@ -7,7 +7,6 @@ import random
 import matplotlib as mpl
 import os
 import mplcursors
-import seaborn as sns
 
 def main(model_name, log_dir, run, samples):
         # Load config for the model
@@ -22,8 +21,8 @@ def main(model_name, log_dir, run, samples):
     all_logs = load_npz(log_file)
 
     # Run plotting functions
-    # plot_traj(all_logs, save_dir=plots_dir, samples=samples, config=config, run_filter=run)
-    plot_dist(all_logs, save_dir=plots_dir, samples=samples, config=config, run_filter=run)
+    plot_traj(all_logs, save_dir=plots_dir, samples=samples, config=config, run_filter=run)
+    plot_dist(all_logs, save_dir=plots_dir,  config=config)
 
 def plot_traj(
     all_logs,
@@ -56,47 +55,131 @@ def plot_traj(
 
     # Get all qpos plots
     qpos_plots = {
-        plot_name: index
+        plot_name: {"index": index, "unit": unit}
         for plot_name, (source, index, unit) in config["plots"].items()
         if source == "qpos"
+    }
+
+    qvel_plots = {
+        plot_name: {"index": index, "unit": unit}
+        for plot_name, (source, index, unit) in config["plots"].items()
+        if source == "qvel"
+    }
+
+    input_plots = {
+        plot_name: {"index": index, "unit": unit}
+        for plot_name, (source, index, unit) in config["plots"].items()
+        if source == "ctrl"
     }
 
     base_cmap = plt.get_cmap("plasma")
 
     # Normalize for color mapping
-    max_t = max(all_logs[run_key]["x_traj"].shape[0] for run_key in run_keys)
+    max_t = max(all_logs[run_key]["qpos_traj"].shape[0] for run_key in run_keys)
     norm = mpl.colors.Normalize(vmin=0, vmax=max_t - 1)
 
-    # Loop through each qpos variable and make a figure
-    for state_name, idx in qpos_plots.items():
-        fig, ax = plt.subplots(figsize=(10, 5))
+    plot_trajectory_group(
+        all_logs=all_logs,
+        run_keys=run_keys,
+        var_dict=qpos_plots,      # {name: (idx, unit)}
+        var_source="qpos_traj",
+        true_source="qpos",
+        save_dir=save_dir,
+        base_cmap=base_cmap,
+        norm=norm,
+        tstep=tstep,
+        hstep=hstep,
+    )
 
-        for run_key in run_keys:
-            x_traj = all_logs[run_key]["x_traj"]  # shape: (timesteps, horizon, state_dim)
-            qpos = all_logs[run_key]["qpos"]      # shape: (timesteps, state_dim)
-            num_timesteps, horizon = x_traj.shape[:2]
+    plot_trajectory_group(
+        all_logs=all_logs,
+        run_keys=run_keys,
+        var_dict=qvel_plots,     # {name: (idx, unit)}
+        var_source="qvel_traj",
+        true_source="qvel",
+        save_dir=save_dir,
+        base_cmap=base_cmap,
+        norm=norm,
+        tstep=tstep,
+        hstep=hstep,
+    )
 
-            # Subsample prediction lines
-            for t in range(0, num_timesteps, tstep):
-                traj = x_traj[t, ::hstep, :]  # Subsample within horizon
-                color = base_cmap(norm(t))
-                time_axis = np.arange(t, t + horizon)[::hstep]
-                state_values = traj[:, idx]
-                ax.plot(time_axis, state_values, color=color, label=run_key, alpha=0.1)
+    plot_trajectory_group(
+        all_logs=all_logs,
+        run_keys=run_keys,
+        var_dict=input_plots,     # {name: (idx, unit)}
+        var_source="u_traj",
+        true_source="u_applied",
+        save_dir=save_dir,
+        base_cmap=base_cmap,
+        norm=norm,
+        tstep=tstep,
+        hstep=hstep,
+    )
 
-            # Plot full actual trajectory
-            time_series = np.arange(len(qpos))
-            true_state = qpos[:, idx]
-            ax.plot(time_series, true_state, color="black", linewidth=1, label=run_key, alpha=0.5)
+    # # === PLOT X_TRAJ OVER TIME ===
+    # # Loop through each qpos variable and make a figure
+    # for state_name, idx, unit in qpos_plots.items():
+    #     fig, ax = plt.subplots(figsize=(10, 5))
 
-        ax.set_ylabel(state_name)
-        ax.set_title(f"{state_name} over time\n(Predictions every {tstep} steps, horizon subsampled by {hstep})")
-        ax.set_xlabel("Timestep")
-        ax.grid(True)
-        cursor = mplcursors.cursor(ax.lines, hover=False)
-        cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
-        fig.tight_layout()
-        fig.savefig(os.path.join(save_dir, f"{state_name}_trajectory.png"))
+    #     for run_key in run_keys:
+    #         x_traj = all_logs[run_key]["x_traj"]  # shape: (timesteps, horizon, state_dim)
+    #         qpos = all_logs[run_key]["qpos"]      # shape: (timesteps, state_dim)
+    #         num_timesteps, horizon = x_traj.shape[:2]
+
+    #         # Subsample prediction lines
+    #         for t in range(0, num_timesteps, tstep):
+    #             traj = x_traj[t, ::hstep, :]  # Subsample within horizon
+    #             color = base_cmap(norm(t))
+    #             time_axis = np.arange(t, t + horizon)[::hstep]
+    #             state_values = traj[:, idx]
+    #             ax.plot(time_axis, state_values, color=color, label=run_key, alpha=0.1)
+
+    #         # Plot full actual trajectory
+    #         time_series = np.arange(len(qpos))
+    #         true_state = qpos[:, idx]
+    #         ax.plot(time_series, true_state, color="black", linewidth=1, label=run_key, alpha=0.5)
+
+    #     ax.set_ylabel(state_name)
+    #     ax.set_title(f"{state_name} over time\n(Predictions every {tstep} steps, horizon subsampled by {hstep})")
+    #     ax.set_xlabel("Timestep")
+    #     ax.grid(True)
+    #     cursor = mplcursors.cursor(ax.lines, hover=False)
+    #     cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
+    #     fig.tight_layout()
+    #     fig.savefig(os.path.join(save_dir, f"{state_name}_trajectory.png"))
+    
+    # # === PLOT U_TRAJ OVER TIME ===
+    # # Loop through each input variable and make a figure
+    # for state_name, idx, unit in input_plots.items():
+    #     fig_u , ax_u = plt.subplots(figsize=(10, 5))
+
+    #     for run_key in run_keys:
+    #         u_traj = all_logs[run_key]["u_traj"]  # shape: (timesteps, horizon, state_dim)
+    #         u_applied = all_logs[run_key]["u_applied"]      # shape: (timesteps, state_dim)
+    #         num_timesteps, horizon = u_traj.shape[:2]
+
+    #         # Subsample prediction lines
+    #         for t in range(0, num_timesteps, tstep):
+    #             traj = u_traj[t, ::hstep, :]  # Subsample within horizon
+    #             color = base_cmap(norm(t))
+    #             time_axis = np.arange(t, t + horizon)[::hstep]
+    #             state_values = traj[:, idx]
+    #             ax_u.plot(time_axis, state_values, color=color, label=run_key, alpha=0.1)
+
+    #         # Plot full actual trajectory
+    #         time_series = np.arange(len(u_applied))
+    #         true_state = u_applied[:, idx]
+    #         ax_u.plot(time_series, true_state, color="black", linewidth=1, label=run_key, alpha=0.5)
+
+    #     ax_u.set_ylabel(state_name)
+    #     ax_u.set_title(f"{state_name} over time\n(Predictions every {tstep} steps, horizon subsampled by {hstep})")
+    #     ax_u.set_xlabel("Timestep")
+    #     ax_u.grid(True)
+    #     cursor = mplcursors.cursor(ax_u.lines, hover=False)
+    #     cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
+    #     fig_u.tight_layout()
+    #     fig_u.savefig(os.path.join(save_dir, f"{state_name}_trajectory.png"))
     
     # === PLOT COST OVER TIME ===
     fig_cost, ax_cost = plt.subplots(figsize=(10, 4))
@@ -112,7 +195,7 @@ def plot_traj(
     cursor = mplcursors.cursor(ax_cost.lines, hover=False)
     cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
     fig_cost.tight_layout()
-    fig_cost.savefig(os.path.join(save_dir, "mpc_cost_over_time.png"))
+    fig_cost.savefig(os.path.join(save_dir, "Cost_over_time.png"))
 
     # === PLOT INPUT OVER TIME ===
     fig_input, ax_input = plt.subplots(figsize=(10, 4))
@@ -129,34 +212,71 @@ def plot_traj(
     cursor = mplcursors.cursor(ax_input.lines, hover=False)
     cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
     fig_input.tight_layout()
-    fig_input.savefig(os.path.join(save_dir, "mpc_input_over_time.png"))
+    fig_input.savefig(os.path.join(save_dir, "Input_over_time.png"))
 
     # Show all plots
     plt.show()
 
+def plot_trajectory_group(
+    all_logs,
+    run_keys,
+    var_dict,       # dict: {name: (idx, unit)}
+    var_source,     # "x_traj" or "u_traj"
+    true_source,    # "qpos" or "u_applied"
+    save_dir,
+    base_cmap,
+    norm,
+    tstep,
+    hstep,
+):
+    """Generic plotter for x_traj or u_traj variables."""
+
+    for name, info in var_dict.items():
+        idx = info["index"]
+        unit = info["unit"]
+        fig, ax = plt.subplots(figsize=(10, 5))
+
+        for run_key in run_keys:
+            traj_all = all_logs[run_key][var_source]      # predicted trajectories
+            true_vals = all_logs[run_key][true_source]    # actual applied values
+            num_timesteps, horizon = traj_all.shape[:2]
+
+            # Plot predicted horizons
+            for t in range(0, num_timesteps, tstep):
+                traj = traj_all[t, ::hstep, :]
+                color = base_cmap(norm(t))
+                time_axis = np.arange(t, t + horizon)[::hstep]
+                ax.plot(time_axis, traj[:, idx], color=color, label=run_key, alpha=0.1)
+
+            # Plot true/applied values
+            ax.plot(
+                np.arange(len(true_vals)),
+                true_vals[:, idx],
+                color="black",
+                linewidth=1,
+                label=run_key,
+                alpha=0.5,
+            )
+
+        ax.set_ylabel(f"{name} [{unit}]")
+        ax.set_title(f"{name} over time\n(Predictions every {tstep} steps, horizon subsampled by {hstep})")
+        ax.set_xlabel("Timestep")
+        ax.grid(True)
+
+        cursor = mplcursors.cursor(ax.lines, hover=False)
+        cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
+
+        fig.tight_layout()
+        fig.savefig(os.path.join(save_dir, f"{name}_trajectory.png"))
+
 def plot_dist(
     all_logs,
     save_dir,
-    samples=None,
-    seed=44,
     config=None,
-    run_filter=None,
 ):
-    import os
     os.makedirs(save_dir, exist_ok=True)
 
     run_keys = sorted(all_logs.keys())
-
-    # Filter specific runs
-    if run_filter:
-        if run_filter in run_keys:
-            run_keys = [run_filter]
-        else:
-            print(f"Run '{run_filter}' not found.")
-            return
-    elif samples is not None and samples < len(run_keys):
-        random.seed(seed)
-        run_keys = random.sample(run_keys, samples)
 
     # Get qpos indices from config
     qpos_plots = {
@@ -222,7 +342,7 @@ def plot_dist(
                 rotation=90,                # vertical label for compactness
             )
     fig_cost.tight_layout()
-    fig_cost.savefig(os.path.join(save_dir, "mpc_cost_histogram.png"))
+    fig_cost.savefig(os.path.join(save_dir, "Cost_histogram.png"))
 
     plt.show()
 

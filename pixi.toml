@@ -81,25 +81,26 @@ acados_full = "pixi run acados_clone && pixi run acados_configure && pixi run ac
 # Run the minimal Python example
 minimal_example = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python external/acados/examples/acados_python/getting_started/minimal_example_ocp.py"
 
+# For cartpole
 main_cartpole = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py cartpole"
 viz_cartpole = "python pin_visualizer.py cartpole"
-OCP_cartpole = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python solve_OCP.py cartpole"
-data_cartpole = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python -m data_collection.data_collector cartpole"
 
+# For pendulum
 main_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py pendulum"
 viz_pendulum = "python pin_visualizer.py pendulum"
-OCP_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python solve_OCP.py pendulum"
 
+# For double_pendulum
 main_double_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py double_pendulum"
 viz_double_pendulum = "python pin_visualizer.py double_pendulum"
-OCP_double_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python solve_OCP.py double_pendulum"
 
+# For cartpole_double_pendulum
 main_cartpole_double_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py cartpole_double_pendulum"
 viz_cartpole_double_pendulum = "python pin_visualizer.py cartpole_double_pendulum"
-OCP_cartpole_double_pendulum = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python solve_OCP.py cartpole_double_pendulum"
 
+# For iiwa14
 main_iiwa14 = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py iiwa14"
 viz_iiwa14 = "python pin_visualizer.py iiwa14"
-OCP_iiwa14 = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python solve_OCP.py iiwa14"
 
+# For all models
+data_collector = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python -m data_collection.data_collector"
 data_viz = "python -m data_collection.data_viz"

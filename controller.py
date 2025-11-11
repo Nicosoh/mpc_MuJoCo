@@ -37,7 +37,7 @@ def setup(config, yref):
 
     ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
     ocp.model.cost_y_expr_e = model.x                   # Terminal cost only inlcudes states
-    ocp.cost.yref  = yref[0, 1:ny+1]                        # Set stage references to match first entry of yref for all states and inputs
+    ocp.cost.yref  = yref[0, 1:ny+1]                    # Set stage references to match first entry of yref for all states and inputs
     ocp.cost.yref_e = yref[0, 1:ny_e+1]                 # Set terminal reference to match first entry of yref for states only
     # ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references as zero for all states and inputs
     # ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference as zeros for states only
@@ -109,7 +109,7 @@ class BaseMPCController:
             
             status = self.ocp_solver.solve()
             if status != 0:
-                print("MPC solver returned status in RTI phase 1: ", status)
+                raise RuntimeError("MPC solver returned status in RTI phase 1: ", status)
 
             # Set initial state
             self.ocp_solver.set(0, "lbx", x)
@@ -120,7 +120,7 @@ class BaseMPCController:
 
             status = self.ocp_solver.solve()
             if status != 0:
-                print("MPC solver returned status in RTI phase 2: ", status)
+                raise RuntimeError("MPC solver returned status in RTI phase 2: ", status)
 
             # Get first control input
             u = self.ocp_solver.get(0, "u")
@@ -128,25 +128,24 @@ class BaseMPCController:
         else: # Without RTI
             # Solve ocp and get next control input
             u = self.ocp_solver.solve_for_x0(x0_bar=x)
-
-        # --- Handle solver result ---
-        if status != 0:
-            raise RuntimeError(f"MPC solver failed (status={status})")
         
-        x_traj = []
+        qpos_traj = []
+        qvel_traj = []
         u_traj = []
 
         if full_traj: # Extract full state, control trajectories
             for i in range(self.N):
                 xi = self.ocp_solver.get(i, "x")
                 ui = self.ocp_solver.get(i, "u")
-                x_traj.append(xi)
+                qpos_traj.append(xi[:self.nx//2])
+                qvel_traj.append(xi[self.nx//2:])
                 u_traj.append(ui)
 
             # Get final state (at step N)
             xN = self.ocp_solver.get(self.N, "x")
-            x_traj.append(xN)
+            qpos_traj.append(xN[:self.nx//2])
+            qvel_traj.append(xN[self.nx//2:])
         
         cost = self.ocp_solver.get_cost()
 
-        return u, cost, x_traj, u_traj
+        return u, cost, qpos_traj, qvel_traj, u_traj

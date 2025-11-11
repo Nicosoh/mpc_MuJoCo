@@ -5,7 +5,6 @@ import os
 from datetime import datetime
 from utils import save_video, plot_signals, save_summary, ocp_plot
 from simulator import MuJoCoSimulator
-import shutil
 
 def main(model_name, data_collection=False, output_dir=None, timestamp=None, data_config=None):
     # Load configuration
@@ -20,6 +19,7 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
     if data_collection:
         config["mujoco"]["sim_duration"] = config["mpc"]["mpc_timestep"]*data_config["max_steps"]
         config["mpc"]["full_traj"] = True
+        config["mpc"]["solve_ocp"] = False
         config["mujoco"]["render"] = False
 
     # Create a subfolder with date, time and model name
@@ -30,12 +30,17 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
     os.makedirs(run_dir, exist_ok=True)
     print(f"Saving current run data to: {run_dir}")
 
+    elapsed = 0.0
+
     try:
         # Record start time
         start_time = time.time()
 
         # Create simulator object
         simulator = MuJoCoSimulator(config)
+
+        # Save run summary
+        save_summary(config=simulator.config, output_dir=run_dir)
 
         # Run simulation
         simulator.run()
@@ -44,28 +49,11 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         end_time = time.time()
         elapsed = end_time - start_time
         print(f"\nTotal execution time: {elapsed:.2f} seconds")
-
-        # Save run summary
-        save_summary(config=simulator.config, elapsed=elapsed, output_dir=run_dir)
         
         if data_collection: #quit here if data collection
             return simulator.logs
         elif config["mpc"]["solve_ocp"]: #quit here if only solving for single OCP
              return ocp_plot(simulator, run_dir)
-        
-        # Save video if frames were recorded
-        if simulator.frames:
-            save_video(simulator.frames, output_dir=run_dir, fps=simulator.config["mujoco"]["sim_framerate"])
-
-        # Plot logged signals
-        plot_signals(
-            time=simulator.logs["time"],
-            logs=simulator.logs,
-            model=simulator.model,
-            plots_config=simulator.config["plots"],
-            yref=simulator.yref,
-            output_dir=run_dir,
-        )
 
     except Exception as e:
         import traceback
@@ -79,8 +67,27 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
             f.write(f"Error: {e}\n\n")
             f.write("=== Traceback ===\n")
             traceback.print_exc(file=f)
-
         raise
+
+    finally:
+        if not data_collection:
+            try:
+                # Save video if frames were recorded
+                if simulator.frames and not config["mpc"]["solve_ocp"]:
+                    save_video(simulator.frames, output_dir=run_dir, fps=simulator.config["mujoco"]["sim_framerate"])
+
+                # Attempt to plot logs if available
+                if "logs" in simulator.__dict__ and "time" in simulator.logs and not config["mpc"]["solve_ocp"]:
+                    plot_signals(
+                        time=simulator.logs["time"],
+                        logs=simulator.logs,
+                        model=simulator.model,
+                        plots_config=simulator.config["plots"],
+                        yref=simulator.yref,
+                        output_dir=run_dir,
+                    )
+            except Exception as plot_err:
+                print(f"Could not generate summary or plots: {plot_err}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Load config for a given model")

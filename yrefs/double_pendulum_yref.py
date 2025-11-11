@@ -6,7 +6,5 @@ import numpy as np
 
 ### For the double_pendulum (time, theta1, theta2, theta1_dot, theta2_dot, u)
 yref = np.array([
-    [0.0,  3.142,  0.0,  0.0,  0.0,  0.0],
-    [2.0,  3.142,  3.142,  0.0,  0.0,  0.0],
-    [2.0,  3.142,  0,  0.0,  0.0,  0.0],
+    [0.0,  0.0,  0.0,  0.0,  0.0,  0.0],
 ])
