@@ -59,6 +59,16 @@ def setup(config, yref):
     ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
     ocp.solver_options.integrator_type = 'IRK'
     ocp.solver_options.sim_method_newton_iter = 10
+    ocp.solver_options.regularize_method = 'CONVEXIFY' # For the Hessian
+    ocp.solver_options.levenberg_marquardt = 10.0
+    ocp.solver_options.nlp_solver_warm_start_first_qp_from_nlp = True
+    ocp.solver_options.nlp_solver_warm_start_first_qp = True
+    ocp.solver_options.qp_solver_warm_start = 1
+    # ocp.solver_options.adaptive_levenberg_marquardt_lam
+
+    # Timeout options only implemented for SQP and not for SQP_RTI
+    # ocp.solver_options.timeout_max_time = 
+    # ocp.solver_options.timeout_heuristic = 
 
     if RTI:
         ocp.solver_options.nlp_solver_type = 'SQP_RTI'
@@ -66,7 +76,7 @@ def setup(config, yref):
         ocp.solver_options.nlp_solver_type = 'SQP'
         ocp.solver_options.globalization = 'MERIT_BACKTRACKING' # turns on globalization
         ocp.solver_options.nlp_solver_max_iter = 150
-
+    
     ocp.solver_options.qp_solver_cond_N = N_horizon
 
     # Create solver based on settings above
@@ -94,7 +104,7 @@ class BaseMPCController:
 
         # Warm start
         for _ in range(5):
-            self.ocp_solver.solve_for_x0(x0_bar=x0)
+            self.ocp_solver.solve_for_x0(x0_bar=x0, fail_on_nonzero_status=False)
 
     def __call__(self, x, yref_now, full_traj):
         """Compute MPC input given MuJoCo state."""
@@ -127,7 +137,7 @@ class BaseMPCController:
 
         else: # Without RTI
             # Solve ocp and get next control input
-            u = self.ocp_solver.solve_for_x0(x0_bar=x)
+            u = self.ocp_solver.solve_for_x0(x0_bar=x) # It is ok to fail during the warmup phase
         
         qpos_traj = []
         qvel_traj = []

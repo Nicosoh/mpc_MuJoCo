@@ -86,7 +86,7 @@ pendulum:
     x0_range: [[-3.142, 3.142], [-0.5, 0.5]] # Range for random x0
     x0_sampling: "uniform" # Only uniform for now
     Q_mat: [2000, 0.02] # State cost weights
-    R_mat: [0.02] # Input cost weights
+    R_mat: [20] # Input cost weights
     early_termination: true # Enable early termination based on cost
     termination_cost: 0.01 # Tolerance for early termination cost
     solve_ocp: false # Enable if only a single step is required
@@ -134,8 +134,7 @@ double_pendulum:
     N_horizon: 200 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.005 # seconds
-    # x0: [3.142, 0.0, 0.0, 0.0]
-    x0: [0.28162133355537833, 0.6486856333467466, 0.1335314005349817, -0.30590895094011517]
+    x0: [3.142, 0.0, 0.0, 0.0]
     x0_random: true # If true, x0 above will not be used
     x0_range: [[-3.142, 3.142], [-3.142, 3.142], [-0.5, 0.5], [-0.5, 0.5]] # Range for random x0
     x0_sampling: "uniform" # Only uniform for now
@@ -162,7 +161,7 @@ cartpole_double_pendulum:
     urdf_available: false
     model_path: "models_xml/cartpole_double_pendulum.xml"
     sim_timestep: 0.001 # seconds
-    sim_duration: 3.0 # seconds
+    sim_duration: 10.0 # seconds
     sim_framerate: 30  # Hz
     render: true # Render simulation
     verbose: false # Print debug information
@@ -189,12 +188,20 @@ cartpole_double_pendulum:
 
   mpc:
     Fmax: [200] # Maximum force
-    N_horizon: 3000 # Prediction horizon
+    N_horizon: 200 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
-    mpc_timestep: 0.001 # seconds
-    x0: [0.0, 3.14159265, 0.0, 0.0, 0.0, 0.0]
-    Q_mat: [100, 300, 300, 0.02, 0.02, 0.02] # State cost weights
-    R_mat: [0.02] # Input cost weights
+    mpc_timestep: 0.005 # seconds
+    # x0: [0.0, 3.14159265, 0.0, 0.0, 0.0, 0.0]
+    x0: [0.3110272298871595, 1.4546843108070697, -2.763921306120133, -0.038970822969267904, -0.3093583029008864, 0.04865859413436979]
+    x0_random: true # If true, x0 above will not be used
+    x0_range: [[-1.0, 1.0], [-3.142, 3.142], [-3.142, 3.142], [-0.5, 0.5], [-0.5, 0.5], [-0.5, 0.5]] # Range for random x0
+    x0_sampling: "uniform" # Only uniform for now
+    Q_mat: [2000, 20000, 20000, 0.02, 0.02, 0.02] # State cost weights
+    R_mat: [50] # Input cost weights
+    early_termination: true # Enable early termination based on cost
+    termination_cost: 1.0 # Tolerance for early termination cost
+    solve_ocp: false # Enable if only a single step is required
+    full_traj: true # If above is true, then this needs to be true as well
 
   plots:
     Cart Position: ["qpos", 0, "m"]

@@ -3,13 +3,16 @@ import yaml
 import argparse
 import os
 from datetime import datetime
-from utils import save_video, plot_signals, save_summary, ocp_plot
+from utils import *
 from simulator import MuJoCoSimulator
 
 def main(model_name, data_collection=False, output_dir=None, timestamp=None, data_config=None):
     # Load configuration
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)[model_name]
+    
+    # Update x0 if required
+    config = load_x0(config=config)
     
     # Base output directory
     output_dir = output_dir or "data"
@@ -30,7 +33,8 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
     os.makedirs(run_dir, exist_ok=True)
     print(f"Saving current run data to: {run_dir}")
 
-    elapsed = 0.0
+    # Save run summary
+    save_summary(config=config, output_dir=run_dir)
 
     try:
         # Record start time
@@ -38,9 +42,6 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
 
         # Create simulator object
         simulator = MuJoCoSimulator(config)
-
-        # Save run summary
-        save_summary(config=simulator.config, output_dir=run_dir)
 
         # Run simulation
         simulator.run()

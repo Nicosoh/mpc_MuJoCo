@@ -53,7 +53,7 @@ def plot_traj(
     else:
         print(f"No sampling requested — plotting all {len(run_keys)} runs.")
 
-    # Get all qpos plots
+    # Get all plots
     qpos_plots = {
         plot_name: {"index": index, "unit": unit}
         for plot_name, (source, index, unit) in config["plots"].items()
@@ -116,70 +116,6 @@ def plot_traj(
         tstep=tstep,
         hstep=hstep,
     )
-
-    # # === PLOT X_TRAJ OVER TIME ===
-    # # Loop through each qpos variable and make a figure
-    # for state_name, idx, unit in qpos_plots.items():
-    #     fig, ax = plt.subplots(figsize=(10, 5))
-
-    #     for run_key in run_keys:
-    #         x_traj = all_logs[run_key]["x_traj"]  # shape: (timesteps, horizon, state_dim)
-    #         qpos = all_logs[run_key]["qpos"]      # shape: (timesteps, state_dim)
-    #         num_timesteps, horizon = x_traj.shape[:2]
-
-    #         # Subsample prediction lines
-    #         for t in range(0, num_timesteps, tstep):
-    #             traj = x_traj[t, ::hstep, :]  # Subsample within horizon
-    #             color = base_cmap(norm(t))
-    #             time_axis = np.arange(t, t + horizon)[::hstep]
-    #             state_values = traj[:, idx]
-    #             ax.plot(time_axis, state_values, color=color, label=run_key, alpha=0.1)
-
-    #         # Plot full actual trajectory
-    #         time_series = np.arange(len(qpos))
-    #         true_state = qpos[:, idx]
-    #         ax.plot(time_series, true_state, color="black", linewidth=1, label=run_key, alpha=0.5)
-
-    #     ax.set_ylabel(state_name)
-    #     ax.set_title(f"{state_name} over time\n(Predictions every {tstep} steps, horizon subsampled by {hstep})")
-    #     ax.set_xlabel("Timestep")
-    #     ax.grid(True)
-    #     cursor = mplcursors.cursor(ax.lines, hover=False)
-    #     cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
-    #     fig.tight_layout()
-    #     fig.savefig(os.path.join(save_dir, f"{state_name}_trajectory.png"))
-    
-    # # === PLOT U_TRAJ OVER TIME ===
-    # # Loop through each input variable and make a figure
-    # for state_name, idx, unit in input_plots.items():
-    #     fig_u , ax_u = plt.subplots(figsize=(10, 5))
-
-    #     for run_key in run_keys:
-    #         u_traj = all_logs[run_key]["u_traj"]  # shape: (timesteps, horizon, state_dim)
-    #         u_applied = all_logs[run_key]["u_applied"]      # shape: (timesteps, state_dim)
-    #         num_timesteps, horizon = u_traj.shape[:2]
-
-    #         # Subsample prediction lines
-    #         for t in range(0, num_timesteps, tstep):
-    #             traj = u_traj[t, ::hstep, :]  # Subsample within horizon
-    #             color = base_cmap(norm(t))
-    #             time_axis = np.arange(t, t + horizon)[::hstep]
-    #             state_values = traj[:, idx]
-    #             ax_u.plot(time_axis, state_values, color=color, label=run_key, alpha=0.1)
-
-    #         # Plot full actual trajectory
-    #         time_series = np.arange(len(u_applied))
-    #         true_state = u_applied[:, idx]
-    #         ax_u.plot(time_series, true_state, color="black", linewidth=1, label=run_key, alpha=0.5)
-
-    #     ax_u.set_ylabel(state_name)
-    #     ax_u.set_title(f"{state_name} over time\n(Predictions every {tstep} steps, horizon subsampled by {hstep})")
-    #     ax_u.set_xlabel("Timestep")
-    #     ax_u.grid(True)
-    #     cursor = mplcursors.cursor(ax_u.lines, hover=False)
-    #     cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
-    #     fig_u.tight_layout()
-    #     fig_u.savefig(os.path.join(save_dir, f"{state_name}_trajectory.png"))
     
     # === PLOT COST OVER TIME ===
     fig_cost, ax_cost = plt.subplots(figsize=(10, 4))
@@ -246,7 +182,7 @@ def plot_trajectory_group(
                 traj = traj_all[t, ::hstep, :]
                 color = base_cmap(norm(t))
                 time_axis = np.arange(t, t + horizon)[::hstep]
-                ax.plot(time_axis, traj[:, idx], color=color, label=run_key, alpha=0.1)
+                ax.plot(time_axis, traj[:, idx], color=color, label=f"{run_key}_t{t}", alpha=0.1)
 
             # Plot true/applied values
             ax.plot(

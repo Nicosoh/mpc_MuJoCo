@@ -49,9 +49,9 @@ def run_data_collector(model_name):
             logs = main(model_name, data_collection=True, output_dir=output_dir, timestamp=run_timestamp, data_config=data_config)
             all_logs[run_timestamp] = logs
 
-            print(f"Completed run {step+1}/{runs}")
+            print(f"Completed run: {run_timestamp}, {step+1}/{runs}")
             with open(output_log_path, "a") as f:
-                f.write(f"\n--- Run {step+1}/{runs} Completed ---\n")
+                f.write(f"\n--- Run {step+1}/{runs}, {run_timestamp}, Completed ---\n")
 
         except Exception as e:
             # Catch and log the error
@@ -60,7 +60,7 @@ def run_data_collector(model_name):
 
             print(f"Run {step+1}/{runs} failed: {e}")
             with open(output_log_path, "a") as f:
-                f.write(f"\n--- Run {step+1}/{runs} FAILED ---\n")
+                f.write(f"\n--- Run {step+1}/{runs}, {run_timestamp}, FAILED ---\n")
                 f.write(f"Error: {str(e)}\n")
                 f.write(tb)
                 f.write("\n-----------------------------\n")
