@@ -17,26 +17,25 @@ def load_model_from_robot_descriptions(description_name: str):
     """Load a MuJoCo model and data using robot_descriptions."""
     model = load_robot_description(description_name)  # Loads and parses the MJCF
     data = mujoco.MjData(model)
-
-    # model.actuator_biastype = np.array([0, 0, 0, 0, 0, 0, 0]) # removes bias by setting it to "none"
-    # model.actuator_gainprm = np.ones((7,10))   # sets gain to 1
-    # model.actuator_ctrlrange = np.array([[-320, 320], [-320, 320], [-176,176], [-176,176], [-110,110], [-40,40], [-40,40]]) # sets control range
     
     return model, data
 
 # Apply model config only if loaded from xml
 def apply_model_config(config, model):
-    for body_name in config["model"]["mass"].keys():
-        mass_value = config["model"]["mass"][body_name] # Respective mass value
-        inertia_value = config["model"]["inertia"][body_name] # Respective inertia value
-        # Find the body ID you want to modify
-        body_id = model.body(name=body_name)
-        # Assign the new mass & inertia value
-        body_id.mass = mass_value
-        body_id.inertia = inertia_value
+    try:
+        for body_name in config["model"]["mass"].keys():
+            mass_value = config["model"]["mass"][body_name] # Respective mass value
+            inertia_value = config["model"]["inertia"][body_name] # Respective inertia value
+            # Find the body ID you want to modify
+            body_id = model.body(name=body_name)
+            # Assign the new mass & inertia value
+            body_id.mass = mass_value
+            body_id.inertia = inertia_value
 
-        # Print to verify
-        print(f"Updated body '{body_name}': mass={body_id.mass}, inertia={body_id.inertia}")
+            # Print to verify
+            print(f"Updated body '{body_name}': mass={body_id.mass}, inertia={body_id.inertia}")
+    except KeyError:
+        print("No custom mass or inertia values found in config; using model defaults.")
 
 def load_model(config):
     # Load MuJoCo model from cml or URDF if available
@@ -48,6 +47,11 @@ def load_model(config):
         model, data = load_model_from_xml(path)
         # Update model parameters from config
         apply_model_config(config, model)
+    
+    if config["model"]["name"] == "iiwa14": # Converts iiwa14 from PD to torque control
+        model.actuator_biastype = np.array([0, 0, 0, 0, 0, 0, 0]) # removes bias by setting it to "none"
+        model.actuator_gainprm = np.ones((7,10))   # sets gain to 1
+        model.actuator_ctrlrange = np.array([[-320, 320], [-320, 320], [-176,176], [-176,176], [-110,110], [-40,40], [-40,40]]) # sets control range
     
     return model, data
 
@@ -270,9 +274,9 @@ class MuJoCoSimulator:
                 self.next_mpc_time += self.mpc_timestep
 
             except RuntimeError as e:
-                print(f"[ERROR] MPC solver failed at t={self.data.time:.3f}s: {e}")
-                # self.logs["errors"].append(yref_now)
-                raise
+                raise RuntimeError(
+                    f"MPC solver failed at t={self.data.time:.3f}s"
+                ) from e
 
         # Apply last computed control
         self.data.ctrl[:] = self.last_u

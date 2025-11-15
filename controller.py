@@ -1,5 +1,5 @@
 import numpy as np
-from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
+from acados_template import AcadosOcp, AcadosOcpSolver
 from pin_exporter import export_ode_model
 import scipy.linalg
 from casadi import vertcat

@@ -218,13 +218,13 @@ cartpole_double_pendulum:
 # ----------------------------------------------------------------------------------------
 iiwa14:
   mujoco:
-    urdf_available: true
-    menagerie_name: iiwa14_mj_description
+    urdf_available: false
+    model_path: 'external/mujoco_menagerie/kuka_iiwa_14/scene.xml'
     sim_timestep: 0.001 # seconds
-    sim_duration: 1 # seconds
+    sim_duration: 5 # seconds
     sim_framerate: 30  # Hz
     render: true # Render simulation
-    verbose: true # Print debug information
+    verbose: false # Print debug information
     resolution: [480, 640]
 
   model:
@@ -248,15 +248,19 @@ iiwa14:
   
   mpc:
     Fmax: [320, 320, 176, 176, 110, 40, 40]
-    N_horizon: 1000
+    N_horizon: 200
     use_RTI: true
-    mpc_timestep: 0.001
+    mpc_timestep: 0.01
     x0: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     x0_random: false # If true, x0 above will not be used
     x0_range: [[-1.0, 1.0], [-3.142, 3.142], [-0.5, 0.5], [-0.5, 0.5]] # Range for random x0
     x0_sampling: "uniform" # Only uniform for now
-    Q_mat: [2000.0, 4000.0, 1600.0, 4000.0, 1200.0, 4000.0, 800.0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+    Q_mat: [2000.0, 4000.0, 1600.0, 4000.0, 1200.0, 4000.0, 800.0, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
     R_mat: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
+    early_termination: true # Enable early termination based on cost
+    termination_cost: 0.1 # Tolerance for early termination cost
+    solve_ocp: false # Enable if only a single step is required
+    full_traj: true # If above is true, then this needs to be true as well
 
   plots:
     Joint 1 Angle: ["qpos", 0, "rad"]
