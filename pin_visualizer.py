@@ -30,6 +30,9 @@ def main(model_name):
     elif config["model"]["name"].lower() == "cartpole_double_pendulum":
         pin_model = CartpoleDoublePendulumDynamics(timestep=dt, config=config)
     
+    elif config["model"]["name"].lower() == "two_dof_arm":
+        pin_model = TwoDOFArmDynamics(timestep=dt, config=config)
+    
     else:
         raise ValueError(f"Unknown model name '{config['model']['name']}'. Add in elif statement for new models")
 
@@ -69,8 +72,10 @@ def main(model_name):
             visual_model=pin_model.visual_model,
         )
 
-        viz.initViewer()
+        viz.initViewer(open=True) # Set open=True to automatically open the Meshcat tab in your browser
         viz.loadViewerModel("pinocchio")
+
+        viz.displayFrames(visibility=True) # Display all frames
 
         qs_ = states_[: model.nq, :].T
 

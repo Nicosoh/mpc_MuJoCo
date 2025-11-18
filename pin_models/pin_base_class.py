@@ -16,6 +16,7 @@ class PinocchioCasadi:
         self.timestep = timestep
         self.create_dynamics(pin_config)
         self.create_discrete_dynamics()
+        self.create_forward_kinematics()
 
     def create_dynamics(self, pin_config):
         """Create the acceleration expression and acceleration function."""
@@ -68,6 +69,19 @@ class PinocchioCasadi:
             ["q", "v", "u"],
             ["qnext", "vnext"],
         )
+    
+    def create_forward_kinematics(self):
+        """Create a function to compute forward kinematics."""
+        # run forward kinematics symbolically
+        cpin.forwardKinematics(self.cmodel, self.cdata, self.q_node)
+        cpin.updateFramePlacements(self.cmodel, self.cdata)
+
+        # choose the frame you want :
+        # self.ee_frame = self.ee_frame_id
+
+        # CasADi FK expressions
+        self.p_ee = self.cdata.oMf[-1].translation # last frame translation
+        # self.R_ee = self.cdata.oMf[self.ee_frame].rotation
 
     def forward(self, x, u): # Current state and input  -> next state
         nq = self.model.nq

@@ -23,6 +23,9 @@ def export_ode_model(config) -> AcadosModel:
     
     elif config["model"]["name"].lower() == "cartpole_double_pendulum":
         pin_model = CartpoleDoublePendulumDynamics(timestep=mpc_config["mpc_timestep"], config=config)
+    
+    elif config["model"]["name"].lower() == "two_dof_arm":
+        pin_model = TwoDOFArmDynamics(timestep=mpc_config["mpc_timestep"], config=config)
 
     else:
         raise ValueError(f"Unknown model name '{config['model']['name']}'. Add in elif statement for new models")
@@ -59,9 +62,7 @@ def export_ode_model(config) -> AcadosModel:
     model.u = u
     model.name = model_name
 
-    # store meta information
-    model.x_labels = ['$x$ [m]', r'$\theta$ [rad]', '$v$ [m]', r'$\dot{\theta}$ [rad/s]']
-    model.u_labels = ['$F$']
-    model.t_label = '$t$ [s]'
+    # Temporary return of end-effector position for hard constraints...maybe another exporter.
+    px, py, pz = pin_model.p_ee[0], pin_model.p_ee[1], pin_model.p_ee[2]
 
-    return model
+    return model, px, py, pz

@@ -19,7 +19,7 @@ def setup(config, yref):
     ocp = AcadosOcp()
 
     # Call model creation function
-    model = export_ode_model(config)
+    model, px, py, pz = export_ode_model(config)
     ocp.model = model
 
     # Extract state and input dimensions
@@ -54,6 +54,18 @@ def setup(config, yref):
     # set prediction horizon
     ocp.solver_options.N_horizon = N_horizon
     ocp.solver_options.tf = Tf # Total predicton time
+
+    #----------------------------------Temporary for hard constraints on end-effector position----------------------------------#
+    ocp.constraints.constr_type = 'BGH'
+    # ocp.constraints.constr_type = 'BGP'
+    # non-linear (BGH) state constraint: circle
+    ocp.model.con_h_expr = (px-1.3)**2 + (pz-0.5)**2  # x1, x2
+    ocp.constraints.lh = np.array([(0.3+0.1)**2])       # radius
+    ocp.constraints.uh = np.array([1e6])
+
+    ocp.model.con_h_expr_e = (px-1.3)**2 + (pz-0.5)**2  # x1, x2
+    ocp.constraints.lh_e = np.array([(0.3+0.1)**2])       # radius
+    ocp.constraints.uh_e = np.array([1e6])
 
     ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM' # FULL_CONDENSING_QPOASES
     ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
