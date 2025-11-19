@@ -69,7 +69,7 @@ class PinocchioCasadi:
             ["q", "v", "u"],
             ["qnext", "vnext"],
         )
-    
+
     def create_forward_kinematics(self):
         """Create a function to compute forward kinematics."""
         # run forward kinematics symbolically
@@ -80,7 +80,8 @@ class PinocchioCasadi:
         # self.ee_frame = self.ee_frame_id
 
         # CasADi FK expressions
-        self.p_ee = self.cdata.oMf[-1].translation # last frame translation
+        self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
+        self.ee = self.cdata.oMf[self.cmodel.getFrameId("ee")].translation
         # self.R_ee = self.cdata.oMf[self.ee_frame].rotation
 
     def forward(self, x, u): # Current state and input  -> next state

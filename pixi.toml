@@ -31,6 +31,7 @@ pink = ">=3.4.0,<4"
 plotly = ">=6.4.0,<7"
 mplcursors = ">=0.7,<0.8"
 seaborn = ">=0.13.2,<0.14"
+meshcat-shapes = ">=1.0.0,<2"
 
 [pypi-dependencies]
 tqdm = "*"

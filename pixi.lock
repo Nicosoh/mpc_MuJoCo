@@ -185,6 +185,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/matplotlib-inline-0.1.7-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mediapy-1.2.4-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/meshcat-python-0.3.2-pyhff2d567_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/meshcat-shapes-1.0.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/metis-5.1.0-h3023b02_1007.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mplcursors-0.7-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/mujoco-3.3.2-haae2d02_4.conda
@@ -2621,6 +2622,18 @@ packages:
   - pkg:pypi/meshcat?source=hash-mapping
   size: 354606
   timestamp: 1736249934135
+- conda: https://conda.anaconda.org/conda-forge/noarch/meshcat-shapes-1.0.0-pyhd8ed1ab_0.conda
+  sha256: 57cdee7cbe2184b5553fa5ff4f0a4e5ae2c5b8c2ffcbeb5c1dd8073e855fd28d
+  md5: b3e75992d4b59065a4f9e58c989e88a5
+  depends:
+  - meshcat-python >=0.1.1
+  - python >=3.9
+  license: Apache-2.0
+  license_family: APACHE
+  purls:
+  - pkg:pypi/meshcat-shapes?source=hash-mapping
+  size: 15001
+  timestamp: 1751374425907
 - conda: https://conda.anaconda.org/conda-forge/osx-64/metis-5.1.0-h3023b02_1007.conda
   sha256: 9443014f00a78a216c59f17a1309e49beb24b96082d198b4ab1626522fc7da40
   md5: 4e4566c484361d6a92478f57db53fb08

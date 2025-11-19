@@ -319,9 +319,9 @@ two_dof_arm:
   
   mpc:
     Fmax: [10, 10] # Maximum force
-    N_horizon: 500 # Prediction horizon
+    N_horizon: 2000 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
-    mpc_timestep: 0.01 # seconds
+    mpc_timestep: 0.001 # seconds
     x0: [3.142, 0.0, 0.0, 0.0]
     x0_random: false # If true, x0 above will not be used
     x0_range: [[-3.142, 3.142], [-3.142, 3.142], [-0.5, 0.5], [-0.5, 0.5]] # Range for random x0

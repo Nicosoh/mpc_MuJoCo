@@ -232,7 +232,7 @@ class MuJoCoSimulator:
             
             # Render if enabled
             if render and len(self.frames) < self.data.time * sim_framerate:
-                self.renderer.update_scene(self.data, scene_option=self.scene_option, camera=-1)
+                self.renderer.update_scene(self.data, scene_option=self.scene_option, camera=0)
                 pixels = self.renderer.render()
                 self.frames.append(pixels)
             

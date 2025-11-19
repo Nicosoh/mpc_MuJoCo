@@ -3,6 +3,75 @@ from acados_template import AcadosOcp, AcadosOcpSolver
 from pin_exporter import export_ode_model
 import scipy.linalg
 from casadi import vertcat
+import casadi as ca
+
+def clamp(x, lo=0.0, hi=1.0):
+    return ca.fmin(ca.fmax(x, lo), hi)
+
+def segment_segment_squared_distance(p1, p2, q1, q2):
+    """
+    p1, p2, q1, q2 : CasADi SX or MX 3×1 vectors
+    returns squared distance between segments P and Q
+    """
+
+    u = p2 - p1   # segment P direction
+    v = q2 - q1   # segment Q direction
+    w0 = p1 - q1
+
+    a = ca.dot(u, u)
+    b = ca.dot(u, v)
+    c = ca.dot(v, v)
+    d = ca.dot(u, w0)
+    e = ca.dot(v, w0)
+
+    denom = a*c - b*b
+
+    # Compute s*
+    s = (b*e - c*d) / denom
+    s = clamp(s)
+
+    # Compute t*
+    t = (a*e - b*d) / denom
+    t = clamp(t)
+
+    # Compute closest points
+    Ps = p1 + u * s
+    Qt = q1 + v * t
+
+    return ca.dot(Ps - Qt, Ps - Qt), Ps, Qt
+
+
+def capsule_squared_distance_function():
+    """
+    Returns a CasADi function:
+       f(p1,p2,q1,q2,r1,r2) = squared distance between two capsules
+    """
+
+    p1 = ca.SX.sym("p1", 3)
+    p2 = ca.SX.sym("p2", 3)
+    q1 = ca.SX.sym("q1", 3)
+    q2 = ca.SX.sym("q2", 3)
+
+    r1 = ca.SX.sym("r1")   # radius of capsule 1
+    r2 = ca.SX.sym("r2")   # radius of capsule 2
+
+    d2_seg, Ps, Qt = segment_segment_squared_distance(p1, p2, q1, q2)
+
+    # true capsule distance = max(0, distance - r1 - r2)
+    dist = ca.sqrt(d2_seg)
+    penetration = dist - (r1 + r2)
+
+    # squared = convex and MPC-friendly
+    d_capsule_sq = ca.fmax(penetration, 0)**2
+
+    return ca.Function(
+        "capsule_dist_sq",
+        [p1, p2, q1, q2, r1, r2],
+        # [d_capsule_sq],
+        [penetration**2],
+        ["p1", "p2", "q1", "q2", "r1", "r2"],
+        ["dist_sq"]
+    )
 
 def setup(config, yref):
     mpc_config = config["mpc"]
@@ -19,7 +88,7 @@ def setup(config, yref):
     ocp = AcadosOcp()
 
     # Call model creation function
-    model, px, py, pz = export_ode_model(config)
+    model, j_1, ee = export_ode_model(config)
     ocp.model = model
 
     # Extract state and input dimensions
@@ -56,23 +125,37 @@ def setup(config, yref):
     ocp.solver_options.tf = Tf # Total predicton time
 
     #----------------------------------Temporary for hard constraints on end-effector position----------------------------------#
-    ocp.constraints.constr_type = 'BGH'
-    # ocp.constraints.constr_type = 'BGP'
-    # non-linear (BGH) state constraint: circle
-    ocp.model.con_h_expr = (px-1.3)**2 + (pz-0.5)**2  # x1, x2
-    ocp.constraints.lh = np.array([(0.3+0.1)**2])       # radius
-    ocp.constraints.uh = np.array([1e6])
+    # ocp.constraints.constr_type = 'BGH'
+    # # ocp.constraints.constr_type = 'BGP'
+    # # non-linear (BGH) state constraint: circle
+    # ocp.model.con_h_expr = (px-1.3)**2 + (pz-0.5)**2  # x1, x2
+    # ocp.constraints.lh = np.array([(0.3+0.1)**2])       # radius
+    # ocp.constraints.uh = np.array([1e6])
 
-    ocp.model.con_h_expr_e = (px-1.3)**2 + (pz-0.5)**2  # x1, x2
-    ocp.constraints.lh_e = np.array([(0.3+0.1)**2])       # radius
-    ocp.constraints.uh_e = np.array([1e6])
+    # ocp.model.con_h_expr_e = (px-1.3)**2 + (pz-0.5)**2  # x1, x2
+    # ocp.constraints.lh_e = np.array([(0.3+0.1)**2])       # radius
+    # ocp.constraints.uh_e = np.array([1e6])
+    capsule_dist_sq = capsule_squared_distance_function()
+
+    p1 = j_1
+    p2 = ee
+
+    q1 = np.array([1.1,0,0.5])
+    q2 = np.array([1.1,0,1.0])
+
+    dist = capsule_dist_sq(p1, p2, q1, q2, 0.1, 0.1)
+
+    ocp.model.con_h_expr = dist
+    ocp.constraints.lh = np.array([0.00001])       # radius
+    ocp.constraints.uh = np.array([1e6])
+    #----------------------------------HARD COLLISION CONSTRAINT IMPLEMENTATION----------------------------------#
 
     ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM' # FULL_CONDENSING_QPOASES
     ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
     ocp.solver_options.integrator_type = 'IRK'
     ocp.solver_options.sim_method_newton_iter = 10
-    ocp.solver_options.regularize_method = 'CONVEXIFY' # For the Hessian
-    ocp.solver_options.levenberg_marquardt = 10.0
+    # ocp.solver_options.regularize_method = 'CONVEXIFY' # For the Hessian
+    ocp.solver_options.levenberg_marquardt = 20.0
     ocp.solver_options.nlp_solver_warm_start_first_qp_from_nlp = True
     ocp.solver_options.nlp_solver_warm_start_first_qp = True
     ocp.solver_options.qp_solver_warm_start = 1

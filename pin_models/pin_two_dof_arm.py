@@ -48,7 +48,17 @@ def make_2dof_arm(config):
     ee_placement = pin.SE3.Identity()
     ee_placement.translation = np.array([0.0, 0.0, length])   # tip of second link
 
-    ee_frame_id = model.addFrame(
+    model.addFrame(
+        pin.Frame(
+            "j_1",
+            pendulum1_id,          # attached to joint2
+            0,
+            ee_placement,
+            pin.FrameType.OP_FRAME
+        )
+    )
+
+    model.addFrame(
         pin.Frame(
             "ee",
             pendulum2_id,          # attached to joint2
@@ -81,13 +91,22 @@ def make_2dof_arm(config):
     collision_model.addGeometryObject(geom_pole2)
     collision_model.addGeometryObject(geom_pend2)
     visual_model = collision_model
-    import pdb; pdb.set_trace()
+
+    # Only for visualization purposes of capsules
+    radius_cap = 0.12
+    shape_capsule = fcl.Capsule(radius_cap, length)
+    capsule_link2 = pin.SE3.Identity()
+    capsule_link2.translation = np.array([0.0, 0.0, length/2]) 
+    geom_capsule2 = pin.GeometryObject("capsule_link2", pendulum2_id, capsule_link2, shape_capsule)
+    geom_capsule2.meshColor = np.array([0.0, 0.5, 1.0, 0.3])
+    visual_model.addGeometryObject(geom_capsule2)
+
     return model, collision_model, visual_model
 
 class TwoDOFArmDynamics(PinocchioCasadi):
     def __init__(self, timestep: float, config):
         model, collision_model, visual_model = make_2dof_arm(config)
+        self.model = model
         self.collision_model = collision_model
         self.visual_model = visual_model
-        # self.ee_frame_id = ee_frame_id
         super().__init__(model=model, timestep=timestep, config=config)
