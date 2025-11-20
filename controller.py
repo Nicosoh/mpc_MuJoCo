@@ -88,8 +88,26 @@ def setup(config, yref):
     ocp = AcadosOcp()
 
     # Call model creation function
-    model, j_1, ee = export_ode_model(config)
+    model, pin_model = export_ode_model(config)
     ocp.model = model
+
+    if mpc_config["IK_required"]:
+
+        # Add collision avoidance constraint between two capsules
+        capsule_dist_sq = capsule_squared_distance_function()
+
+        p1 = pin_model.j_1
+        p2 = pin_model.ee
+
+        q1 = np.array([1.1,0,0.5])
+        q2 = np.array([1.1,0,1.0])
+
+        dist = capsule_dist_sq(p1, p2, q1, q2, 0.1, 0.1)
+
+        ocp.model.con_h_expr = dist
+        ocp.constraints.lh = np.array([0.00001])       # radius
+        ocp.constraints.uh = np.array([1e6])
+
 
     # Extract state and input dimensions
     nx = model.x.rows() # Possible to extract the last predicted state here to insert into NN. maybe...
@@ -124,46 +142,16 @@ def setup(config, yref):
     ocp.solver_options.N_horizon = N_horizon
     ocp.solver_options.tf = Tf # Total predicton time
 
-    #----------------------------------Temporary for hard constraints on end-effector position----------------------------------#
-    # ocp.constraints.constr_type = 'BGH'
-    # # ocp.constraints.constr_type = 'BGP'
-    # # non-linear (BGH) state constraint: circle
-    # ocp.model.con_h_expr = (px-1.3)**2 + (pz-0.5)**2  # x1, x2
-    # ocp.constraints.lh = np.array([(0.3+0.1)**2])       # radius
-    # ocp.constraints.uh = np.array([1e6])
-
-    # ocp.model.con_h_expr_e = (px-1.3)**2 + (pz-0.5)**2  # x1, x2
-    # ocp.constraints.lh_e = np.array([(0.3+0.1)**2])       # radius
-    # ocp.constraints.uh_e = np.array([1e6])
-    capsule_dist_sq = capsule_squared_distance_function()
-
-    p1 = j_1
-    p2 = ee
-
-    q1 = np.array([1.1,0,0.5])
-    q2 = np.array([1.1,0,1.0])
-
-    dist = capsule_dist_sq(p1, p2, q1, q2, 0.1, 0.1)
-
-    ocp.model.con_h_expr = dist
-    ocp.constraints.lh = np.array([0.00001])       # radius
-    ocp.constraints.uh = np.array([1e6])
-    #----------------------------------HARD COLLISION CONSTRAINT IMPLEMENTATION----------------------------------#
-
     ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM' # FULL_CONDENSING_QPOASES
     ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
     ocp.solver_options.integrator_type = 'IRK'
     ocp.solver_options.sim_method_newton_iter = 10
-    # ocp.solver_options.regularize_method = 'CONVEXIFY' # For the Hessian
-    ocp.solver_options.levenberg_marquardt = 20.0
-    ocp.solver_options.nlp_solver_warm_start_first_qp_from_nlp = True
-    ocp.solver_options.nlp_solver_warm_start_first_qp = True
-    ocp.solver_options.qp_solver_warm_start = 1
+    ocp.solver_options.regularize_method = mpc_config["regularize_method"] # For the Hessian
+    ocp.solver_options.levenberg_marquardt = mpc_config["levenberg_marquardt"]
+    ocp.solver_options.nlp_solver_warm_start_first_qp_from_nlp = mpc_config["nlp_solver_warm_start_first_qp_from_nlp"]
+    ocp.solver_options.nlp_solver_warm_start_first_qp = mpc_config["nlp_solver_warm_start_first_qp"]
+    ocp.solver_options.qp_solver_warm_start = mpc_config["qp_solver_warm_start"]
     # ocp.solver_options.adaptive_levenberg_marquardt_lam
-
-    # Timeout options only implemented for SQP and not for SQP_RTI
-    # ocp.solver_options.timeout_max_time = 
-    # ocp.solver_options.timeout_heuristic = 
 
     if RTI:
         ocp.solver_options.nlp_solver_type = 'SQP_RTI'
@@ -178,9 +166,6 @@ def setup(config, yref):
     solver_json = 'acados_ocp_' + model.name + '.json'
     acados_ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json, verbose=False)
 
-    # Create an integrator with the same settings as used in the OCP solver.
-    # acados_integrator = AcadosSimSolver(ocp, json_file = solver_json)
-
     return acados_ocp_solver
 
 class BaseMPCController:
@@ -190,6 +175,7 @@ class BaseMPCController:
         # Extract parameters from config
         self.use_RTI = mpc_config["use_RTI"]
         x0 = np.array(mpc_config["x0"])
+        self.IK_required = mpc_config["IK_required"]
 
         # Setup MPC solver
         self.ocp_solver = setup(config, yref)
@@ -204,10 +190,13 @@ class BaseMPCController:
     def __call__(self, x, yref_now, full_traj):
         """Compute MPC input given MuJoCo state."""
         # Set yref
+        # if self.IK_required:
+            
+        # else: 
         for stage in range(self.N):
             self.ocp_solver.cost_set(stage, "yref", yref_now, api='new')
-        self.ocp_solver.cost_set(self.N, "y_ref", yref_now[:self.nx], api='new')  # Terminal reference (only x)
-
+        self.ocp_solver.cost_set(self.N, "yref", yref_now[:self.nx], api='new')  # Terminal reference (only x)
+        
         if self.use_RTI:
             # Preparation phase
             self.ocp_solver.options_set('rti_phase', 1)

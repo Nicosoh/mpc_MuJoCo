@@ -42,6 +42,12 @@ cartpole:
     termination_cost: 0.1 # Tolerance for early termination cost
     solve_ocp: true # Enable if only a single step is required
     full_traj: true # If above is true, then this needs to be true as well
+    IK_required: false # Enable inverse kinematics in MPC setup (only for manipulators)
+    levenberg_marquardt: 0.0
+    regularize_method: 'NO_REGULARIZE'
+    nlp_solver_warm_start_first_qp_from_nlp: false
+    nlp_solver_warm_start_first_qp: false
+    qp_solver_warm_start: 0
     
   plots:
     Cart Position: ["qpos", 0, "m"]
@@ -91,6 +97,12 @@ pendulum:
     termination_cost: 0.01 # Tolerance for early termination cost
     solve_ocp: false # Enable if only a single step is required
     full_traj: true # If above is true, then this needs to be true as well
+    IK_required: false # Enable inverse kinematics in MPC setup (only for manipulators)
+    levenberg_marquardt: 0.0
+    regularize_method: 'NO_REGULARIZE'
+    nlp_solver_warm_start_first_qp_from_nlp: false
+    nlp_solver_warm_start_first_qp: false
+    qp_solver_warm_start: 0
 
   plots:
     Pendulum Angle: ["qpos", 0, "rad"]
@@ -144,6 +156,12 @@ double_pendulum:
     termination_cost: 0.05 # Tolerance for early termination cost
     solve_ocp: false # Enable if only a single step is required
     full_traj: true # If above is true, then this needs to be true as well
+    IK_required: false # Enable inverse kinematics in MPC setup (only for manipulators)
+    levenberg_marquardt: 0.0
+    regularize_method: 'NO_REGULARIZE'
+    nlp_solver_warm_start_first_qp_from_nlp: false
+    nlp_solver_warm_start_first_qp: false
+    qp_solver_warm_start: 0
 
   plots:
     Pendulum 1 Angle: ["qpos", 0, "rad"]
@@ -202,6 +220,12 @@ cartpole_double_pendulum:
     termination_cost: 1.0 # Tolerance for early termination cost
     solve_ocp: false # Enable if only a single step is required
     full_traj: true # If above is true, then this needs to be true as well
+    IK_required: false # Enable inverse kinematics in MPC setup (only for manipulators)
+    levenberg_marquardt: 10.0
+    regularize_method: 'CONVEXIFY'
+    nlp_solver_warm_start_first_qp_from_nlp: true
+    nlp_solver_warm_start_first_qp: true
+    qp_solver_warm_start: 1
 
   plots:
     Cart Position: ["qpos", 0, "m"]
@@ -261,6 +285,12 @@ iiwa14:
     termination_cost: 0.1 # Tolerance for early termination cost
     solve_ocp: false # Enable if only a single step is required
     full_traj: true # If above is true, then this needs to be true as well
+    IK_required: true # Enable inverse kinematics in MPC setup (only for manipulators)
+    levenberg_marquardt: 10.0
+    regularize_method: 'CONVEXIFY'
+    nlp_solver_warm_start_first_qp_from_nlp: true
+    nlp_solver_warm_start_first_qp: true
+    qp_solver_warm_start: 1
 
   plots:
     Joint 1 Angle: ["qpos", 0, "rad"]
@@ -319,9 +349,9 @@ two_dof_arm:
   
   mpc:
     Fmax: [10, 10] # Maximum force
-    N_horizon: 2000 # Prediction horizon
+    N_horizon: 200 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
-    mpc_timestep: 0.001 # seconds
+    mpc_timestep: 0.005 # seconds
     x0: [3.142, 0.0, 0.0, 0.0]
     x0_random: false # If true, x0 above will not be used
     x0_range: [[-3.142, 3.142], [-3.142, 3.142], [-0.5, 0.5], [-0.5, 0.5]] # Range for random x0
@@ -332,6 +362,12 @@ two_dof_arm:
     termination_cost: 0.05 # Tolerance for early termination cost
     solve_ocp: false # Enable if only a single step is required
     full_traj: true # If above is true, then this needs to be true as well
+    IK_required: true # Enable inverse kinematics in MPC setup (only for manipulators)
+    levenberg_marquardt: 20.0
+    regularize_method: 'CONVEXIFY'
+    nlp_solver_warm_start_first_qp_from_nlp: true
+    nlp_solver_warm_start_first_qp: true
+    qp_solver_warm_start: 1
 
   plots:
     Pendulum 1 Angle: ["qpos", 0, "rad"]

@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mediapy as media
 import importlib
+from robot_descriptions.loaders.mujoco import load_robot_description
+import mujoco
 
 # ========== PLOTTING ==========
 
@@ -204,6 +206,13 @@ def load_yref(model_name):
     except ModuleNotFoundError:
         raise ValueError(f"No yref file found for model '{model_name}'")
     
+def load_obstacles(model_name):
+    try:
+        obstacles_module = importlib.import_module(f"obstacles.{model_name}_obstacles")
+        return obstacles_module.obstacles
+    except ModuleNotFoundError:
+        raise ValueError(f"No obstacles file found for model '{model_name}'")
+    
 def randomise_x0(config):
     x0_range = config["mpc"]["x0_range"]
     x0 = config["mpc"]["x0"]
@@ -278,3 +287,81 @@ def ocp_plot(simulator, output_dir, file_name="OCP_plot"):
     print(f"Plot saved to {full_path}")
 
     plt.show()
+
+# Load model from xml file
+def load_model_from_xml(model_path: str):
+    """Load a MuJoCo model and create associated data object."""
+    model = mujoco.MjModel.from_xml_path(model_path)
+    data = mujoco.MjData(model)
+    return model, data
+
+# Load model from robot descriptions
+def load_model_from_robot_descriptions(description_name: str):
+    """Load a MuJoCo model and data using robot_descriptions."""
+    model = load_robot_description(description_name)  # Loads and parses the MJCF
+    data = mujoco.MjData(model)
+    
+    return model, data
+
+# Apply model config only if loaded from xml
+def apply_model_config(config, model):
+    try:
+        for body_name in config["model"]["mass"].keys():
+            mass_value = config["model"]["mass"][body_name] # Respective mass value
+            inertia_value = config["model"]["inertia"][body_name] # Respective inertia value
+            # Find the body ID you want to modify
+            body_id = model.body(name=body_name)
+            # Assign the new mass & inertia value
+            body_id.mass = mass_value
+            body_id.inertia = inertia_value
+
+            # Print to verify
+            print(f"Updated body '{body_name}': mass={body_id.mass}, inertia={body_id.inertia}")
+    except KeyError:
+        print("No custom mass or inertia values found in config; using model defaults.")
+
+def load_model(config):
+    # Load MuJoCo model from cml or URDF if available
+    if config["mujoco"]["urdf_available"]:
+        menagerie_name =  config["mujoco"]["menagerie_name"]
+        model, data = load_model_from_robot_descriptions(menagerie_name)
+    else:
+        path = config["mujoco"]["model_path"]
+        model, data = load_model_from_xml(path)
+        # Update model parameters from config
+        apply_model_config(config, model)
+    
+    if config["model"]["name"] == "iiwa14": # Converts iiwa14 from PD to torque control
+        model.actuator_biastype = np.array([0, 0, 0, 0, 0, 0, 0]) # removes bias by setting it to "none"
+        model.actuator_gainprm = np.ones((7,10))   # sets gain to 1
+        model.actuator_ctrlrange = np.array([[-320, 320], [-320, 320], [-176,176], [-176,176], [-110,110], [-40,40], [-40,40]]) # sets control range
+    
+    return model, data
+
+def init_scene_options():
+    """Initialize visualization options for rendering."""
+    scene_option = mujoco.MjvOption()
+    scene_option.flags[mujoco.mjtVisFlag.mjVIS_JOINT] = False
+    # scene_option.frame = mujoco.mjtFrame.mjFRAME_GEOM
+    return scene_option
+
+def get_yref_at_time(t_now, yref):
+    """
+    Get the most recent reference (no interpolation) for the given time.
+
+    Args:
+        t_now (float): Current time in seconds.
+
+    Returns:
+        ref (np.ndarray): Reference state at or before time t_now.
+    """
+    times = yref[:, 0]
+    states = yref[:, 1:]
+
+    # If before first timestamp, return the first reference
+    if t_now <= times[0]:
+        return states[0]
+    
+    # Find the last index where time <= t_now
+    idx = np.searchsorted(times, t_now, side='right') - 1
+    return states[idx]

@@ -1,92 +1,14 @@
 import mujoco
 import numpy as np
 from tqdm import tqdm
-from robot_descriptions.loaders.mujoco import load_robot_description
 from controller import BaseMPCController
-from utils import load_x0, load_yref
-
-# Load model from xml file
-def load_model_from_xml(model_path: str):
-    """Load a MuJoCo model and create associated data object."""
-    model = mujoco.MjModel.from_xml_path(model_path)
-    data = mujoco.MjData(model)
-    return model, data
-
-# Load model from robot descriptions
-def load_model_from_robot_descriptions(description_name: str):
-    """Load a MuJoCo model and data using robot_descriptions."""
-    model = load_robot_description(description_name)  # Loads and parses the MJCF
-    data = mujoco.MjData(model)
-    
-    return model, data
-
-# Apply model config only if loaded from xml
-def apply_model_config(config, model):
-    try:
-        for body_name in config["model"]["mass"].keys():
-            mass_value = config["model"]["mass"][body_name] # Respective mass value
-            inertia_value = config["model"]["inertia"][body_name] # Respective inertia value
-            # Find the body ID you want to modify
-            body_id = model.body(name=body_name)
-            # Assign the new mass & inertia value
-            body_id.mass = mass_value
-            body_id.inertia = inertia_value
-
-            # Print to verify
-            print(f"Updated body '{body_name}': mass={body_id.mass}, inertia={body_id.inertia}")
-    except KeyError:
-        print("No custom mass or inertia values found in config; using model defaults.")
-
-def load_model(config):
-    # Load MuJoCo model from cml or URDF if available
-    if config["mujoco"]["urdf_available"]:
-        menagerie_name =  config["mujoco"]["menagerie_name"]
-        model, data = load_model_from_robot_descriptions(menagerie_name)
-    else:
-        path = config["mujoco"]["model_path"]
-        model, data = load_model_from_xml(path)
-        # Update model parameters from config
-        apply_model_config(config, model)
-    
-    if config["model"]["name"] == "iiwa14": # Converts iiwa14 from PD to torque control
-        model.actuator_biastype = np.array([0, 0, 0, 0, 0, 0, 0]) # removes bias by setting it to "none"
-        model.actuator_gainprm = np.ones((7,10))   # sets gain to 1
-        model.actuator_ctrlrange = np.array([[-320, 320], [-320, 320], [-176,176], [-176,176], [-110,110], [-40,40], [-40,40]]) # sets control range
-    
-    return model, data
-
-def init_scene_options():
-    """Initialize visualization options for rendering."""
-    scene_option = mujoco.MjvOption()
-    scene_option.flags[mujoco.mjtVisFlag.mjVIS_JOINT] = False
-    # scene_option.frame = mujoco.mjtFrame.mjFRAME_GEOM
-    return scene_option
-
-def get_yref_at_time(t_now, yref):
-    """
-    Get the most recent reference (no interpolation) for the given time.
-
-    Args:
-        t_now (float): Current time in seconds.
-
-    Returns:
-        ref (np.ndarray): Reference state at or before time t_now.
-    """
-    times = yref[:, 0]
-    states = yref[:, 1:]
-
-    # If before first timestamp, return the first reference
-    if t_now <= times[0]:
-        return states[0]
-    
-    # Find the last index where time <= t_now
-    idx = np.searchsorted(times, t_now, side='right') - 1
-    return states[idx]
+from utils import *
 
 class MuJoCoSimulator:
     def __init__(self, config):
         self.config = load_x0(config=config)                        # Load x0
         self.yref = load_yref(model_name=self.config["model"]["name"])   # Load yref
+        self.obstacles = load_obstacles(model_name=self.config["model"]["name"])   # Load obstacles
         self.model, self.data = load_model(self.config)                  # Create MuJoCo simulator object with loaded model
         self.controller = BaseMPCController(self.config, self.yref) # Create Controller
 
@@ -233,6 +155,15 @@ class MuJoCoSimulator:
             # Render if enabled
             if render and len(self.frames) < self.data.time * sim_framerate:
                 self.renderer.update_scene(self.data, scene_option=self.scene_option, camera=0)
+
+                if self.obstacles is not None:
+                    # Add obstacle capsules to the scene (for now ignoring that over time it can shift aka static obstacles)
+                    for obs in range(self.obstacles.shape[0]):
+                            p1 = self.obstacles[obs, 0, 1:4]
+                            p2 = self.obstacles[obs, 0, 4:7]
+                            radius = self.obstacles[obs, 0, 7]
+                            add_visual_capsule(self.renderer.scene, p1, p2, radius=radius, rgba=(0.8, 0.1, 0.1, 1))
+
                 pixels = self.renderer.render()
                 self.frames.append(pixels)
             
@@ -285,3 +216,31 @@ class MuJoCoSimulator:
         mujoco.mj_step(self.model, self.data)
 
         return cost, qpos_traj, qvel_traj, u_traj
+
+def add_visual_capsule(scene, p1, p2, radius, rgba):
+    """Adds a visual-only capsule to an mjvScene (no physics)."""
+    if scene.ngeom >= scene.maxgeom:
+        return  # can't add more
+
+    idx = scene.ngeom
+    scene.ngeom += 1
+
+    rgba = np.asarray(rgba, dtype=np.float32)
+
+    mujoco.mjv_initGeom(
+        scene.geoms[idx],
+        mujoco.mjtGeom.mjGEOM_CAPSULE,
+        np.zeros(3),             # size (not used for capsules)
+        np.zeros(3),             # position (not used for capsules)
+        np.zeros(9),             # rotation (not used for capsules)
+        rgba                     # color
+    )
+
+    # Set capsule endpoints and radius
+    mujoco.mjv_connector(
+        scene.geoms[idx],
+        mujoco.mjtGeom.mjGEOM_CAPSULE,
+        radius,
+        np.array(p1, dtype=np.float32),
+        np.array(p2, dtype=np.float32),
+    )

@@ -62,7 +62,4 @@ def export_ode_model(config) -> AcadosModel:
     model.u = u
     model.name = model_name
 
-    # Temporary return of end-effector position for hard constraints...maybe another exporter.
-    # px, py, pz = pin_model.p_ee[0], pin_model.p_ee[1], pin_model.p_ee[2]
-
-    return model, pin_model.j_1, pin_model.ee
+    return model, pin_model
