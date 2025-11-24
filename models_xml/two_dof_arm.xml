@@ -1,0 +1,51 @@
+<mujoco model="2dof_arm">
+    
+    <!-- Background texture -->
+    <asset>
+        <texture name="grid" type="2d" builtin="checker" rgb1=".1 .2 .3"
+        rgb2=".2 .3 .4" width="100" height="100"/>
+        <material name="grid" texture="grid" texrepeat="8 8" reflectance=".2"/>
+    </asset>
+
+    <worldbody>
+        <camera pos="0.469 -5.777 0.669" xyaxes="1.000 0.005 -0.000 -0.001 0.157 0.988"/>
+        <!-- Place background -->
+        <geom size="2 2 .01" pos="0 0 -2" type="plane" material="grid"/>
+        <!-- Static light -->
+        <light pos="0 0 5" dir="0 0 -1" diffuse=".8 .8 .8" specular=".3 .3 .3"/>
+
+        <!-- First Link -->
+        <body name="pendulum_stick1" pos="0 0 0">
+            <joint name="hinge1" type="hinge" axis="1 0 0" pos="0 0 0"/>
+            <!-- Only for visuals -->
+            <geom name="pendulum_stick_geom1" type="capsule" fromto="0 0 0 0 0 0.8" size="0.025"/>
+            <geom name="visual_capsule1" type="capsule" fromto="0 0 0 0 0 0.8" size="0.1" rgba="0.2 0.6 1.0 0.3"/>
+
+            <!-- Mass on the end of the pendulum -->
+            <geom name="pendulum_geom1" type="sphere" size="0.1" pos="0 0 0.8"/>
+            <inertial mass="0.1" diaginertia="2e-3 2e-3 2e-3" pos="0 0 0.8"/>
+            <site pos="0 0 0.9" name="j_1"/>
+
+            <!-- Second Link -->
+            <body name="pendulum_stick2" pos="0 0 0.8">
+                <joint name="hinge2" type="hinge" axis="1 0 0" pos="0 0 0"/>
+                <!-- Only for visuals -->
+                <geom name="pendulum_stick_geom2" type="capsule" fromto="0 0 0 0 0 0.8" size="0.025"/>
+                <geom name="visual_capsule2" type="capsule" fromto="0 0 0 0 0 0.8" size="0.1" rgba="0.2 0.6 1.0 0.3"/>
+
+                <!-- Mass on the end of the pendulum -->
+                <geom name="pendulum_geom2" type="sphere" size="0.1" pos="0 0 0.8"/>
+                <inertial mass="0.1" diaginertia="2e-3 2e-3 2e-3" pos="0 0 0.8"/>
+                <site pos="0 0 0.9" name="ee"/>
+                <site pos="0 0 0.9" name="attachment_site"/>
+            </body>
+        </body>
+    </worldbody>
+    
+    <!-- Force actuator on the cart -->
+    <actuator>
+        <general joint="hinge1"/>
+        <general joint="hinge2"/>
+    </actuator>
+
+</mujoco>

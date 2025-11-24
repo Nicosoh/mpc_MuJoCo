@@ -1,49 +1,38 @@
 from acados_template import AcadosModel
 from pin_models import *
 from casadi import SX, vertcat
+from pin_models.pin_base_class import PinocchioCasadiRobotWrapper
+import os
 
 def export_ode_model(config) -> AcadosModel:
     """
     Converts a Pinocchio-based model into an AcadosModel for OCP solving.
     """
-    mpc_config = config["mpc"]
+    base_dir = "models_xml"
+    model_name = config["model"]["name"].lower()  # e.g., "two_dof_arm"
+    filename = os.path.join(base_dir, f"{model_name}.xml")
 
-    # Create selected model
-    if config["model"]["name"].lower() == "cartpole":
-        pin_model = CartpoleDynamics(timestep=mpc_config["mpc_timestep"], config=config)
+    try:
+        # Load the robot using PinocchioCasadi
+        robot_sys = PinocchioCasadiRobotWrapper(filename=filename, config=config)
 
-    elif config["model"]["name"].lower() == "pendulum":
-        pin_model = PendulumDynamics(timestep=mpc_config["mpc_timestep"], config=config)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Model file '{filename}' does not exist. Check your models_xml folder.")
 
-    elif config["model"]["name"].lower() == "iiwa14":
-        pin_model = iiwa14Dynamics(timestep=mpc_config["mpc_timestep"], config=config)
-
-    elif config["model"]["name"].lower() == "double_pendulum":
-        pin_model = DoublePendulumDynamics(timestep=mpc_config["mpc_timestep"], config=config)
-    
-    elif config["model"]["name"].lower() == "cartpole_double_pendulum":
-        pin_model = CartpoleDoublePendulumDynamics(timestep=mpc_config["mpc_timestep"], config=config)
-    
-    elif config["model"]["name"].lower() == "two_dof_arm":
-        pin_model = TwoDOFArmDynamics(timestep=mpc_config["mpc_timestep"], config=config)
-
-    else:
-        raise ValueError(f"Unknown model name '{config['model']['name']}'. Add in elif statement for new models")
-
-    model_name = "pin_model_ode"
+    model_name = "robot_sys_ode"
 
     # Use already-created Casadi symbolic variables
-    q = pin_model.q_node
-    v = pin_model.v_node
-    u = pin_model.u_node
-    nq = pin_model.model.nq
-    nv = pin_model.model.nv
+    q = robot_sys.q_node
+    v = robot_sys.v_node
+    u = robot_sys.u_node
+    nq = robot_sys.model.nq
+    nv = robot_sys.model.nv
 
     # State Vector: x = [q; v]
     x = vertcat(q, v)
 
     # xdot = [v; a(q,v,u)]
-    a = pin_model.acc  # acceleration expression
+    a = robot_sys.acc  # acceleration expression
     xdot = vertcat(v, a)
 
     # Explicit dynamics
@@ -62,4 +51,4 @@ def export_ode_model(config) -> AcadosModel:
     model.u = u
     model.name = model_name
 
-    return model, pin_model
+    return model, robot_sys

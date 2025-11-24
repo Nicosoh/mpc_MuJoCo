@@ -8,10 +8,11 @@ class MuJoCoSimulator:
     def __init__(self, config):
         self.config = load_x0(config=config)                        # Load x0
         self.yref = load_yref(model_name=self.config["model"]["name"])   # Load yref
-        self.obstacles = load_obstacles(model_name=self.config["model"]["name"])   # Load obstacles
+        if config["mpc"]["IK_required"]:
+            self.collision_config = load_collision_config(model_name=self.config["model"]["name"])   # Load obstacles
         self.model, self.data = load_model(self.config)                  # Create MuJoCo simulator object with loaded model
-        self.controller = BaseMPCController(self.config, self.yref) # Create Controller
-
+        self.controller = BaseMPCController(self.config, self.yref, self.collision_config) # Create Controller
+        self.config = self.controller.config # Replace config for the case where cartesian is converted to joint state
         self.sanity_check() # Sanity check between model, controller, yref, x0
 
         self.model.opt.timestep = self.config["mujoco"]["sim_timestep"]  # Set simulation timestep
@@ -156,13 +157,12 @@ class MuJoCoSimulator:
             if render and len(self.frames) < self.data.time * sim_framerate:
                 self.renderer.update_scene(self.data, scene_option=self.scene_option, camera=0)
 
-                if self.obstacles is not None:
+                if self.collision_config is not None:
                     # Add obstacle capsules to the scene (for now ignoring that over time it can shift aka static obstacles)
-                    for obs in range(self.obstacles.shape[0]):
-                            p1 = self.obstacles[obs, 0, 1:4]
-                            p2 = self.obstacles[obs, 0, 4:7]
-                            radius = self.obstacles[obs, 0, 7]
-                            add_visual_capsule(self.renderer.scene, p1, p2, radius=radius, rgba=(0.8, 0.1, 0.1, 1))
+                    obstacles = self.collision_config["obstacles"]
+
+                    for obs_name, obs in obstacles.items():
+                        add_visual_capsule(self.renderer.scene, p1=obs["from"], p2=obs["to"], radius=obs["radius"], rgba=(0.8, 0.1, 0.1, 1),)
 
                 pixels = self.renderer.render()
                 self.frames.append(pixels)
@@ -195,11 +195,14 @@ class MuJoCoSimulator:
         # Only update MPC if needed
         if self.data.time >= self.next_mpc_time:
             try:
-                # Get reference trajectory at the current time
-                yref_now = get_yref_at_time(self.data.time, self.yref)
-                self.logs["yref"].append(yref_now)  # Keep track of the reference
+                if not self.config["mpc"]["IK_required"]:
+                    # Get reference state at the current time
+                    yref_now = get_yref_at_time(self.data.time, self.yref)
+                    self.logs["yref"].append(yref_now)  # Keep track of the reference
+                else:
+                    yref_now = None
                 # Run MPC to compute control input, cost, and trajectory
-                self.last_u, cost, qpos_traj, qvel_traj, u_traj = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
+                self.last_u, cost, qpos_traj, qvel_traj, u_traj = self.controller(x, yref_now, self.config["mpc"]["full_traj"], self.data.time)
 
                 # += to next mpc time step
                 self.next_mpc_time += self.mpc_timestep

@@ -1,7 +1,7 @@
 import hppfcl as fcl
 import numpy as np
 import pinocchio as pin
-from pin_models.pin_base_class import PinocchioCasadi
+from pin_models.pin_base_class import PinocchioCasadiRobotWrapper
 
 def make_2dof_arm(config):
     model_config = config["model"]
@@ -103,10 +103,11 @@ def make_2dof_arm(config):
 
     return model, collision_model, visual_model
 
-class TwoDOFArmDynamics(PinocchioCasadi):
+class TwoDOFArmDynamics(PinocchioCasadiRobotWrapper):
     def __init__(self, timestep: float, config):
         model, collision_model, visual_model = make_2dof_arm(config)
         self.model = model
         self.collision_model = collision_model
         self.visual_model = visual_model
+        self.data = pin.Data(self.model)
         super().__init__(model=model, timestep=timestep, config=config)

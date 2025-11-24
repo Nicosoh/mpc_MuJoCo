@@ -1,7 +1,7 @@
 import hppfcl as fcl
 import numpy as np
 import pinocchio as pin
-from pin_models.pin_base_class import PinocchioCasadi
+from pin_models.pin_base_class import PinocchioCasadiRobotWrapper
 
 def make_pendulum(config):
     model_config = config["model"]
@@ -45,7 +45,7 @@ def make_pendulum(config):
 
     return model, collision_model, visual_model
 
-class PendulumDynamics(PinocchioCasadi):
+class PendulumDynamics(PinocchioCasadiRobotWrapper):
     def __init__(self, timestep: float, config):
         model, collision_model, visual_model = make_pendulum(config)
         self.collision_model = collision_model

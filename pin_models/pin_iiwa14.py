@@ -1,7 +1,5 @@
-from pin_models.pin_base_class import PinocchioCasadi
-# import pinocchio as pin
+from pin_models.pin_base_class import PinocchioCasadiRobotWrapper
 import numpy as np
-# from pathlib import Path
 from robot_descriptions.loaders.pinocchio import load_robot_description
 
 def make_iiwa14(config):
@@ -19,7 +17,7 @@ def make_iiwa14(config):
 
     return model, collision_model, visual_model
     
-class iiwa14Dynamics(PinocchioCasadi):
+class iiwa14Dynamics(PinocchioCasadiRobotWrapper):
     def __init__(self, timestep: float, config):
         model, collision_model, visual_model = make_iiwa14(config)
         self.collision_model = collision_model

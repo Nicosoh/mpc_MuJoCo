@@ -2,21 +2,31 @@ import casadi
 import numpy as np
 import pinocchio as pin
 import pinocchio.casadi as cpin
+from pinocchio.robot_wrapper import RobotWrapper
 
-class PinocchioCasadi:
+class PinocchioCasadiRobotWrapper(RobotWrapper):
     """Take a Pinocchio model, turn it into a Casadi model
     and define the appropriate graphs.
     """
+    def __init__(self, filename, config):
+        super().initFromMJCF(filename=filename) # Parse MJCF file to RobotWrapper
 
-    def __init__(self, model: pin.Model, timestep: float, config):
         pin_config = config["pin"]
-        self.model = model
-        self.cmodel = cpin.Model(model)  # cast to CasADi model
+        self.cmodel = cpin.Model(self.model)  # cast to CasADi model
         self.cdata = self.cmodel.createData() # create CasADi data
-        self.timestep = timestep
+        self.timestep = config["mpc"]["mpc_timestep"]
         self.create_dynamics(pin_config)
         self.create_discrete_dynamics()
         self.create_forward_kinematics()
+
+    # def __init__(self, model: pin.Model, timestep: float, config):
+    #     pin_config = config["pin"]
+    #     self.cmodel = cpin.Model(model)  # cast to CasADi model
+    #     self.cdata = self.cmodel.createData() # create CasADi data
+    #     self.timestep = timestep
+    #     self.create_dynamics(pin_config)
+    #     self.create_discrete_dynamics()
+    #     self.create_forward_kinematics()
 
     def create_dynamics(self, pin_config):
         """Create the acceleration expression and acceleration function."""
@@ -37,8 +47,6 @@ class PinocchioCasadi:
         for i, joint_idx in enumerate(pin_config["actuated_joints"]):
             B[joint_idx, i] = 1.0
         
-        # B = np.array(pin_config["B"])            # actuation matrix, first DoF is actuated since it is moving the cart
-        # B = np.diag(pin_config["B"])
         tau = B @ u                     # robot’s generalized forces/torques
         a = cpin.aba(self.cmodel, self.cdata, q, v, tau) # Articulated Body Algorithm
         self.acc = a

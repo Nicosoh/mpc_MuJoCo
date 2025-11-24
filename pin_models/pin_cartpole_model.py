@@ -1,4 +1,4 @@
-from pin_models.pin_base_class import PinocchioCasadi
+from pin_models.pin_base_class import PinocchioCasadiRobotWrapper
 import hppfcl as fcl
 import numpy as np
 import pinocchio as pin
@@ -59,7 +59,7 @@ def make_cartpole(config):
 
     return model, collision_model, visual_model
     
-class CartpoleDynamics(PinocchioCasadi):
+class CartpoleDynamics(PinocchioCasadiRobotWrapper):
     def __init__(self, timestep: float, config):
         model, collision_model, visual_model = make_cartpole(config)
         self.collision_model = collision_model

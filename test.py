@@ -271,71 +271,299 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2022 Stéphane Caron
 
+# import numpy as np
+# import matplotlib.pyplot as plt
+
+# # -----------------------------------------
+# # 1. Define two random line segments in 3D
+# # -----------------------------------------
+# np.random.seed(1)
+# p1 = np.array([0,0,0])
+# q1 = np.array([1,1,0.2])
+
+# p2 = np.array([0.2,1.0,0.5])
+# q2 = np.array([1.0,0.2,0.8])
+
+# u = q1 - p1
+# v = q2 - p2
+# w0 = p1 - p2
+
+# # -----------------------------------------
+# # Distance squared function f(s,t)
+# # -----------------------------------------
+# def dist_sq(s, t):
+#     """
+#     Squared distance between point p1 + s*u and p2 + t*v
+#     """
+#     w = w0 + s*u - t*v
+#     return np.dot(w, w)
+
+
+# # -----------------------------------------
+# # 2. Evaluate over an S-T grid
+# # -----------------------------------------
+# N = 100
+# S = np.linspace(0,1,N)
+# T = np.linspace(0,1,N)
+# SS, TT = np.meshgrid(S,T)
+# Z = np.zeros_like(SS)
+
+# for i in range(N):
+#     for j in range(N):
+#         Z[i,j] = dist_sq(SS[i,j], TT[i,j])
+
+
+# # -----------------------------------------
+# # 3. Plot 3D surface of f(s,t)
+# # -----------------------------------------
+# from mpl_toolkits.mplot3d import Axes3D
+
+# fig = plt.figure(figsize=(12,5))
+
+# ax = fig.add_subplot(121, projection='3d')
+# ax.plot_surface(SS, TT, Z, cmap='viridis', edgecolor='none')
+# ax.set_title("Squared Distance Function $f(s,t)$")
+# ax.set_xlabel("s")
+# ax.set_ylabel("t")
+# ax.set_zlabel("distance^2")
+
+# # -----------------------------------------
+# # 4. Plot contour map to show convexity
+# # -----------------------------------------
+# ax2 = fig.add_subplot(122)
+# contours = ax2.contourf(SS, TT, Z, cmap='viridis', levels=30)
+# plt.colorbar(contours, ax=ax2)
+# ax2.set_title("Contour Plot of $f(s,t)$ (Convex)")
+# ax2.set_xlabel("s")
+# ax2.set_ylabel("t")
+
+# plt.tight_layout()
+# plt.show()
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# import sys
+# import numpy as np
+# import pinocchio as pin
+# from pinocchio.visualize import MeshcatVisualizer
+# from pin_models import *
+# import yaml
+# import argparse
+# import time
+# from loop_rate_limiters import RateLimiter
+# # Pink imports for velocity-based IK
+# import pink
+# from pink import solve_ik
+# from pink.tasks import FrameTask, PostureTask
+# from pink.visualization import start_meshcat_visualizer
+
+# # Rate limiter
+# from loop_rate_limiters import RateLimiter  # pip install ratelimiter
+
+
+# def main(model_name):
+#     # Load configuration
+#     with open("config.yaml", "r") as f:
+#         config = yaml.safe_load(f)[model_name]
+
+#     dt = 0.02
+#     nsteps = 100
+
+#     # Create selected robot system
+#     if config["model"]["name"].lower() == "two_dof_arm":
+#         robot_sys = TwoDOFArmDynamics(timestep=dt, config=config)
+#     else:
+#         raise NotImplementedError("Only 'two_dof_arm' example implemented")
+
+#     # Random initial configuration
+#     q0 = np.random.rand(robot_sys.model.nq)
+#     q0 = pin.normalize(robot_sys.model, q0)
+#     v0 = np.zeros(robot_sys.model.nv)
+
+#     # Initialize configuration object for Pink
+#     configuration = pink.Configuration(robot_sys.model, robot_sys.data, q0.copy())
+
+#     # Define tasks
+#     ee_frame = "ee"
+#     tasks = {
+#         "tip": FrameTask(
+#             frame=ee_frame,
+#             position_cost=1.0,      # [cost]/[m]
+#             orientation_cost=1e-3,  # [cost]/[rad]
+#         ),
+#         "posture": PostureTask(cost=1e-2)
+#     }
+
+#     # Set initial task targets from current configuration
+#     for task in tasks.values():
+#         task.set_target_from_configuration(configuration)
+
+#     # Slightly offset target (example)
+#     tasks["tip"].transform_target_to_world.translation[2] -= 0.1
+#     tasks["tip"].transform_target_to_world.translation[1] -= 0.2
+
+#     # Select QP solver for solve_ik
+#     import qpsolvers
+#     solver = "daqp" if "daqp" in qpsolvers.available_solvers else qpsolvers.available_solvers[0]
+
+#     # Store trajectory
+#     q_traj = [configuration.q.copy()]
+
+#     # Create ratelimiter (50 Hz)
+#     limiter = RateLimiter(max_calls=50, period=1.0)
+
+#     for step in range(nsteps):
+#         with limiter:
+#             # Compute joint velocity to move toward target
+#             velocity = solve_ik(configuration, tasks.values(), dt, solver=solver)
+#             # Integrate velocity into configuration
+#             configuration.integrate_inplace(velocity, dt)
+
+#             # Store trajectory
+#             q_traj.append(configuration.q.copy())
+
+#     # Save trajectory
+#     q_traj = np.stack(q_traj)
+#     np.save("q_trajectory.npy", q_traj)
+#     print(f"Saved trajectory of shape {q_traj.shape} to q_trajectory.npy")
+
+
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument("model", type=str, help="Model name (e.g., 'two_dof_arm')")
+#     args = parser.parse_args()
+#     main(args.model)
+
+
+
+# This examples shows how to load and move a robot in meshcat.
+# Note: this feature requires Meshcat to be installed, this can be done using
+# pip install --user meshcat
+ 
+import sys
+from pathlib import Path
+ 
 import numpy as np
-import matplotlib.pyplot as plt
+import pinocchio as pin
+from pinocchio.visualize import MeshcatVisualizer
+ 
+# Load the URDF model.
+# Conversion with str seems to be necessary when executing this file with ipython
+pinocchio_model_dir = "pin_models"
+ 
+model_path = pinocchio_model_dir
+mesh_dir = pinocchio_model_dir
+# urdf_filename = "talos_reduced.urdf"
+# urdf_model_path = join(join(model_path,"talos_data/robots"),urdf_filename)
+urdf_filename = "solo.urdf"
+urdf_model_path = model_path / "solo_description/robots" / urdf_filename
+ 
+model, collision_model, visual_model = pin.buildModelsFromUrdf(
+    urdf_model_path, mesh_dir, pin.JointModelFreeFlyer()
+)
 
-# -----------------------------------------
-# 1. Define two random line segments in 3D
-# -----------------------------------------
-np.random.seed(1)
-p1 = np.array([0,0,0])
-q1 = np.array([1,1,0.2])
+# Start a new MeshCat server and client.
+# Note: the server can also be started separately using the "meshcat-server" command in
+# a terminal:
+# this enables the server to remain active after the current script ends.
+#
+# Option open=True pens the visualizer.
+# Note: the visualizer can also be opened seperately by visiting the provided URL.
+try:
+    viz = MeshcatVisualizer(model, collision_model, visual_model)
+    viz.initViewer(open=True)
+except ImportError as err:
+    print(
+        "Error while initializing the viewer. "
+        "It seems you should install Python meshcat"
+    )
+    print(err)
+    sys.exit(0)
+ 
+# Load the robot in the viewer.
+viz.loadViewerModel()
+ 
+# Display a robot configuration.
+q0 = pin.neutral(model)
+viz.display(q0)
+viz.displayVisuals(True)
+ 
+# Create a convex shape from solo main body
+mesh = visual_model.geometryObjects[0].geometry
+mesh.buildConvexRepresentation(True)
+convex = mesh.convex
+ 
+# Place the convex object on the scene and display it
+if convex is not None:
+    placement = pin.SE3.Identity()
+    placement.translation[0] = 2.0
+    geometry = pin.GeometryObject("convex", 0, placement, convex)
+    geometry.meshColor = np.ones(4)
+    # Add a PhongMaterial to the convex object
+    geometry.overrideMaterial = True
+    geometry.meshMaterial = pin.GeometryPhongMaterial()
+    geometry.meshMaterial.meshEmissionColor = np.array([1.0, 0.1, 0.1, 1.0])
+    geometry.meshMaterial.meshSpecularColor = np.array([0.1, 1.0, 0.1, 1.0])
+    geometry.meshMaterial.meshShininess = 0.8
+    visual_model.addGeometryObject(geometry)
+    # After modifying the visual_model we must rebuild
+    # associated data inside the visualizer
+    viz.rebuildData()
+ 
+# Display another robot.
+viz2 = MeshcatVisualizer(model, collision_model, visual_model)
+viz2.initViewer(viz.viewer)
+viz2.loadViewerModel(rootNodeName="pinocchio2")
+q = q0.copy()
+q[1] = 1.0
+viz2.display(q)
+ 
+# standing config
+q1 = np.array(
+    [0.0, 0.0, 0.235, 0.0, 0.0, 0.0, 1.0, 0.8, -1.6, 0.8, -1.6, -0.8, 1.6, -0.8, 1.6]
+)
+ 
+v0 = np.random.randn(model.nv) * 2
+data = viz.data
+pin.forwardKinematics(model, data, q1, v0)
+frame_id = model.getFrameId("HR_FOOT")
+viz.display()
+viz.drawFrameVelocities(frame_id=frame_id)
+ 
+model.gravity.linear[:] = 0.0
+dt = 0.01
+ 
+ 
+def sim_loop():
+    tau0 = np.zeros(model.nv)
+    qs = [q1]
+    vs = [v0]
+    nsteps = 100
+    for i in range(nsteps):
+        q = qs[i]
+        v = vs[i]
+        a1 = pin.aba(model, data, q, v, tau0)
+        vnext = v + dt * a1
+        qnext = pin.integrate(model, q, dt * vnext)
+        qs.append(qnext)
+        vs.append(vnext)
+        viz.display(qnext)
+        viz.drawFrameVelocities(frame_id=frame_id)
+    return qs, vs
+ 
+ 
+qs, vs = sim_loop()
+ 
+fid2 = model.getFrameId("FL_FOOT")
+ 
+ 
+def my_callback(i, *args):
+    viz.drawFrameVelocities(frame_id)
+    viz.drawFrameVelocities(fid2)
+ 
+ 
+with viz.create_video_ctx("../leap.mp4"):
+    viz.play(qs, dt, callback=my_callback)
 
-p2 = np.array([0.2,1.0,0.5])
-q2 = np.array([1.0,0.2,0.8])
-
-u = q1 - p1
-v = q2 - p2
-w0 = p1 - p2
-
-# -----------------------------------------
-# Distance squared function f(s,t)
-# -----------------------------------------
-def dist_sq(s, t):
-    """
-    Squared distance between point p1 + s*u and p2 + t*v
-    """
-    w = w0 + s*u - t*v
-    return np.dot(w, w)
-
-
-# -----------------------------------------
-# 2. Evaluate over an S-T grid
-# -----------------------------------------
-N = 100
-S = np.linspace(0,1,N)
-T = np.linspace(0,1,N)
-SS, TT = np.meshgrid(S,T)
-Z = np.zeros_like(SS)
-
-for i in range(N):
-    for j in range(N):
-        Z[i,j] = dist_sq(SS[i,j], TT[i,j])
-
-
-# -----------------------------------------
-# 3. Plot 3D surface of f(s,t)
-# -----------------------------------------
-from mpl_toolkits.mplot3d import Axes3D
-
-fig = plt.figure(figsize=(12,5))
-
-ax = fig.add_subplot(121, projection='3d')
-ax.plot_surface(SS, TT, Z, cmap='viridis', edgecolor='none')
-ax.set_title("Squared Distance Function $f(s,t)$")
-ax.set_xlabel("s")
-ax.set_ylabel("t")
-ax.set_zlabel("distance^2")
-
-# -----------------------------------------
-# 4. Plot contour map to show convexity
-# -----------------------------------------
-ax2 = fig.add_subplot(122)
-contours = ax2.contourf(SS, TT, Z, cmap='viridis', levels=30)
-plt.colorbar(contours, ax=ax2)
-ax2.set_title("Contour Plot of $f(s,t)$ (Convex)")
-ax2.set_xlabel("s")
-ax2.set_ylabel("t")
-
-plt.tight_layout()
-plt.show()
+from pinocchio.robot_wrapper import RobotWrapper

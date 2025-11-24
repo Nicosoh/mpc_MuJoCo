@@ -43,6 +43,10 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         # Create simulator object
         simulator = MuJoCoSimulator(config)
 
+        if config["mpc"]["IK_required"]:
+            # Save summary for the case that x0 is updated
+            save_summary(config=config, output_dir=run_dir, file_name="summary_updated")
+            
         # Run simulation
         simulator.run()
 

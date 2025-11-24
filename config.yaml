@@ -342,6 +342,7 @@ two_dof_arm:
       pendulum1: [0.002, 0.002, 0.002] # kg*m^2
       pendulum_stick2: [0.00001, 0.00001, 0.00001] # kg*m^2
       pendulum2: [0.002, 0.002, 0.002] # kg*m^2
+    velocitylimit: [1.0, 1.0]
 
   pin:
     nu: 2 # Number of control inputs
@@ -349,16 +350,16 @@ two_dof_arm:
   
   mpc:
     Fmax: [10, 10] # Maximum force
-    N_horizon: 200 # Prediction horizon
+    N_horizon: 1000 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
-    mpc_timestep: 0.005 # seconds
-    x0: [3.142, 0.0, 0.0, 0.0]
+    mpc_timestep: 0.001 # seconds
+    x0: [0.5, 0.0, 0.5]
     x0_random: false # If true, x0 above will not be used
     x0_range: [[-3.142, 3.142], [-3.142, 3.142], [-0.5, 0.5], [-0.5, 0.5]] # Range for random x0
     x0_sampling: "uniform" # Only uniform for now
     Q_mat: [15, 5, 0.02, 0.02] # State cost weights
     R_mat: [0.02, 0.02] # Input cost weights
-    early_termination: false # Enable early termination based on cost
+    early_termination: true # Enable early termination based on cost
     termination_cost: 0.05 # Tolerance for early termination cost
     solve_ocp: false # Enable if only a single step is required
     full_traj: true # If above is true, then this needs to be true as well
