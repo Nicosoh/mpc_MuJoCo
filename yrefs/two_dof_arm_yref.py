@@ -12,5 +12,5 @@ import numpy as np
 # ])
 
 # Now defined in cartesian space [x, y, z] position of end-effector]
-yref = np.array([1.0,  0.0,  1.0],
+yref = np.array([0.0,  1.0,  1.0],
                  )

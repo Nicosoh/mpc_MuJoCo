@@ -342,7 +342,7 @@ two_dof_arm:
       pendulum1: [0.002, 0.002, 0.002] # kg*m^2
       pendulum_stick2: [0.00001, 0.00001, 0.00001] # kg*m^2
       pendulum2: [0.002, 0.002, 0.002] # kg*m^2
-    velocitylimit: [1.0, 1.0]
+    velocitylimit: [10.0, 10.0]
 
   pin:
     nu: 2 # Number of control inputs
@@ -353,7 +353,7 @@ two_dof_arm:
     N_horizon: 1000 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.001 # seconds
-    x0: [0.5, 0.0, 0.5]
+    x0: [0.0, 0.5, 0.5]
     x0_random: false # If true, x0 above will not be used
     x0_range: [[-3.142, 3.142], [-3.142, 3.142], [-0.5, 0.5], [-0.5, 0.5]] # Range for random x0
     x0_sampling: "uniform" # Only uniform for now

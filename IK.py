@@ -3,9 +3,12 @@ import numpy as np
 import pinocchio as pin
 import qpsolvers
 
+import hppfcl as fcl
 import meshcat_shapes
 import pink
+from pink.utils import process_collision_pairs
 from pink import solve_ik
+from pink.barriers import SelfCollisionBarrier
 from pink.tasks import FrameTask, PostureTask
 from pink.visualization import start_meshcat_visualizer
 from pinocchio.robot_wrapper import RobotWrapper
@@ -14,7 +17,7 @@ from loop_rate_limiters import RateLimiter
 def generate_reference_trajectory(yref, obstacles, config):
 
     def step_IK():
-        velocity = solve_ik(configuration, tasks.values(), dt, solver=solver)
+        velocity = solve_ik(configuration, tasks.values(), dt, solver=solver, barriers=barriers, safety_break=False)
         print("velocity: ", velocity)
         # Integrate motion
         configuration.integrate_inplace(velocity, dt)
@@ -25,6 +28,54 @@ def generate_reference_trajectory(yref, obstacles, config):
         viz.display(configuration.q)
         
         rate.sleep()
+    
+    def add_obstacle_capsules(robot, obstacles_dict):
+        """
+        Add obstacles as capsule geometries to robot's collision and visual models.
+        
+        obstacles_dict: 
+            e.g. {"obs1": {"from": np.array([x0,y0,z0]), "to": np.array([x1,y1,z1]), "radius": r}}
+        """
+        for name, obs in obstacles_dict.items():
+            p0 = obs["from"]
+            p1 = obs["to"]
+            radius = obs["radius"]
+
+            # Compute capsule length and placement
+            vec = p1 - p0
+            length = np.linalg.norm(vec)
+            if length < 1e-8:
+                length = 1e-6  # avoid zero-length capsule
+
+            # Compute the placement SE3
+            midpoint = (p0 + p1) / 2
+            # Default capsule axis in Pinocchio/fcl is along z, so we need rotation
+            z_axis = vec / length
+            # Arbitrary choice of x_axis
+            x_axis = np.array([1.0, 0.0, 0.0])
+            if np.allclose(z_axis, x_axis):
+                x_axis = np.array([0.0, 1.0, 0.0])
+            y_axis = np.cross(z_axis, x_axis)
+            y_axis /= np.linalg.norm(y_axis)
+            x_axis = np.cross(y_axis, z_axis)
+            R = np.column_stack([x_axis, y_axis, z_axis])
+            placement = pin.SE3(R, midpoint)
+
+            # Create FCL capsule
+            shape_pole = fcl.Capsule(radius, length)
+
+            # Create GeometryObject
+            geom = pin.GeometryObject(name, 0, placement, shape_pole)
+            geom.meshColor = np.array([1.0, 0.0, 0.0, 1.0])  # red for visualization
+
+            # Add to models
+            robot.collision_model.addGeometryObject(geom)
+            robot.visual_model.addGeometryObject(geom)
+
+        # Reprocess collision pairs after adding obstacles
+        robot.collision_data = process_collision_pairs(
+            robot.model, robot.collision_model, "models_xml/two_dof_arm.srdf"
+        )
 
     # Load model again from XML
     base_dir = "models_xml"
@@ -42,6 +93,9 @@ def generate_reference_trajectory(yref, obstacles, config):
 
     # Manually set velocitylimit 
     robot.model.velocityLimit = np.array(config["model"]["velocitylimit"])
+
+    # Add obstacles
+    add_obstacle_capsules(robot, obstacles)
 
     # Launch Viewer
     viz = start_meshcat_visualizer(robot)
@@ -61,10 +115,19 @@ def generate_reference_trajectory(yref, obstacles, config):
         ),
         "posture": PostureTask(cost=1e-2) # Regularisation of angles
     }
-
+    
     # Initial configuration
-    configuration = pink.Configuration(robot.model, robot.data, robot.q0)
+    configuration = pink.Configuration(model=robot.model, data=robot.data, q=robot.q0, collision_model=robot.collision_model, collision_data=robot.collision_data)
 
+    # Collision barriers between self and obstacles
+    collision_barrier = SelfCollisionBarrier(
+        n_collision_pairs=len(robot.collision_model.collisionPairs),
+        gain=20.0,
+        safe_displacement_gain=1.0,
+        d_min=0.0, # needs to be >=0
+    )
+
+    barriers = [collision_barrier]
     # First goal is the starting position(x0)
     x0 = np.array(config["mpc"]["x0"])
 
