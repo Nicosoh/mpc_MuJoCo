@@ -150,13 +150,15 @@ def save_video(frames, output_dir, file_name="video", fps=30):
     print(f"Video saved to: {os.path.abspath(full_path)}")
 
 # ========== SUMMARY SAVING ==========
-
+    
 def _format_value(val):
-    """
-    Format values into readable strings for summary output.
-    """
-    if isinstance(val, float):
-        return f"{val:.6g}"
+    import numpy as np
+
+    if isinstance(val, np.ndarray):
+        # Clean, readable formatting for arrays
+        return np.array2string(val, precision=4, separator=", ")
+    elif isinstance(val, float):
+        return f"{val:.4f}"
     elif isinstance(val, (list, tuple, np.ndarray)):
         return np.array(val).tolist()
     else:
@@ -241,7 +243,7 @@ def ocp_plot(simulator, output_dir, file_name="OCP_plot"):
 
     config = simulator.config
     logs = simulator.logs
-    # import pdb; pdb.set_trace()
+
     qpos_traj = logs["qpos_traj"][0]
     qvel_traj = logs["qvel_traj"][0]
     u_traj = logs["u_traj"][0]

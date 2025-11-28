@@ -19,15 +19,6 @@ class PinocchioCasadiRobotWrapper(RobotWrapper):
         self.create_discrete_dynamics()
         self.create_forward_kinematics()
 
-    # def __init__(self, model: pin.Model, timestep: float, config):
-    #     pin_config = config["pin"]
-    #     self.cmodel = cpin.Model(model)  # cast to CasADi model
-    #     self.cdata = self.cmodel.createData() # create CasADi data
-    #     self.timestep = timestep
-    #     self.create_dynamics(pin_config)
-    #     self.create_discrete_dynamics()
-    #     self.create_forward_kinematics()
-
     def create_dynamics(self, pin_config):
         """Create the acceleration expression and acceleration function."""
         nq = self.model.nq              # number of configuration variables
@@ -88,8 +79,9 @@ class PinocchioCasadiRobotWrapper(RobotWrapper):
         # self.ee_frame = self.ee_frame_id
 
         # CasADi FK expressions
+        self.universe = self.cdata.oMf[self.cmodel.getFrameId("universe")].translation
         self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
-        self.ee = self.cdata.oMf[self.cmodel.getFrameId("ee")].translation
+        self.attachment_site = self.cdata.oMf[self.cmodel.getFrameId("attachment_site")].translation
         # self.R_ee = self.cdata.oMf[self.ee_frame].rotation
 
     def forward(self, x, u): # Current state and input  -> next state

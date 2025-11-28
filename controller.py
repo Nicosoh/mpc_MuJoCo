@@ -4,7 +4,6 @@ from pin_exporter import export_ode_model
 import scipy.linalg
 from casadi import vertcat
 import casadi as ca
-from IK import generate_reference_trajectory
 
 def clamp(x, lo=0.0, hi=1.0):
     return ca.fmin(ca.fmax(x, lo), hi)
@@ -59,55 +58,74 @@ def capsule_squared_distance_function():
     d2_seg, Ps, Qt = segment_segment_squared_distance(p1, p2, q1, q2)
 
     # true capsule distance = max(0, distance - r1 - r2)
-    dist = ca.sqrt(d2_seg)
-    penetration = dist - (r1 + r2)
-
-    # squared = convex and MPC-friendly
-    d_capsule_sq = ca.fmax(penetration, 0)**2
+    dist = d2_seg - (r1 + r2)**2
 
     return ca.Function(
         "capsule_dist_sq",
         [p1, p2, q1, q2, r1, r2],
-        # [d_capsule_sq],
-        [penetration**2],
+        [dist],
         ["p1", "p2", "q1", "q2", "r1", "r2"],
         ["dist_sq"]
     )
+
 def build_capsule_collision_constraints(robot_sys, links, obstacles, collision_pairs):
     constraints = []
 
     for link_name, obs_name in collision_pairs:
 
-        # -------------------------
-        #     LINK CAPSULE
-        # -------------------------
+        capsule_dist_sq = capsule_squared_distance_function()
+
         link = links[link_name]
 
-        # resolve symbolic endpoints from pin_model
         p1 = getattr(robot_sys, link["from"])   # CasADi 3-vector
         p2 = getattr(robot_sys, link["to"])     # CasADi 3-vector
         r1 = link["radius"]
 
-        # -------------------------
-        #     OBSTACLE CAPSULE
-        # -------------------------
         obs = obstacles[obs_name]
-        q1 = ca.SX(obs["from"])
-        q2 = ca.SX(obs["to"])
+        q1 = obs["from"]
+        q2 = obs["to"]
         r2 = obs["radius"]
 
-        # -------------------------
-        #  SQUARED SEGMENT DISTANCE
-        # -------------------------
-        d2, Ps, Qt = segment_segment_squared_distance(p1, p2, q1, q2)
+        # q1 = np.array([1.1,0,0.5])
+        # q2 = np.array([1.1,0,1.0])
 
-        # -------------------------
-        #  HARD CONSTRAINT: d² ≥ (r1+r2)²
-        # -------------------------
-        min_dist_sq = (r1 + r2)**2
-        constraints.append(d2 - min_dist_sq)
+        dist = capsule_dist_sq(p1, p2, q1, q2, r1, r2)
 
-    return ca.vertcat(*constraints) if constraints else ca.SX([])
+        constraints.append(dist)
+
+        # # -------------------------
+        # #     LINK CAPSULE
+        # # -------------------------
+        # link = links[link_name]
+
+        # # resolve symbolic endpoints from pin_model
+        # p1 = getattr(robot_sys, link["from"])   # CasADi 3-vector
+        # p2 = getattr(robot_sys, link["to"])     # CasADi 3-vector
+        # r1 = link["radius"]
+
+        # # -------------------------
+        # #     OBSTACLE CAPSULE
+        # # -------------------------
+        # obs = obstacles[obs_name]
+        # # q1 = ca.SX(obs["from"])
+        # # q2 = ca.SX(obs["to"])
+        # # r2 = obs["radius"]
+        # q1 = ca.SX(obs["from"])
+        # q2 = ca.SX(obs["to"])
+        # r2 = obs["radius"]
+        
+        # # -------------------------
+        # #  SQUARED SEGMENT DISTANCE
+        # # -------------------------
+        # d2, Ps, Qt = segment_segment_squared_distance(p1, p2, q1, q2)
+
+        # # -------------------------
+        # #  HARD CONSTRAINT: d² ≥ (r1+r2)²
+        # # -------------------------
+        # min_dist_sq = (r1 + r2)**2
+        # constraints.append(d2 - min_dist_sq)
+
+    return vertcat(*constraints)
 
 def setup(config, yref, collision_config=None):
     mpc_config = config["mpc"]
@@ -119,9 +137,6 @@ def setup(config, yref, collision_config=None):
     Tf = N_horizon * mpc_config["mpc_timestep"]  # Time horizon
     Q_mat = np.diag(mpc_config["Q_mat"]) # State cost weight matrix
     R_mat = np.diag(mpc_config["R_mat"]) # Input cost weight matrix
-
-    # None for all other cases does does not require IK
-    yref_traj_x = None
     
     # Create ocp object to formulate the OCP
     ocp = AcadosOcp()
@@ -129,31 +144,6 @@ def setup(config, yref, collision_config=None):
     # Call model creation function
     model, robot_sys = export_ode_model(config)
     ocp.model = model
-
-    # Generate reference trajectory and set collision constraints
-    if mpc_config["IK_required"] and collision_config is not None:
-        # Generate reference trajectory with IK
-
-        # requires pin_model, not cmodel, yref, and obstacles, and config.
-        yref_traj_q0 = generate_reference_trajectory(yref, collision_config["obstacles"], config)
-
-        # Zero pad velocities to form full state      
-        yref_traj_v0 = np.zeros_like(yref_traj_q0)
-        yref_traj_x = np.hstack([yref_traj_q0, yref_traj_v0])
-        config["mpc"]["x0"] = yref_traj_x[0] # Replace value in config so the simulator can use the value
-
-        # Reassign x0 as first item
-        x0 = yref_traj_x[0]
-
-        # Generate collision constraints
-        constraints = build_capsule_collision_constraints(robot_sys, 
-                                                              collision_config["links"], 
-                                                              collision_config["obstacles"], 
-                                                              collision_config["collision_pairs"])
-            
-        ocp.model.con_h_expr = constraints
-        ocp.constraints.lh = np.array([0.05])       # epsilon (additional safety distance)
-        ocp.constraints.uh = np.array([1e10])
 
     # Extract state and input dimensions
     nx = model.x.rows() # Possible to extract the last predicted state here to insert into NN. maybe...
@@ -168,17 +158,45 @@ def setup(config, yref, collision_config=None):
     ocp.cost.W = scipy.linalg.block_diag(Q_mat, R_mat)  # Stage cost includes both states and input penalty
     ocp.cost.W_e = Q_mat                                # Terminal cost only inlcudes states
 
+    # Get collision constraints
     if mpc_config["IK_required"] and collision_config is not None:
+        # Generate collision constraints
+        # constraints = build_capsule_collision_constraints(robot_sys, 
+        #                                                       collision_config["links"], 
+        #                                                       collision_config["obstacles"], 
+        #                                                       collision_config["collision_pairs"])
+
+        # Add collision avoidance constraint between two capsules
+        capsule_dist_sq = capsule_squared_distance_function()
+
+        p1 = robot_sys.j_1
+        p2 = robot_sys.attachment_site
+
+        q1 = np.array([0.0, 0.7, 0.35])
+        q2 = np.array([0.0, 0.7, 0.65])
+
+        dist = capsule_dist_sq(p1, p2, q1, q2, 0.1, 0.05)
+
+        ocp.model.con_h_expr = dist
+        ocp.constraints.lh = np.array([0.05])       # epsilon (additional safety distance)
+        ocp.constraints.uh = np.array([1e6])
+ 
+        x0 = np.array(mpc_config["x0_q"])
+
+        # Pad yref with input reference(u). Currently only position and velocity.
+        yref_u = np.zeros((yref.shape[0], nu))
+        yref = np.hstack((yref, yref_u))
 
         ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
         ocp.model.cost_y_expr_e = model.x                   # Terminal cost only inlcudes states
-        ocp.cost.yref  = np.zeros((ny, ))                    # Set stage references to match first entry of yref for all states and inputs
-        ocp.cost.yref_e = np.zeros((ny_e, ))                 # Set terminal reference to match first entry of yref for states only
+        ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references to match first entry of yref for all states and inputs
+        ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference to match first entry of yref for states only
+
     else:
         ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
         ocp.model.cost_y_expr_e = model.x                   # Terminal cost only inlcudes states
-        ocp.cost.yref  = yref[0, 1:ny+1]                    # Set stage references to match first entry of yref for all states and inputs
-        ocp.cost.yref_e = yref[0, 1:ny_e+1]                 # Set terminal reference to match first entry of yref for states only
+        ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references to match first entry of yref for all states and inputs
+        ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference to match first entry of yref for states only
 
     # Set input constraints
     ocp.constraints.lbu = -np.array(Fmax)
@@ -217,76 +235,37 @@ def setup(config, yref, collision_config=None):
     solver_json = 'acados_ocp_' + model.name + '.json'
     acados_ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json, verbose=False)
 
-    return acados_ocp_solver, config, yref_traj_x
-
-def get_reference_for_horizon(traj, t, N, mpc_dt, nu):
-    """
-    Build Acados-compatible reference arrays over the horizon.
-
-    Args:
-        traj: ndarray shaped (T, nx)
-        t: current continuous time [s]
-        N: horizon length
-        mpc_dt: MPC step size
-        nu: dimension of control input
-
-    Returns:
-        yref_stage: list of N vectors, each shape (nx + nu,)
-        yref_terminal: vector shape (nx,)
-    """
-
-    T, nx = traj.shape
-
-    # convert continuous time to discrete index
-    start_idx = int(np.round(t / mpc_dt))
-
-    # indices for 0..N, clipped inside bounds
-    idxs = start_idx + np.arange(N + 1)
-    idxs = np.clip(idxs, 0, T - 1)
-
-    # extract states
-    xrefs = traj[idxs]
-
-    # build stage references (x,u) for k = 0..N-1
-    yref_stage = []
-    for k in range(N):
-        xk = xrefs[k]
-        uk = np.zeros(nu)              # zero input ref
-        yref_stage.append(np.hstack((xk, uk)))
-
-    # terminal reference (state-only)
-    yref_terminal = xrefs[-1]
-
-    return yref_stage, yref_terminal
+    return acados_ocp_solver, yref
 
 class BaseMPCController:
     def __init__(self, config, yref, collision_config=None):
         # Setup MPC solver
-        self.ocp_solver, self.config, self.yref_traj_x = setup(config, yref, collision_config)
+        self.ocp_solver, self.yref = setup(config, yref, collision_config)
         self.nx = self.ocp_solver.acados_ocp.dims.nx
         self.nu = self.ocp_solver.acados_ocp.dims.nu
         self.N = self.ocp_solver.acados_ocp.dims.N
 
         # Extract parameters from config
         self.use_RTI = config["mpc"]["use_RTI"]
-        x0 = np.array(config["mpc"]["x0"])
+        if config["mpc"]["IK_required"] and collision_config is not None:
+            x0 = np.array(config["mpc"]["x0_q"])
+        else:
+            x0 = np.array(config["mpc"]["x0"])
         self.IK_required = config["mpc"]["IK_required"]
         self.mpc_timestep = config["mpc"]["mpc_timestep"]
 
         # Warm start
         for _ in range(5):
-            self.ocp_solver.solve_for_x0(x0_bar=x0, fail_on_nonzero_status=False)
+            self.ocp_solver.solve_for_x0(x0_bar=x0, fail_on_nonzero_status=True) # It is ok to fail during the warmup phase
 
-    def __call__(self, x, yref_now, full_traj, time):
+    def __call__(self, x, yref_now, full_traj):
         """Compute MPC input given MuJoCo state."""
         # Set yref
         if self.IK_required:
-            yref_stage, yref_terminal = get_reference_for_horizon(self.yref_traj_x, time, self.N, self.mpc_timestep, self.nu)
-
             for stage in range(self.N):
-                self.ocp_solver.cost_set(stage, "yref", yref_stage[stage], api='new')
-            self.ocp_solver.cost_set(self.N, "yref", yref_terminal, api='new')  # Terminal reference (only x)
-        else: 
+                self.ocp_solver.cost_set(stage, "yref", yref_now["stage"][stage], api='new')
+            self.ocp_solver.cost_set(self.N, "yref", yref_now["terminal"][:self.nx], api='new')  # Terminal reference (only x)
+        else:
             for stage in range(self.N):
                 self.ocp_solver.cost_set(stage, "yref", yref_now, api='new')
             self.ocp_solver.cost_set(self.N, "yref", yref_now[:self.nx], api='new')  # Terminal reference (only x)
@@ -315,7 +294,7 @@ class BaseMPCController:
 
         else: # Without RTI
             # Solve ocp and get next control input
-            u = self.ocp_solver.solve_for_x0(x0_bar=x) # It is ok to fail during the warmup phase
+            u = self.ocp_solver.solve_for_x0(x0_bar=x)
         
         qpos_traj = []
         qvel_traj = []

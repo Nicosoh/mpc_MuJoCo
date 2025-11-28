@@ -1,21 +1,18 @@
 import mujoco
 import numpy as np
 from tqdm import tqdm
-from controller import BaseMPCController
 from utils import *
 
 class MuJoCoSimulator:
-    def __init__(self, config):
-        self.config = load_x0(config=config)                        # Load x0
-        self.yref = load_yref(model_name=self.config["model"]["name"])   # Load yref
-        if config["mpc"]["IK_required"]:
-            self.collision_config = load_collision_config(model_name=self.config["model"]["name"])   # Load obstacles
-        self.model, self.data = load_model(self.config)                  # Create MuJoCo simulator object with loaded model
-        self.controller = BaseMPCController(self.config, self.yref, self.collision_config) # Create Controller
-        self.config = self.controller.config # Replace config for the case where cartesian is converted to joint state
-        self.sanity_check() # Sanity check between model, controller, yref, x0
+    def __init__(self, config, yref, controller,collision_config=None):
+        self.config = config
+        self.yref = yref
+        self.collision_config = collision_config
+        self.controller = controller
 
-        self.model.opt.timestep = self.config["mujoco"]["sim_timestep"]  # Set simulation timestep
+        self.model, self.data = load_model(self.config)                     # Create MuJoCo simulator object with loaded model
+        # self.sanity_check()                                                 # Sanity check between model, controller, yref, x0
+        self.model.opt.timestep = self.config["mujoco"]["sim_timestep"]     # Set simulation timestep
 
         if self.config["mujoco"]["render"]: # Set render options and create renderer
             self.scene_option = init_scene_options()
@@ -94,8 +91,13 @@ class MuJoCoSimulator:
         self.mpc_timestep = mpc_config["mpc_timestep"]
         early_termination = mpc_config["early_termination"]
         termination_cost = np.array(mpc_config["termination_cost"])
-        x0 = np.array(mpc_config["x0"])
+        IK_required = mpc_config["IK_required"]
         solve_ocp = mpc_config["solve_ocp"]
+
+        if IK_required:
+            x0 = np.array(mpc_config["x0_q"])
+        else:
+            x0 = np.array(mpc_config["x0"])
 
         # Init variables for counting and so on...
         self.last_u = np.zeros(self.model.nu)
@@ -162,7 +164,7 @@ class MuJoCoSimulator:
                     obstacles = self.collision_config["obstacles"]
 
                     for obs_name, obs in obstacles.items():
-                        add_visual_capsule(self.renderer.scene, p1=obs["from"], p2=obs["to"], radius=obs["radius"], rgba=(0.8, 0.1, 0.1, 1),)
+                        add_visual_capsule(self.renderer.scene, p1=obs["from"], p2=obs["to"], radius=obs["radius"], rgba=(0.8, 0.1, 0.1, 1))
 
                 pixels = self.renderer.render()
                 self.frames.append(pixels)
@@ -186,6 +188,9 @@ class MuJoCoSimulator:
             self.logs[key] = np.array(self.logs[key])
 
     def step_sim(self):
+        N_horizon = self.config["mpc"]["N_horizon"]
+        mpc_timestep = self.config["mpc"]["mpc_timestep"]
+
         x = np.concatenate([self.data.qpos, self.data.qvel])
         cost = None
         qpos_traj = None
@@ -200,9 +205,10 @@ class MuJoCoSimulator:
                     yref_now = get_yref_at_time(self.data.time, self.yref)
                     self.logs["yref"].append(yref_now)  # Keep track of the reference
                 else:
-                    yref_now = None
+                    yref_now = get_reference_for_horizon(self.yref, self.data.time, N_horizon, mpc_timestep)
+
                 # Run MPC to compute control input, cost, and trajectory
-                self.last_u, cost, qpos_traj, qvel_traj, u_traj = self.controller(x, yref_now, self.config["mpc"]["full_traj"], self.data.time)
+                self.last_u, cost, qpos_traj, qvel_traj, u_traj = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
 
                 # += to next mpc time step
                 self.next_mpc_time += self.mpc_timestep
@@ -247,3 +253,39 @@ def add_visual_capsule(scene, p1, p2, radius, rgba):
         np.array(p1, dtype=np.float32),
         np.array(p2, dtype=np.float32),
     )
+
+def get_reference_for_horizon(traj, t, N, mpc_dt):
+    """
+    Build Acados-compatible reference arrays over the horizon,
+    WITHOUT padding with a control reference.
+
+    Args:
+        traj: ndarray shaped (T, nx)
+        t: current continuous time [s]
+        N: horizon length
+        mpc_dt: MPC step size
+
+    Returns:
+        yref_stage: array of shape (N, nx)
+        yref_terminal: array shape (nx,)
+    """
+
+    T, nx = traj.shape
+
+    # convert continuous time to discrete index
+    start_idx = int(np.round(t / mpc_dt))
+
+    # indices for 0..N, clipped inside bounds
+    idxs = start_idx + np.arange(N + 1)
+    idxs = np.clip(idxs, 0, T - 1)
+
+    # extract state references (N+1 of them)
+    xrefs = traj[idxs]
+
+    # stage references (state only)
+    yref_stage = xrefs[:N]     # shape (N, nx)
+
+    # terminal reference
+    yref_terminal = xrefs[-1]  # shape (nx,)
+
+    return {"stage": yref_stage, "terminal": yref_terminal}

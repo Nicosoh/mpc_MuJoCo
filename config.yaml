@@ -324,7 +324,7 @@ two_dof_arm:
     urdf_available: false
     model_path: "models_xml/2dof_arm.xml"
     sim_timestep: 0.001 # seconds
-    sim_duration: 5.0 # seconds
+    sim_duration: 3.0 # seconds
     sim_framerate: 30  # Hz
     render: true # Render simulation
     verbose: false # Print debug information
@@ -333,16 +333,12 @@ two_dof_arm:
   model:
     name: "two_dof_arm"
     mass:
-      pendulum_stick1: 0.0001 # kg
-      pendulum1: 0.1 # kg
-      pendulum_stick2: 0.0001 # kg
-      pendulum2: 0.1 # kg
+      pendulum_stick1: 0.1 # kg
+      pendulum_stick2: 0.1 # kg
     inertia:
-      pendulum_stick1: [0.00001, 0.00001, 0.00001] # kg*m^2
-      pendulum1: [0.002, 0.002, 0.002] # kg*m^2
-      pendulum_stick2: [0.00001, 0.00001, 0.00001] # kg*m^2
-      pendulum2: [0.002, 0.002, 0.002] # kg*m^2
-    velocitylimit: [10.0, 10.0]
+      pendulum_stick1: [0.002, 0.002, 0.002] # kg*m^2
+      pendulum_stick2: [0.002, 0.002, 0.002] # kg*m^2
+    velocitylimit: [1.0, 1.0]
 
   pin:
     nu: 2 # Number of control inputs
@@ -350,22 +346,22 @@ two_dof_arm:
   
   mpc:
     Fmax: [10, 10] # Maximum force
-    N_horizon: 1000 # Prediction horizon
+    N_horizon: 500 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.001 # seconds
-    x0: [0.0, 0.5, 0.5]
+    x0: [0.5, 0.0, 0.5]
     x0_random: false # If true, x0 above will not be used
     x0_range: [[-3.142, 3.142], [-3.142, 3.142], [-0.5, 0.5], [-0.5, 0.5]] # Range for random x0
     x0_sampling: "uniform" # Only uniform for now
     Q_mat: [15, 5, 0.02, 0.02] # State cost weights
     R_mat: [0.02, 0.02] # Input cost weights
     early_termination: true # Enable early termination based on cost
-    termination_cost: 0.05 # Tolerance for early termination cost
+    termination_cost: 0.01 # Tolerance for early termination cost
     solve_ocp: false # Enable if only a single step is required
     full_traj: true # If above is true, then this needs to be true as well
     IK_required: true # Enable inverse kinematics in MPC setup (only for manipulators)
-    levenberg_marquardt: 20.0
-    regularize_method: 'CONVEXIFY'
+    levenberg_marquardt: 100.0
+    regularize_method: 'NO_REGULARIZE'
     nlp_solver_warm_start_first_qp_from_nlp: true
     nlp_solver_warm_start_first_qp: true
     qp_solver_warm_start: 1

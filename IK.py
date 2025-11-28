@@ -124,7 +124,7 @@ def generate_reference_trajectory(yref, obstacles, config):
         n_collision_pairs=len(robot.collision_model.collisionPairs),
         gain=20.0,
         safe_displacement_gain=1.0,
-        d_min=0.0, # needs to be >=0
+        d_min=0.2, # needs to be >=0
     )
 
     barriers = [collision_barrier]
@@ -173,21 +173,28 @@ def generate_reference_trajectory(yref, obstacles, config):
     viewer["target_frame"].set_transform(T_target.np)
 
     # Empty list to store traj
-    traj_q0 = []
+    traj_qp = []
 
     # Store starting position(x0) in joint space
-    traj_q0.append(configuration.q)
+    traj_qp.append(configuration.q)
 
     # -------------------------------
     # Moving to goal position
     # -------------------------------
     while True:
         step_IK()
-        traj_q0.append(configuration.q)
+        traj_qp.append(configuration.q)
         error = np.linalg.norm(T_target.translation - configuration.get_transform_frame_to_world(tasks["ee"].frame).translation)
 
         if error < stop_thres:
             print("Target position reached")
             break
     
-    return np.array(traj_q0)
+    traj_qp = np.array(traj_qp) # Convert to np.array (only positions without velocity)
+
+    # Zero pad velocities to form full state      
+    traj_qv = np.zeros_like(traj_qp)
+    traj_qx = np.hstack([traj_qp, traj_qv])
+    config["mpc"]["x0_q"] = traj_qx[0] # Add a new field for x0 in joint space
+
+    return traj_qx, config

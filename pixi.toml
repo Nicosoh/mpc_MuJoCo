@@ -103,6 +103,10 @@ viz_cartpole_double_pendulum = "python pin_visualizer.py cartpole_double_pendulu
 main_iiwa14 = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py iiwa14"
 viz_iiwa14 = "python pin_visualizer.py iiwa14"
 
+# For two_dof_arm
+main_two_dof_arm = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python main.py two_dof_arm"
+viz_two_dof_arm = "python pin_visualizer.py two_dof_arm"
+
 # For all models
 data_collector = "export DYLD_LIBRARY_PATH=\"$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH\" && python -m data_collection.data_collector"
 data_viz = "python -m data_collection.data_viz"

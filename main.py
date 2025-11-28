@@ -5,14 +5,13 @@ import os
 from datetime import datetime
 from utils import *
 from simulator import MuJoCoSimulator
+from controller import BaseMPCController
+from IK import generate_reference_trajectory
 
 def main(model_name, data_collection=False, output_dir=None, timestamp=None, data_config=None):
     # Load configuration
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)[model_name]
-    
-    # Update x0 if required
-    config = load_x0(config=config)
     
     # Base output directory
     output_dir = output_dir or "data"
@@ -33,19 +32,29 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
     os.makedirs(run_dir, exist_ok=True)
     print(f"Saving current run data to: {run_dir}")
 
-    # Save run summary
-    save_summary(config=config, output_dir=run_dir)
-
     try:
+        # Prerequisities 
+        config = load_x0(config=config)                                                                 # Load x0 (Starting position)
+        yref = load_yref(model_name=config["model"]["name"])                                            # Load yref
+
+        if config["mpc"]["IK_required"]:                                                                # If dealing with manipulators
+            collision_config = load_collision_config(model_name=config["model"]["name"])                # Load obstacles
+            config["collision_config"] = collision_config                                               # Add to config for summary saving purpose
+
+            yref, config = generate_reference_trajectory(yref, collision_config["obstacles"], config)   # Run IK to generate trajectory
+            config["yref_end"] = yref[-1]                                                               # Add to config for summary saving purpose
+            np.save(os.path.join(run_dir, "yref.npy"), yref)                                            # Save yref for reference
+
+        controller = BaseMPCController(config, yref, collision_config)                                  # Create MPCController 
+
+        # Save run summary
+        save_summary(config=config, output_dir=run_dir)                                                 # Save summary of all 
+    
         # Record start time
         start_time = time.time()
 
         # Create simulator object
-        simulator = MuJoCoSimulator(config)
-
-        if config["mpc"]["IK_required"]:
-            # Save summary for the case that x0 is updated
-            save_summary(config=config, output_dir=run_dir, file_name="summary_updated")
+        simulator = MuJoCoSimulator(config, controller.yref, controller, collision_config)
             
         # Run simulation
         simulator.run()
@@ -88,7 +97,7 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
                         logs=simulator.logs,
                         model=simulator.model,
                         plots_config=simulator.config["plots"],
-                        yref=simulator.yref,
+                        yref=simulator.yref, #convert this to use the logs instead and add the case where if traj is used, then plot the traj.
                         output_dir=run_dir,
                     )
             except Exception as plot_err:
