@@ -1,7 +1,7 @@
-[project]
+[workspace]
 name = "acados-pixi"
 channels = ["conda-forge"]
-platforms = ["osx-64"]
+platforms = ["osx-64", "linux-64"]
 
 [dependencies]
 # Core build tools
@@ -30,7 +30,6 @@ robot_descriptions = ">=1.21.0,<2"
 pink = ">=3.4.0,<4"
 plotly = ">=6.4.0,<7"
 mplcursors = ">=0.7,<0.8"
-seaborn = ">=0.13.2,<0.14"
 meshcat-shapes = ">=1.0.0,<2"
 loop-rate-limiters = ">=1.2.0,<2"
 
@@ -43,33 +42,33 @@ torch = ">=2.2.2, <3"
 ACADOS_SOURCE_DIR = "$PWD/external/acados"
 
 # Shared libraries (Linux uses LD_LIBRARY_PATH, macOS uses DYLD_LIBRARY_PATH)
-LD_LIBRARY_PATH   = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
-DYLD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$DYLD_LIBRARY_PATH"
+LD_LIBRARY_PATH   = "${PWD}/external/acados/lib:${LD_LIBRARY_PATH:-}"
+DYLD_LIBRARY_PATH = "${PWD}/external/acados/lib:${DYLD_LIBRARY_PATH:-}"
 
 # Add the Tera renderer (if downloaded) to PATH
 PATH = "$PWD/external/acados/bin:$PATH"
 
 # Include + link flags so generated code can find HPIPM/BLASFEO headers & libs
-CFLAGS   = "-I$CONDA_PREFIX/include -I$CONDA_PREFIX/include/hpipm/include -I$CONDA_PREFIX/include/blasfeo/include $CFLAGS"
-CPPFLAGS = "$CFLAGS"
-LDFLAGS  = "-L$CONDA_PREFIX/lib $LDFLAGS"
+# CFLAGS   = "-I$CONDA_PREFIX/include -I$CONDA_PREFIX/include/hpipm/include -I$CONDA_PREFIX/include/blasfeo/include $CFLAGS"
+# CPPFLAGS = "$CFLAGS"
+# LDFLAGS  = "-L$CONDA_PREFIX/lib $LDFLAGS"
 
 # Makes CMake-based downstream projects find acados automatically
-CMAKE_PREFIX_PATH = "$CONDA_PREFIX:$CMAKE_PREFIX_PATH"
+CMAKE_PREFIX_PATH = "$PWD/external/acados:$CMAKE_PREFIX_PATH"
 
 # (Optional) useful for pkg-config consumers
-PKG_CONFIG_PATH = "$CONDA_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
+PKG_CONFIG_PATH = "$PWD/external/acados/lib/pkgconfig:$PKG_CONFIG_PATH"
 
 [tasks]
 # Clone acados with submodules
 acados_clone = "git clone --recursive https://github.com/acados/acados.git external/acados"
 
 # Configure acados to install into the pixi prefix
-acados_configure = "cmake -S external/acados -B build/acados -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DBLASFEO_TARGET=X64_AUTOMATIC -DHPIPM_TARGET=GENERIC -DACADOS_EXAMPLES=OFF -DACADOS_UNIT_TESTS=OFF"
+acados_configure = "cmake -S external/acados -B build/acados -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$PWD/external/acados -DBLASFEO_TARGET=X64_AUTOMATIC -DHPIPM_TARGET=GENERIC -DACADOS_EXAMPLES=OFF -DACADOS_UNIT_TESTS=OFF"
 
 # Build and install the C libs (acados, hpipm, blasfeo) into the env
 acados_build   = "cmake --build build/acados -j $PIXI_JOBS"
-acados_install = "cmake --install build/acados --prefix $CONDA_PREFIX"
+acados_install = "cmake --install build/acados --prefix external/acados"
 
 # Install the Python interface (editable)
 acados_python = "python -m pip install -e external/acados/interfaces/acados_template"
