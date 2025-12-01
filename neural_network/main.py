@@ -5,8 +5,10 @@
 
 import argparse
 import configparser
+import os
 
-from scripts import convert_data, train_model, visualize_data, evaluate_model, convert_events_to_images
+from datetime import datetime
+from neural_network.scripts import train_model, evaluate_model
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -15,25 +17,34 @@ if __name__ == '__main__':
     subparsers = parser.add_subparsers(dest="script_name", required=True,
                                        help="Script to run")
 
+    # TRAIN_MODEL
     parser_train_model = subparsers.add_parser("train_model", help="Train the model")
     parser_train_model.add_argument(
         '--config', type=str, required=True, help='Path to .ini config file for training'
     )
 
+    # EVALUATE_MODEL
     parser_evaluate_model = subparsers.add_parser("evaluate_model", help="Evaluate model")
     parser_evaluate_model.add_argument(
-        '--model_path', type=str, required=True, help='Path to model weights'
-    )
-    parser_evaluate_model.add_argument(
-        '--output_dir', type=str, required=True, help='Path to output directory'
+        '--model', type=str, required=True, help='Path to model weights'
     )
 
     args = parser.parse_args()
+
+    # Create base output directory
+    output_dir = "neural_network/output"
+    os.makedirs(output_dir, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    folder_name = f"{timestamp}_{args.script_name}"
+    run_dir = os.path.join(output_dir, folder_name)
+    os.makedirs(run_dir, exist_ok=True)
+    print(f"Saving current data to: {run_dir}")
 
     if args.script_name == 'train_model':
         config = configparser.ConfigParser()
         config.read(args.config)
         print(f'Training with config from {args.config}')
-        train_model(config)
+        train_model(config, run_dir)
     elif args.script_name == 'evaluate_model':
         evaluate_model(model_path=args.model_path, output_dir=args.output_dir)

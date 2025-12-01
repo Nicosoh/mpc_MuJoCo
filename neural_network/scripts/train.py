@@ -1,0 +1,123 @@
+import torch
+import os
+import torch.nn as nn
+from torch.utils.data import DataLoader
+from pathlib import Path
+from tqdm import tqdm
+from neural_network.utils import plot_loss
+
+from neural_network.models import MODEL_REGISTRY
+from neural_network.datasets import DATASET_REGISTRY
+
+def train_model(config, run_dir):
+    # === Device ===
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    # === Paths ===
+    checkpoint_path = os.path.join(run_dir, "checkpoint")
+
+    # === Read config ===
+    # Training
+    learning_rate = config.getfloat("TRAINING", "learning_rate")
+    batch_size    = config.getint("TRAINING", "batch_size")
+    num_epochs    = config.getint("TRAINING", "num_epochs")
+    patience      = config.getint("TRAINING", "patience")
+
+    # Data
+    dataset_model = config.get("DATA", "dataset_model")
+    data_path = config.get("DATA", "data_path")
+
+    # Validation
+    eval_interval = config.getint("VAL", "val_interval")
+
+    # === Create dataset + dataloader ===
+    # Load dataset dynamically
+    DatasetClass = DATASET_REGISTRY[dataset_model]
+    dataset = DatasetClass(data_path) # create dataset object
+    train_loader = DataLoader(dataset.train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(dataset.val_dataset, batch_size=batch_size, shuffle=True)
+    print("X min/max:", dataset.X.min(), dataset.X.max())
+    print("y min/max:", dataset.y.min(), dataset.y.max())
+    print("X mean/std:", dataset.X.mean(), dataset.X.std())
+    print("y mean/std:", dataset.y.mean(), dataset.y.std())
+    # === Model / optimizer / loss ===
+    # Load model dynamically
+    ModelClass = MODEL_REGISTRY[config.get("MODEL", "model")]
+    model = ModelClass().to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    criterion = nn.MSELoss()
+
+    # === Logging ===
+    train_losses = []
+    val_losses = []
+    best_val_loss = float("inf")
+
+    # === Variables ===
+    vals_since_improvement = 0
+    best_model_path = None
+
+    # === Global epoch progress bar ===
+    epoch_bar = tqdm(range(num_epochs), desc="Training", unit="epoch")
+
+    for epoch in epoch_bar:
+        model.train()
+        total_loss = 0.0
+
+        for xb, yb in train_loader:
+            xb = xb.to(device)
+            yb = yb.to(device)
+
+            optimizer.zero_grad()
+            preds = model(xb)
+            loss = criterion(preds, yb)
+            loss.backward()
+            optimizer.step()
+
+            total_loss += loss.item() * xb.size(0)
+
+        avg_train_loss = total_loss / len(dataset.train_dataset)
+        train_losses.append((epoch+1, avg_train_loss, optimizer.param_groups[0]['lr']))
+        # Update the tqdm bar postfix with avg loss
+        epoch_bar.set_postfix(Epoch_loss=avg_train_loss)
+
+        # === Validation every eval_interval ===
+        if (epoch + 1) % eval_interval == 0:
+            model.eval()
+            val_loss = 0.0
+
+            with torch.no_grad():
+                for xb, yb in val_loader:
+                    xb = xb.to(device)
+                    yb = yb.to(device)
+                    preds = model(xb)
+                    loss = criterion(preds, yb)
+                    val_loss += loss.item() * xb.size(0)
+
+            avg_val_loss = val_loss / len(dataset.val_dataset)
+            val_losses.append((epoch+1, avg_val_loss, optimizer.param_groups[0]['lr']))
+
+            tqdm.write(f"\n[Eval @ epoch {epoch+1}]  Val Loss = {avg_val_loss:.6f}\n")
+
+            # === If improvement → save best model ===
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
+                epoch_str = f"{epoch+1}"
+                checkpoint_epoch_path = os.path.join(run_dir, f"best_model_epoch_{epoch_str}.pt")
+                torch.save(model.state_dict(), checkpoint_epoch_path)
+                tqdm.write(f"New best model saved! Val Loss: {best_val_loss:.6f}\n")
+                vals_since_improvement = 0
+            else:
+                vals_since_improvement += 1
+            
+            # If no improvement for a certain number of epochs, restore best weights and reduce learning rate
+            if vals_since_improvement >= patience:
+                tqdm.write(
+                    f"Validation loss did not improve for {patience} validations. Reducing learning rate and restoring best model weights.")
+                if best_model_path is not None:
+                    model.load_state_dict(torch.load(best_model_path))
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] /= 10
+                vals_since_improvement = 0
+
+    plot_loss(train_losses, val_losses, run_dir=run_dir)

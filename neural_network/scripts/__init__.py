@@ -1,3 +1,2 @@
-from neural_network.scripts.model import PendulumNetwork
-
-__all__ = ["PendulumNetwork"]
+from .train import train_model
+from .evaluate import evaluate_model
