@@ -16,7 +16,7 @@ def train_model(config, run_dir, seed=42):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    
+
     # === Device ===
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -75,6 +75,9 @@ def train_model(config, run_dir, seed=42):
     train_losses = []
     val_losses = []
     best_val_loss = float("inf")
+    # Track top-5 best checkpoints
+    top_k = 5
+    best_checkpoints = []   # list of tuples: (val_loss, path)
 
     # === Variables ===
     vals_since_improvement = 0
@@ -99,7 +102,7 @@ def train_model(config, run_dir, seed=42):
 
             total_loss += loss.item() * xb.size(0)
 
-        avg_train_loss = total_loss / len(dataset.train_dataset)
+        avg_train_loss = total_loss / len(train_loader.dataset)
         train_losses.append((epoch+1, avg_train_loss, optimizer.param_groups[0]['lr']))
         # Update the tqdm bar postfix with avg loss
         epoch_bar.set_postfix(Epoch_loss=avg_train_loss)
@@ -117,18 +120,37 @@ def train_model(config, run_dir, seed=42):
                     loss = criterion(preds, yb)
                     val_loss += loss.item() * xb.size(0)
 
-            avg_val_loss = val_loss / len(dataset.val_dataset)
+            avg_val_loss = val_loss / len(val_loader.dataset)
             val_losses.append((epoch+1, avg_val_loss, optimizer.param_groups[0]['lr']))
 
             tqdm.write(f"\n[Eval @ epoch {epoch+1}]  Val Loss = {avg_val_loss:.6f}\n")
 
-            # === If improvement → save best model ===
+            # === Top-5 checkpoint logic ===
+            epoch_str = f"{epoch + 1}"
+            ckpt_path = os.path.join(run_dir, f"model_epoch_{epoch_str}.pt")
+
+            should_save = (
+                len(best_checkpoints) < top_k or
+                avg_val_loss < best_checkpoints[-1][0]
+            )
+
+            if should_save:
+                torch.save(model.state_dict(), ckpt_path)
+
+                best_checkpoints.append((avg_val_loss, ckpt_path))
+                best_checkpoints.sort(key=lambda x: x[0])  # smaller loss = better
+
+                # Remove extra checkpoints
+                if len(best_checkpoints) > top_k:
+                    worst_loss, worst_path = best_checkpoints.pop()
+                    if os.path.exists(worst_path):
+                        os.remove(worst_path)
+                        tqdm.write(f"Removed old checkpoint: {worst_path}")
+
+            # Update "best_val_loss" separately for LR scheduling logic
             if avg_val_loss < best_val_loss:
                 best_val_loss = avg_val_loss
-                epoch_str = f"{epoch+1}"
-                checkpoint_epoch_path = os.path.join(run_dir, f"best_model_epoch_{epoch_str}.pt")
-                torch.save(model.state_dict(), checkpoint_epoch_path)
-                tqdm.write(f"New best model saved! Val Loss: {best_val_loss:.6f}\n")
+                best_model_path = ckpt_path
                 vals_since_improvement = 0
             else:
                 vals_since_improvement += 1
