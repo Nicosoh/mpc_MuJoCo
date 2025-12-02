@@ -221,7 +221,13 @@ def plot_dist(
         if source == "qpos"
     }
 
-    # === HISTOGRAMS for state values ===
+    qvel_plots = {
+        plot_name: index
+        for plot_name, (source, index, unit) in config["plots"].items()
+        if source == "qvel"
+    }
+
+    # === HISTOGRAMS for qpos ===
     for state_name, idx in qpos_plots.items():
         fig, ax = plt.subplots(figsize=(8, 4))
 
@@ -229,6 +235,37 @@ def plot_dist(
         for run_key in run_keys:
             qpos = all_logs[run_key]["qpos"]  # shape: (timesteps, state_dim)
             all_values.append(qpos[:, idx])   # gather values for this axis
+
+        all_values = np.concatenate(all_values)  # flatten across runs
+        counts, bins, patches = ax.hist(all_values, bins=80, color="teal", alpha=0.75)
+        ax.set_title(f"Distribution of {state_name}")
+        ax.set_xlabel(state_name)
+        ax.set_ylabel("Frequency")
+        ax.grid(True)
+
+        # --- Add count labels above bars ---
+        for count, bin_left, bin_right in zip(counts, bins[:-1], bins[1:]):
+            if count > 0:
+                ax.text(
+                    (bin_left + bin_right) / 2,  # center of the bar
+                    count,                      # height position
+                    f"{int(count)}",
+                    ha="center", va="bottom",
+                    fontsize=8,
+                    rotation=90,                # vertical label for compactness
+                )
+
+        fig.tight_layout()
+        fig.savefig(os.path.join(save_dir, f"{state_name}_histogram.png"))
+    
+     # === HISTOGRAMS for qvel values ===
+    for state_name, idx in qvel_plots.items():
+        fig, ax = plt.subplots(figsize=(8, 4))
+
+        all_values = []
+        for run_key in run_keys:
+            qvel = all_logs[run_key]["qvel"]  # shape: (timesteps, state_dim)
+            all_values.append(qvel[:, idx])   # gather values for this axis
 
         all_values = np.concatenate(all_values)  # flatten across runs
         counts, bins, patches = ax.hist(all_values, bins=80, color="teal", alpha=0.75)

@@ -17,7 +17,8 @@ class PinocchioCasadiRobotWrapper(RobotWrapper):
         self.timestep = config["mpc"]["mpc_timestep"]
         self.create_dynamics(pin_config)
         self.create_discrete_dynamics()
-        self.create_forward_kinematics()
+        if config["mpc"]["IK_required"]:
+            self.create_forward_kinematics()
 
     def create_dynamics(self, pin_config):
         """Create the acceleration expression and acceleration function."""

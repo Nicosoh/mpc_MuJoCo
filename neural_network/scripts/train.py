@@ -1,6 +1,8 @@
 import torch
 import os
+import random
 import torch.nn as nn
+import numpy as np
 from torch.utils.data import DataLoader
 from pathlib import Path
 from tqdm import tqdm
@@ -9,17 +11,17 @@ from neural_network.utils import plot_loss
 from neural_network.models import MODEL_REGISTRY
 from neural_network.datasets import DATASET_REGISTRY
 
-def train_model(config, run_dir):
+def train_model(config, run_dir, seed=42):
+    # === Set random seed ===
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    
     # === Device ===
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     # === Config ===
-    # Save config to run_dir
-    config_save_path = os.path.join(run_dir, "train_config.ini")
-    with open(config_save_path, "w") as f:
-        config.write(f)
-
     # Training
     learning_rate = config.getfloat("TRAINING", "learning_rate")
     batch_size    = config.getint("TRAINING", "batch_size")
@@ -33,7 +35,7 @@ def train_model(config, run_dir):
 
     # Model
     model_name = config.get("MODEL", "model_name")
-    
+
     # Validation
     eval_interval = config.getint("VAL", "val_interval")
 
@@ -43,6 +45,24 @@ def train_model(config, run_dir):
     dataset = DatasetClass(data_path=data_path, standardize=standardize, run_dir=run_dir, mode="train") # create dataset object
     train_loader = DataLoader(dataset.train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(dataset.val_dataset, batch_size=batch_size, shuffle=True)
+
+    # === Dataset Info ===
+    num_train = len(dataset.train_dataset)
+    num_val   = len(dataset.val_dataset)
+    total     = num_train + num_val
+    train_ratio = num_train / total
+    val_ratio   = num_val / total
+
+    # === Update train_config.ini with dataset statistics ===
+    config.set("DATA", "num_train_samples", str(num_train))
+    config.set("DATA", "num_val_samples", str(num_val))
+    config.set("DATA", "train_ratio", f"{train_ratio:.4f}")
+    config.set("DATA", "val_ratio", f"{val_ratio:.4f}")
+
+    # Save updated config
+    config_save_path = os.path.join(run_dir, "train_config.ini")
+    with open(config_save_path, "w") as f:
+        config.write(f)
 
     # === Model / optimizer / loss ===
     # Load model dynamically

@@ -8,6 +8,7 @@
     </asset>
 
     <worldbody>
+        <camera pos="0.005 -3.036 1.691" xyaxes="1.000 0.002 -0.000 -0.000 0.267 0.964"/>
         <!-- Place background -->
         <geom size="2 2 .01" type="plane" material="grid"/>
         <!-- Static light -->

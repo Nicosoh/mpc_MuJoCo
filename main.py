@@ -44,6 +44,8 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
             yref, config = generate_reference_trajectory(yref, collision_config["obstacles"], config)   # Run IK to generate trajectory
             config["yref_end"] = yref[-1]                                                               # Add to config for summary saving purpose
             np.save(os.path.join(run_dir, "yref.npy"), yref)                                            # Save yref for reference
+        else:
+            collision_config = None
 
         controller = BaseMPCController(config, yref, collision_config)                                  # Create MPCController 
 
