@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import os
+import json
+import torch
 
 def plot_loss(train_losses, val_losses, run_dir):
     """
@@ -48,3 +50,14 @@ def plot_loss(train_losses, val_losses, run_dir):
         print(f"Loss plot saved to {save_path}")
     
     plt.show()
+
+def import_standardize_params(checkpoint_dir):
+    with open(os.path.join(checkpoint_dir,"normalization_stats.json"), "r") as f:
+        stats = json.load(f)
+
+    X_mean = torch.tensor(stats["X_mean"])
+    X_std  = torch.tensor(stats["X_std"])
+    y_mean = torch.tensor(stats["y_mean"])
+    y_std  = torch.tensor(stats["y_std"])
+
+    return X_mean, X_std, y_mean, y_std

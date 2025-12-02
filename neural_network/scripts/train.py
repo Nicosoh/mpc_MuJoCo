@@ -14,10 +14,12 @@ def train_model(config, run_dir):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    # === Paths ===
-    checkpoint_path = os.path.join(run_dir, "checkpoint")
+    # === Config ===
+    # Save config to run_dir
+    config_save_path = os.path.join(run_dir, "train_config.ini")
+    with open(config_save_path, "w") as f:
+        config.write(f)
 
-    # === Read config ===
     # Training
     learning_rate = config.getfloat("TRAINING", "learning_rate")
     batch_size    = config.getint("TRAINING", "batch_size")
@@ -25,25 +27,26 @@ def train_model(config, run_dir):
     patience      = config.getint("TRAINING", "patience")
 
     # Data
-    dataset_model = config.get("DATA", "dataset_model")
+    dataset_class = config.get("DATA", "dataset_class")
     data_path = config.get("DATA", "data_path")
+    standardize = config.getboolean("DATA", "standardize")
 
+    # Model
+    model_name = config.get("MODEL", "model_name")
+    
     # Validation
     eval_interval = config.getint("VAL", "val_interval")
 
     # === Create dataset + dataloader ===
     # Load dataset dynamically
-    DatasetClass = DATASET_REGISTRY[dataset_model]
-    dataset = DatasetClass(data_path) # create dataset object
+    DatasetClass = DATASET_REGISTRY[dataset_class]
+    dataset = DatasetClass(data_path=data_path, standardize=standardize, run_dir=run_dir, mode="train") # create dataset object
     train_loader = DataLoader(dataset.train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(dataset.val_dataset, batch_size=batch_size, shuffle=True)
-    print("X min/max:", dataset.X.min(), dataset.X.max())
-    print("y min/max:", dataset.y.min(), dataset.y.max())
-    print("X mean/std:", dataset.X.mean(), dataset.X.std())
-    print("y mean/std:", dataset.y.mean(), dataset.y.std())
+
     # === Model / optimizer / loss ===
     # Load model dynamically
-    ModelClass = MODEL_REGISTRY[config.get("MODEL", "model")]
+    ModelClass = MODEL_REGISTRY[model_name]
     model = ModelClass().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()

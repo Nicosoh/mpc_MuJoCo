@@ -1,7 +1,12 @@
 import torch
+import json
+import os
+
+import numpy as np
+
 from torch.utils.data import Dataset, random_split
 from data_collection import load_npz
-import numpy as np
+
 
 class PendulumDataset(Dataset):
     """
@@ -12,19 +17,22 @@ class PendulumDataset(Dataset):
 
     Optional train/test split using `split_ratio`.
     """
-    def __init__(self, data_path, standardize=True):
+    def __init__(self, data_path, standardize, run_dir, mode):
         """
         Args:
             data_path (str): Path to the .npz file
         """
         self.standardize = standardize
+        self.run_dir = run_dir
         data = load_npz(data_path)
         self.preprocess_data(data) # Process data to be in pytorch format
 
         if self.standardize:
             self.compute_standardization()  # Compute mean/std and standardize y
+            self.save_standardization_values()
 
-        self.train_val_data() # Split data into train and val
+        if mode == "train":
+            self.train_val_data() # Split data into train and val
 
     def preprocess_data(self, data):
         X_list = []
@@ -61,6 +69,17 @@ class PendulumDataset(Dataset):
         self.y_mean = self.y.mean(dim=0, keepdim=True)
         self.y_std = self.y.std(dim=0, keepdim=True) + 1e-8
         self.y = (self.y - self.y_mean) / self.y_std
+    
+    def save_standardization_values(self):
+        stats = {
+            "X_mean": self.X_mean.squeeze(0).tolist(),
+            "X_std":  self.X_std.squeeze(0).tolist(),
+            "y_mean": self.y_mean.squeeze(0).tolist(),
+            "y_std":  self.y_std.squeeze(0).tolist(),
+        }
+
+        with open(os.path.join(self.run_dir, "normalization_stats.json"), "w") as f:
+            json.dump(stats, f, indent=4)
     
     def train_val_data(self, val_split=0.2, seed=42):
         dataset_size = len(self.X)

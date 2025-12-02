@@ -26,7 +26,7 @@ if __name__ == '__main__':
     # EVALUATE_MODEL
     parser_evaluate_model = subparsers.add_parser("evaluate_model", help="Evaluate model")
     parser_evaluate_model.add_argument(
-        '--model', type=str, required=True, help='Path to model weights'
+        '--config_path', type=str, required=True, help='Path to .ini config file for testing'
     )
 
     args = parser.parse_args()
@@ -47,4 +47,4 @@ if __name__ == '__main__':
         print(f'Training with config from {args.config}')
         train_model(config, run_dir)
     elif args.script_name == 'evaluate_model':
-        evaluate_model(model_path=args.model_path, output_dir=args.output_dir)
+        evaluate_model(args.config_path, run_dir)
