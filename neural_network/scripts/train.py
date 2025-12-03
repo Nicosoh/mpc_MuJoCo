@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from pathlib import Path
 from tqdm import tqdm
 from neural_network.utils import plot_loss
+from neural_network.losses import weighted_mse_loss
 
 from neural_network.models import MODEL_REGISTRY
 from neural_network.datasets import DATASET_REGISTRY
@@ -31,7 +32,8 @@ def train_model(config, run_dir, seed=42):
     # Data
     dataset_class = config.get("DATA", "dataset_class")
     data_path = config.get("DATA", "data_path")
-    standardize = config.getboolean("DATA", "standardize")
+    apply_scaling = config.getboolean("DATA", "apply_scaling")
+    scaling_type = config.get("DATA", "scaling_type")
 
     # Model
     model_name = config.get("MODEL", "model_name")
@@ -42,7 +44,7 @@ def train_model(config, run_dir, seed=42):
     # === Create dataset + dataloader ===
     # Load dataset dynamically
     DatasetClass = DATASET_REGISTRY[dataset_class]
-    dataset = DatasetClass(data_path=data_path, standardize=standardize, run_dir=run_dir, mode="train") # create dataset object
+    dataset = DatasetClass(data_path=data_path, apply_scaling=apply_scaling, scaling_type=scaling_type, run_dir=run_dir, mode="train") # create dataset object
     train_loader = DataLoader(dataset.train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(dataset.val_dataset, batch_size=batch_size, shuffle=True)
 
@@ -123,7 +125,7 @@ def train_model(config, run_dir, seed=42):
             avg_val_loss = val_loss / len(val_loader.dataset)
             val_losses.append((epoch+1, avg_val_loss, optimizer.param_groups[0]['lr']))
 
-            tqdm.write(f"\n[Eval @ epoch {epoch+1}]  Val Loss = {avg_val_loss:.6f}\n")
+            tqdm.write(f"\n[Eval @ epoch {epoch+1}]  Val Loss = {avg_val_loss}\n")
 
             # === Top-5 checkpoint logic ===
             epoch_str = f"{epoch + 1}"

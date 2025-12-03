@@ -6,7 +6,7 @@ import numpy as np
 
 from torch.utils.data import Dataset, random_split
 from data_collection import load_npz
-
+from neural_network.utils import save_scaling_values, run_scaling
 
 class PendulumDataset(Dataset):
     """
@@ -17,22 +17,30 @@ class PendulumDataset(Dataset):
 
     Optional train/test split using `split_ratio`.
     """
-    def __init__(self, data_path, standardize, run_dir, mode):
+    def __init__(self, data_path, apply_scaling, scaling_type, run_dir, mode, scaling_params=None):
         """
         Args:
             data_path (str): Path to the .npz file
         """
-        self.standardize = standardize
+        self.apply_scaling = apply_scaling
+        self.scaling_type = scaling_type
         self.run_dir = run_dir
+        self.mode = mode
+        self.scaling_params = scaling_params
         data = load_npz(data_path)
         self.preprocess_data(data) # Process data to be in pytorch format
 
-        if self.standardize:
-            self.compute_standardization()  # Compute mean/std and standardize y
-            self.save_standardization_values()
-
-        if mode == "train":
+        if self.mode == "train":
             self.train_val_data() # Split data into train and val
+
+        if self.apply_scaling:
+            if self.mode == "train":
+                self.compute_and_apply_scaling()
+            else:
+                if self.scaling_params is None:
+                    raise ValueError(
+                        "scaling_params must be provided for test/eval mode when apply_scaling=True")
+                self._apply_scaling(self.scaling_params)
 
     def preprocess_data(self, data):
         X_list = []
@@ -58,28 +66,38 @@ class PendulumDataset(Dataset):
         # Stack all runs together
         self.X = torch.from_numpy(np.vstack(X_list)).float()
         self.y = torch.from_numpy(np.vstack(y_list)).float()
-    
-    def compute_standardization(self):
-        # Standardize X
-        self.X_mean = self.X.mean(dim=0, keepdim=True)
-        self.X_std = self.X.std(dim=0, keepdim=True) + 1e-8  # avoid div by 0
-        self.X = (self.X - self.X_mean) / self.X_std
 
-        # Standardize y
-        self.y_mean = self.y.mean(dim=0, keepdim=True)
-        self.y_std = self.y.std(dim=0, keepdim=True) + 1e-8
-        self.y = (self.y - self.y_mean) / self.y_std
-    
-    def save_standardization_values(self):
-        stats = {
-            "X_mean": self.X_mean.squeeze(0).tolist(),
-            "X_std":  self.X_std.squeeze(0).tolist(),
-            "y_mean": self.y_mean.squeeze(0).tolist(),
-            "y_std":  self.y_std.squeeze(0).tolist(),
-        }
+    def compute_and_apply_scaling(self):
+        train_idx = self.train_dataset.indices
+        train_X = self.X[train_idx]
+        train_y = self.y[train_idx]
 
-        with open(os.path.join(self.run_dir, "normalization_stats.json"), "w") as f:
-            json.dump(stats, f, indent=4)
+        eps = 1e-8
+        if self.scaling_type == "standardize":
+            scaling_params = {
+                "type": "standardize",
+                "X_mean": train_X.mean(dim=0, keepdim=True),
+                "X_std": train_X.std(dim=0, keepdim=True) + eps,
+                "y_mean": train_y.mean(dim=0, keepdim=True),
+                "y_std": train_y.std(dim=0, keepdim=True) + eps
+            }
+        elif self.scaling_type == "normalize":
+            scaling_params = {
+                "type": "normalize",
+                "X_min": train_X.min(dim=0, keepdim=True)[0],
+                "X_max": train_X.max(dim=0, keepdim=True)[0],
+                "y_min": train_y.min(dim=0, keepdim=True)[0],
+                "y_max": train_y.max(dim=0, keepdim=True)[0]
+            }
+        else:
+            raise ValueError(f"Unknown scaling type: {self.scaling_type}")
+
+        # Apply scaling
+        self.X, self.y = run_scaling(self.X, self.y, self.scaling_type, scaling_params)
+        save_scaling_values(scaling_params, self.run_dir)
+
+    def _apply_scaling(self, scaling_params):
+        self.X, self.y = run_scaling(self.X, self.y, self.scaling_type, scaling_params)
     
     def train_val_data(self, val_split=0.2, seed=42):
         dataset_size = len(self.X)

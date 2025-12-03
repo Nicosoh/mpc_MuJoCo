@@ -3,7 +3,7 @@ import json
 import os
 from tqdm import tqdm
 from configparser import ConfigParser
-from neural_network.utils import import_standardize_params
+from neural_network.utils import import_scaling_params, run_scaling
 from torch.utils.data import DataLoader
 
 from neural_network.models import MODEL_REGISTRY
@@ -28,11 +28,14 @@ def evaluate_model(test_config_path, run_dir):
     train_config.read(train_config_path)
     
     dataset_class = train_config.get("DATA", "dataset_class")
-    standardize = train_config.getboolean("DATA", "standardize")
+    apply_scaling = train_config.getboolean("DATA", "apply_scaling")
+    scaling_type = train_config.get("DATA", "scaling_type")
     model_name = train_config.get("MODEL", "model_name")
 
-    if standardize:
-        X_mean, X_std, y_mean, y_std = import_standardize_params(checkpoint_dir)
+    # === Load scaling params if needed ===
+    scaling_params = None
+    if apply_scaling:
+        scaling_params = import_scaling_params(checkpoint_dir)
     
     # === Save configs ===
     train_config_save_path = os.path.join(run_dir, "train_config.ini")
@@ -49,9 +52,11 @@ def evaluate_model(test_config_path, run_dir):
 
     DatasetClass = DATASET_REGISTRY[dataset_class]
     dataset = DatasetClass(data_path=test_data_path, 
-                           standardize=False,           # During testing, this should always be false and if it was used 
+                           apply_scaling=apply_scaling,
+                           scaling_type=scaling_type,   # During testing, this should always be false and if it was used 
                            run_dir=run_dir,             # during training then the values should be extracted from the train data.
-                           mode = "test")              # Which is saved in the json
+                           mode = "test",
+                           scaling_params=scaling_params)               # Which is saved in the json
 
     test_loader = DataLoader(dataset,
                              batch_size=1,
@@ -72,20 +77,20 @@ def evaluate_model(test_config_path, run_dir):
 
     # === Evaluate ===
     for xb, yb in tqdm(test_loader, desc="Evaluating"):
-        xb = xb.to(device)
-        yb = yb.to(device)
-
-        # Normalize X for inference
-        xb = (xb - X_mean) / X_std
+        xb, yb = xb.to(device), yb.to(device)
 
         with torch.no_grad():
-            pred_norm = model(xb)
+            pred_scaled = model(xb)
 
-        # Unnormalize y
-        pred = pred_norm * y_std + y_mean
+        # Unscale prediction to original target space
+        if apply_scaling:
+            _, pred = run_scaling(pred_scaled, pred_scaled, scaling_type, scaling_params, inverse=True)  # inverse=True means unscale y
+            _, yb = run_scaling(yb, yb, scaling_type, scaling_params, inverse=True)
+        else:
+            pred = pred_scaled
 
         preds.append(pred.cpu())
-        targets.append(yb.cpu())   # raw target values
+        targets.append(yb.cpu())
 
     preds = torch.cat(preds, dim=0)
     targets = torch.cat(targets, dim=0)

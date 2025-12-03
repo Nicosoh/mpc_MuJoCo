@@ -51,13 +51,75 @@ def plot_loss(train_losses, val_losses, run_dir):
     
     plt.show()
 
-def import_standardize_params(checkpoint_dir):
-    with open(os.path.join(checkpoint_dir,"normalization_stats.json"), "r") as f:
+def import_scaling_params(checkpoint_dir):
+    """
+    Import scaling parameters from a checkpoint folder.
+    Returns a dictionary with keys depending on type ("standardize" or "normalize")
+    """
+    file_path = os.path.join(checkpoint_dir, "normalization_stats.json")
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"No normalization_stats.json found in {checkpoint_dir}")
+
+    with open(file_path, "r") as f:
         stats = json.load(f)
 
-    X_mean = torch.tensor(stats["X_mean"])
-    X_std  = torch.tensor(stats["X_std"])
-    y_mean = torch.tensor(stats["y_mean"])
-    y_std  = torch.tensor(stats["y_std"])
+    tensors = {}
+    if all(k in stats for k in ["X_mean", "X_std", "y_mean", "y_std"]):
+        # Standardization
+        tensors.update({k: torch.tensor(stats[k]) for k in ["X_mean", "X_std", "y_mean", "y_std"]})
+        tensors["type"] = "standardize"
+    elif all(k in stats for k in ["X_min", "X_max", "y_min", "y_max"]):
+        # Normalization
+        tensors.update({k: torch.tensor(stats[k]) for k in ["X_min", "X_max", "y_min", "y_max"]})
+        tensors["type"] = "normalize"
+    else:
+        raise ValueError("Normalization file does not contain recognized keys.")
 
-    return X_mean, X_std, y_mean, y_std
+    return tensors
+
+def run_scaling(X, y, scaling_type ,scaling_params, inverse=False):
+    """
+    Apply loaded scaling parameters to tensors X and y.
+
+    Args:
+        X (torch.Tensor): Input features
+        y (torch.Tensor): Targets
+        scaling_params (dict): Output from `load_scaling_params`
+
+    Returns:
+        tuple: scaled X, scaled y
+    """
+    eps = 1e-8
+    if scaling_type == "standardize":
+        if not inverse:
+            X_scaled = (X - scaling_params["X_mean"]) / (scaling_params["X_std"] + eps)
+            y_scaled = (y - scaling_params["y_mean"]) / (scaling_params["y_std"] + eps)
+        else:
+            X_scaled = X * (scaling_params["X_std"] + eps) + scaling_params["X_mean"]
+            y_scaled = y * (scaling_params["y_std"] + eps) + scaling_params["y_mean"]
+
+    elif scaling_type == "normalize":
+        if not inverse:
+            X_scaled = 2 * (X - scaling_params["X_min"]) / (scaling_params["X_max"] - scaling_params["X_min"] + eps) - 1
+            # y_scaled = 2 * (y - scaling_params["y_min"]) / (scaling_params["y_max"] - scaling_params["y_min"] + eps) - 1
+            y_scaled = y
+        else:
+            X_scaled = ((X + 1) / 2) * (scaling_params["X_max"] - scaling_params["X_min"] + eps) + scaling_params["X_min"]
+            # y_scaled = ((y + 1) / 2) * (scaling_params["y_max"] - scaling_params["y_min"] + eps) + scaling_params["y_min"]
+            y_scaled = y
+
+    else:
+        raise ValueError(f"Unknown scaling type: {scaling_type}")
+
+    return X_scaled, y_scaled
+
+def save_scaling_values(scaling_params, run_dir):
+    """Save scaling parameters to JSON"""
+    filename = {
+        "standardize": "standardization_stats.json",
+        "normalize": "normalization_stats.json"
+    }.get(scaling_params["type"], "scaling_stats.json")
+
+    serializable = {k: v.squeeze(0).tolist() if torch.is_tensor(v) else v for k, v in scaling_params.items()}
+    with open(os.path.join(run_dir, filename), "w") as f:
+        json.dump(serializable, f, indent=4)
