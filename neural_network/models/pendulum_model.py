@@ -16,6 +16,13 @@ class PendulumModel(nn.Module):
         x = F.tanh(self.fc3(x))   
 
         # final output = 1/2 * ||z||^2
-        x = 0.5 * torch.sum(x**2, dim=1, keepdim=True)
+        x = torch.tensor(0.5, dtype=x.dtype, device=x.device) * torch.sum(x**2, dim=1, keepdim=True)
 
         return x
+
+class PendulumModelTruncated(PendulumModel):
+    def forward(self, x):
+        x = F.tanh(self.fc1(x))
+        x = F.tanh(self.fc2(x))
+        x = F.tanh(self.fc3(x))
+        return x  # return raw fc3 output

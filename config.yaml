@@ -84,7 +84,7 @@ pendulum:
 
   mpc:
     Fmax: [50] # Maximum force
-    N_horizon: 200 # Prediction horizon
+    N_horizon: 1 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.01 # seconds
     x0: [3.142, 0.0]
@@ -103,6 +103,10 @@ pendulum:
     nlp_solver_warm_start_first_qp_from_nlp: false
     nlp_solver_warm_start_first_qp: false
     qp_solver_warm_start: 0
+  
+  NN:
+    model_name: "PendulumModel"
+    checkpoint_path: "neural_network/output/2025-12-04_14-08-53_train_model/model_epoch_2252.pt"
 
   plots:
     Pendulum Angle: ["qpos", 0, "rad"]

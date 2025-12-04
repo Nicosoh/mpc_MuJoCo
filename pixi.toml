@@ -6,8 +6,8 @@ platforms = ["osx-64", "linux-64"]
 [dependencies]
 # Core build tools
 python = "3.11.*"
-cmake = "*"
-ninja = "*"
+cmake = ">=3.27"
+ninja = ">=1.11"
 pkg-config = "*"
 git = "*"
 c-compiler = "*"
@@ -32,6 +32,7 @@ plotly = ">=6.4.0,<7"
 mplcursors = ">=0.7,<0.8"
 meshcat-shapes = ">=1.0.0,<2"
 loop-rate-limiters = ">=1.2.0,<2"
+scikit-build = ">=0.17"
 
 [pypi-dependencies]
 tqdm = "*"
@@ -75,6 +76,9 @@ acados_python = "python -m pip install -e external/acados/interfaces/acados_temp
 
 # One-shot: clone + configure + build + install + python interface
 acados_full = "pixi run acados_clone && pixi run acados_configure && pixi run acados_build && pixi run acados_install && pixi run acados_python"
+
+# Install l4casadi
+install_l4casadi = "export CMAKE_POLICY_VERSION_MINIMUM=3.5 && pip install l4casadi --no-build-isolation"
 
 # Run the minimal Python example
 minimal_example = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY_PATH\" && python external/acados/examples/acados_python/getting_started/minimal_example_ocp.py"

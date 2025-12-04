@@ -5,6 +5,10 @@ import scipy.linalg
 from casadi import vertcat
 import casadi as ca
 
+import l4casadi as l4c
+import torch
+from neural_network.models import PendulumModel
+
 def clamp(x, lo=0.0, hi=1.0):
     return ca.fmin(ca.fmax(x, lo), hi)
 
@@ -316,3 +320,153 @@ class BaseMPCController:
         cost = self.ocp_solver.get_cost()
 
         return u, cost, qpos_traj, qvel_traj, u_traj
+    
+
+class NNMPCController(BaseMPCController):
+    def __init__(self, config, yref, collision_config=None):
+        # Setup MPC solver
+        self.ocp_solver, self.yref = NNsetup(config, yref, collision_config)
+        self.nx = self.ocp_solver.acados_ocp.dims.nx
+        self.nu = self.ocp_solver.acados_ocp.dims.nu
+        self.N = self.ocp_solver.acados_ocp.dims.N
+
+        # Extract parameters from config
+        self.use_RTI = config["mpc"]["use_RTI"]
+        if config["mpc"]["IK_required"] and collision_config is not None:
+            x0 = np.array(config["mpc"]["x0_q"])
+        else:
+            x0 = np.array(config["mpc"]["x0"])
+        self.IK_required = config["mpc"]["IK_required"]
+        self.mpc_timestep = config["mpc"]["mpc_timestep"]
+
+        # Warm start
+        for _ in range(5):
+            self.ocp_solver.solve_for_x0(x0_bar=x0, fail_on_nonzero_status=True) # It is ok to fail during the warmup phase
+
+def NNsetup(config, yref, collision_config=None):
+    mpc_config = config["mpc"]
+
+    Fmax = mpc_config["Fmax"]
+    N_horizon = mpc_config["N_horizon"]
+    RTI = mpc_config["use_RTI"]
+    x0 = np.array(mpc_config["x0"])
+    Tf = N_horizon * mpc_config["mpc_timestep"]  # Time horizon
+    Q_mat = np.diag(mpc_config["Q_mat"]) # State cost weight matrix
+    R_mat = np.diag(mpc_config["R_mat"]) # Input cost weight matrix
+
+
+    
+    # Create ocp object to formulate the OCP
+    ocp = AcadosOcp()
+
+    # Call model creation function
+    model, robot_sys = export_ode_model(config)
+    ocp.model = model
+
+    # Extract state and input dimensions
+    nx = model.x.rows() # Possible to extract the last predicted state here to insert into NN. maybe...
+    nu = model.u.rows()
+    ny = nx + nu
+    ny_e = nx
+
+    # set cost module
+    ocp.cost.cost_type = 'NONLINEAR_LS'     # Stage cost
+    # ocp.cost.cost_type_e = 'EXTERNAL'   # Terminal cost
+
+    ocp.cost.W = scipy.linalg.block_diag(Q_mat, R_mat)  # Stage cost includes both states and input penalty
+    ocp.cost.W_e = Q_mat                               # Terminal cost only inlcudes states
+    ocp.cost.Vx_e = Q_mat
+    # === NN ===
+    device = "cpu"
+    checkpoint_path = "neural_network/output/2025-12-04_14-08-53_train_model/model_epoch_2252.pt"
+    NNmodel = PendulumModel().to(device)
+    state_dict = torch.load(checkpoint_path, map_location=device)
+    NNmodel.load_state_dict(state_dict)
+    NNmodel.eval()
+
+    # Wrap for CasADi
+    l4c_model = l4c.L4CasADi(NNmodel, device=device)
+    # import pdb; pdb.set_trace()
+    # Evaluate NN symbolically
+    y_sym = l4c_model.forward(ca.transpose(model.x))
+    ocp.model.cost_expr_ext_cost_e = y_sym
+    # === ====
+
+    # Get collision constraints
+    if mpc_config["IK_required"] and collision_config is not None:
+        # Generate collision constraints
+        # constraints = build_capsule_collision_constraints(robot_sys, 
+        #                                                       collision_config["links"], 
+        #                                                       collision_config["obstacles"], 
+        #                                                       collision_config["collision_pairs"])
+
+        # Add collision avoidance constraint between two capsules
+        capsule_dist_sq = capsule_squared_distance_function()
+
+        p1 = robot_sys.j_1
+        p2 = robot_sys.attachment_site
+
+        q1 = np.array([0.0, 0.7, 0.35])
+        q2 = np.array([0.0, 0.7, 0.65])
+
+        dist = capsule_dist_sq(p1, p2, q1, q2, 0.1, 0.05)
+
+        ocp.model.con_h_expr = dist
+        ocp.constraints.lh = np.array([0.05])       # epsilon (additional safety distance)
+        ocp.constraints.uh = np.array([1e6])
+ 
+        x0 = np.array(mpc_config["x0_q"])
+
+        # Pad yref with input reference(u). Currently only position and velocity.
+        yref_u = np.zeros((yref.shape[0], nu))
+        yref = np.hstack((yref, yref_u))
+
+        ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
+        # ocp.model.cost_y_expr_e = y_sym                   # Terminal cost only inlcudes states
+        ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references to match first entry of yref for all states and inputs
+        ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference to match first entry of yref for states only
+
+    else:
+        ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
+        # ocp.model.cost_y_expr_e = y_sym                   # Terminal cost only inlcudes states
+        ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references to match first entry of yref for all states and inputs
+        ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference to match first entry of yref for states only
+
+    # Set input constraints
+    ocp.constraints.lbu = -np.array(Fmax)
+    ocp.constraints.ubu = np.array(Fmax)
+    # Apply above to all inputs
+    ocp.constraints.idxbu = np.arange(nu)
+
+    # Set initial constraint
+    ocp.constraints.x0 = x0
+
+    # set prediction horizon
+    ocp.solver_options.N_horizon = N_horizon
+    ocp.solver_options.tf = Tf # Total predicton time
+
+    ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM' # FULL_CONDENSING_QPOASES
+    ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
+    ocp.solver_options.integrator_type = 'IRK'
+    ocp.solver_options.sim_method_newton_iter = 10
+    ocp.solver_options.regularize_method = mpc_config["regularize_method"] # For the Hessian
+    ocp.solver_options.levenberg_marquardt = mpc_config["levenberg_marquardt"]
+    ocp.solver_options.nlp_solver_warm_start_first_qp_from_nlp = mpc_config["nlp_solver_warm_start_first_qp_from_nlp"]
+    ocp.solver_options.nlp_solver_warm_start_first_qp = mpc_config["nlp_solver_warm_start_first_qp"]
+    ocp.solver_options.qp_solver_warm_start = mpc_config["qp_solver_warm_start"]
+    # ocp.solver_options.adaptive_levenberg_marquardt_lam
+
+    if RTI:
+        ocp.solver_options.nlp_solver_type = 'SQP_RTI'
+    else:
+        ocp.solver_options.nlp_solver_type = 'SQP'
+        ocp.solver_options.globalization = 'MERIT_BACKTRACKING' # turns on globalization
+        ocp.solver_options.nlp_solver_max_iter = 150
+    
+    ocp.solver_options.qp_solver_cond_N = N_horizon
+
+    # Create solver based on settings above
+    solver_json = 'acados_ocp_' + model.name + '.json'
+    acados_ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json, verbose=False)
+
+    return acados_ocp_solver, yref
