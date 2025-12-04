@@ -1,6 +1,7 @@
 import torch
 import json
 import os
+import ast
 from tqdm import tqdm
 from configparser import ConfigParser
 from neural_network.utils import import_scaling_params, run_scaling
@@ -16,7 +17,6 @@ def evaluate_model(test_config_path, run_dir):
 
     # Test config
     checkpoint_path = test_config.get("TEST", "checkpoint_path")
-    test_data_path = test_config.get("TEST", "test_data_path")
 
     # === Load train config ===
     # Train config path
@@ -31,6 +31,8 @@ def evaluate_model(test_config_path, run_dir):
     apply_scaling = train_config.getboolean("DATA", "apply_scaling")
     scaling_type = train_config.get("DATA", "scaling_type")
     model_name = train_config.get("MODEL", "model_name")
+    scaling_range_X = ast.literal_eval(train_config.get("DATA", "scaling_range_X"))
+    scaling_range_y = ast.literal_eval(train_config.get("DATA", "scaling_range_y"))
 
     # === Load scaling params if needed ===
     scaling_params = None
@@ -51,13 +53,12 @@ def evaluate_model(test_config_path, run_dir):
     print(f"Using device: {device}")
 
     DatasetClass = DATASET_REGISTRY[dataset_class]
-    dataset = DatasetClass(data_path=test_data_path, 
-                           apply_scaling=apply_scaling,
-                           scaling_type=scaling_type,   # During testing, this should always be false and if it was used 
+    dataset = DatasetClass(config=train_config,          # During testing, this should always be false and if it was used 
                            run_dir=run_dir,             # during training then the values should be extracted from the train data.
                            mode = "test",
-                           scaling_params=scaling_params)               # Which is saved in the json
-
+                           scaling_params=scaling_params,               # Which is saved in the json
+                           test_config=test_config)
+    
     test_loader = DataLoader(dataset,
                              batch_size=1,
                              shuffle=False)
@@ -84,8 +85,8 @@ def evaluate_model(test_config_path, run_dir):
 
         # Unscale prediction to original target space
         if apply_scaling:
-            _, pred = run_scaling(pred_scaled, pred_scaled, scaling_type, scaling_params, inverse=True)  # inverse=True means unscale y
-            _, yb = run_scaling(yb, yb, scaling_type, scaling_params, inverse=True)
+            _, pred = run_scaling(pred_scaled, pred_scaled, scaling_type, scaling_params, scaling_range_X, scaling_range_y, inverse=True)  # inverse=True means unscale y
+            _, yb = run_scaling(yb, yb, scaling_type, scaling_params, scaling_range_X, scaling_range_y, inverse=True)
         else:
             pred = pred_scaled
 

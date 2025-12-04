@@ -51,6 +51,83 @@ def plot_loss(train_losses, val_losses, run_dir):
     
     plt.show()
 
+def run_scaling(X, y, scaling_type, scaling_params, scaling_range_X, scaling_range_y, inverse=False):
+    """
+    Apply loaded scaling parameters to tensors X and y.
+
+    Args:
+        X (torch.Tensor): Input features
+        y (torch.Tensor): Targets
+        scaling_params (dict): min/max or mean/std statistics
+        scaling_range_X (list of [min,max]): target scaling range for each X dimension
+        scaling_range_y (list [min, max]): target scaling range for y
+    """
+
+    eps = 1e-8
+    # --- Validate normalization ---
+    if scaling_type == "normalize":
+        if (scaling_range_X is None) or (scaling_range_y is None):
+            raise ValueError("Normalization requires scaling_range_X and scaling_range_y.")
+        # Convert to tensors for vector math
+        scaling_range_X = torch.tensor(scaling_range_X, dtype=X.dtype, device=X.device)
+        scaling_range_y = torch.tensor(scaling_range_y, dtype=y.dtype, device=y.device)
+
+    # --- Standardization ---
+    if scaling_type == "standardize":
+        if not inverse:
+            X_scaled = (X - scaling_params["X_mean"]) / (scaling_params["X_std"] + eps)
+            y_scaled = (y - scaling_params["y_mean"]) / (scaling_params["y_std"] + eps)
+        else:
+            X_scaled = X * (scaling_params["X_std"] + eps) + scaling_params["X_mean"]
+            y_scaled = y * (scaling_params["y_std"] + eps) + scaling_params["y_mean"]
+
+    # --- Normalization using ranges from config.ini ---
+    elif scaling_type == "normalize":
+
+        X_min = scaling_params["X_min"]
+        X_max = scaling_params["X_max"]
+        y_min = scaling_params["y_min"]
+        y_max = scaling_params["y_max"]
+
+        # Forward
+        if not inverse:
+            # Scale X → user-defined ranges
+            # Each feature has its own target min/max
+            X_scaled = (
+                (X - X_min) / (X_max - X_min + eps)
+                * (scaling_range_X[:, 1] - scaling_range_X[:, 0])
+                + scaling_range_X[:, 0]
+            )
+
+            # Scale y → user-defined range
+            y_scaled = (
+                (y - y_min) / (y_max - y_min + eps)
+                * (scaling_range_y[1] - scaling_range_y[0])
+                + scaling_range_y[0]
+            )
+
+        else:
+            # Inverse for X
+            X_scaled = (
+                (X - scaling_range_X[:, 0]) 
+                / (scaling_range_X[:, 1] - scaling_range_X[:, 0] + eps)
+                * (X_max - X_min)
+                + X_min
+            )
+
+            # Inverse for y
+            y_scaled = (
+                (y - scaling_range_y[0])
+                / (scaling_range_y[1] - scaling_range_y[0] + eps)
+                * (y_max - y_min)
+                + y_min
+            )
+
+    else:
+        raise ValueError(f"Unknown scaling type: {scaling_type}")
+
+    return X_scaled, y_scaled
+
 def import_scaling_params(checkpoint_dir):
     """
     Import scaling parameters from a checkpoint folder.
@@ -76,42 +153,6 @@ def import_scaling_params(checkpoint_dir):
         raise ValueError("Normalization file does not contain recognized keys.")
 
     return tensors
-
-def run_scaling(X, y, scaling_type ,scaling_params, inverse=False):
-    """
-    Apply loaded scaling parameters to tensors X and y.
-
-    Args:
-        X (torch.Tensor): Input features
-        y (torch.Tensor): Targets
-        scaling_params (dict): Output from `load_scaling_params`
-
-    Returns:
-        tuple: scaled X, scaled y
-    """
-    eps = 1e-8
-    if scaling_type == "standardize":
-        if not inverse:
-            X_scaled = (X - scaling_params["X_mean"]) / (scaling_params["X_std"] + eps)
-            y_scaled = (y - scaling_params["y_mean"]) / (scaling_params["y_std"] + eps)
-        else:
-            X_scaled = X * (scaling_params["X_std"] + eps) + scaling_params["X_mean"]
-            y_scaled = y * (scaling_params["y_std"] + eps) + scaling_params["y_mean"]
-
-    elif scaling_type == "normalize":
-        if not inverse:
-            X_scaled = 2 * (X - scaling_params["X_min"]) / (scaling_params["X_max"] - scaling_params["X_min"] + eps) - 1
-            # y_scaled = 2 * (y - scaling_params["y_min"]) / (scaling_params["y_max"] - scaling_params["y_min"] + eps) - 1
-            y_scaled = y
-        else:
-            X_scaled = ((X + 1) / 2) * (scaling_params["X_max"] - scaling_params["X_min"] + eps) + scaling_params["X_min"]
-            # y_scaled = ((y + 1) / 2) * (scaling_params["y_max"] - scaling_params["y_min"] + eps) + scaling_params["y_min"]
-            y_scaled = y
-
-    else:
-        raise ValueError(f"Unknown scaling type: {scaling_type}")
-
-    return X_scaled, y_scaled
 
 def save_scaling_values(scaling_params, run_dir):
     """Save scaling parameters to JSON"""

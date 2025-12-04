@@ -1,6 +1,7 @@
 import torch
 import json
 import os
+import ast
 
 import numpy as np
 
@@ -17,16 +18,31 @@ class PendulumDataset(Dataset):
 
     Optional train/test split using `split_ratio`.
     """
-    def __init__(self, data_path, apply_scaling, scaling_type, run_dir, mode, scaling_params=None):
+    def __init__(self, config, run_dir, mode, scaling_params=None, test_config=None):
         """
         Args:
             data_path (str): Path to the .npz file
         """
-        self.apply_scaling = apply_scaling
-        self.scaling_type = scaling_type
+        data_path = config.get("DATA", "data_path")
+        self.apply_scaling = config.getboolean("DATA", "apply_scaling")
+        self.scaling_type = config.get("DATA", "scaling_type")
         self.run_dir = run_dir
         self.mode = mode
         self.scaling_params = scaling_params
+
+        # Load scaling_range is using normalize
+        if self.scaling_type == "normalize":
+            self.scaling_range_X = ast.literal_eval(config.get("DATA", "scaling_range_X"))
+            self.scaling_range_y = ast.literal_eval(config.get("DATA", "scaling_range_y"))
+        else:
+            self.scaling_range_X = None
+            self.scaling_range_y = None
+        
+        # Replace data_path if in test mode with test dataset.
+        if self.mode == "test" and test_config is not None:
+            data_path = test_config.get("TEST", "test_data_path")
+
+        # Load data
         data = load_npz(data_path)
         self.preprocess_data(data) # Process data to be in pytorch format
 
@@ -36,10 +52,9 @@ class PendulumDataset(Dataset):
         if self.apply_scaling:
             if self.mode == "train":
                 self.compute_and_apply_scaling()
-            else:
+            elif self.mode =="test":
                 if self.scaling_params is None:
-                    raise ValueError(
-                        "scaling_params must be provided for test/eval mode when apply_scaling=True")
+                    raise ValueError("scaling_params must be provided for test/eval mode when apply_scaling=True")
                 self._apply_scaling(self.scaling_params)
 
     def preprocess_data(self, data):
@@ -93,11 +108,11 @@ class PendulumDataset(Dataset):
             raise ValueError(f"Unknown scaling type: {self.scaling_type}")
 
         # Apply scaling
-        self.X, self.y = run_scaling(self.X, self.y, self.scaling_type, scaling_params)
+        self.X, self.y = run_scaling(self.X, self.y, self.scaling_type, scaling_params, self.scaling_range_X, self.scaling_range_y)
         save_scaling_values(scaling_params, self.run_dir)
 
     def _apply_scaling(self, scaling_params):
-        self.X, self.y = run_scaling(self.X, self.y, self.scaling_type, scaling_params)
+        self.X, self.y = run_scaling(self.X, self.y, self.scaling_type, scaling_params, self.scaling_range_X, self.scaling_range_y)
     
     def train_val_data(self, val_split=0.2, seed=42):
         dataset_size = len(self.X)
