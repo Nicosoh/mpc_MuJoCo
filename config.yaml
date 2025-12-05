@@ -84,7 +84,7 @@ pendulum:
 
   mpc:
     Fmax: [50] # Maximum force
-    N_horizon: 3 # Prediction horizon
+    N_horizon: 2 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.01 # seconds
     x0: [3.142, 0.0]

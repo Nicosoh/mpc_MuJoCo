@@ -354,8 +354,6 @@ def NNsetup(config, yref, collision_config=None):
     Q_mat = np.diag(mpc_config["Q_mat"]) # State cost weight matrix
     R_mat = np.diag(mpc_config["R_mat"]) # Input cost weight matrix
 
-
-    
     # Create ocp object to formulate the OCP
     ocp = AcadosOcp()
 

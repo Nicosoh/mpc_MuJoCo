@@ -47,7 +47,7 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         else:
             collision_config = None
 
-        controller = BaseMPCController(config, yref, collision_config)                                  # Create MPCController 
+        controller = NNMPCController(config, yref, collision_config)                                  # Create MPCController 
 
         # Save run summary
         save_summary(config=config, output_dir=run_dir)                                                 # Save summary of all 
