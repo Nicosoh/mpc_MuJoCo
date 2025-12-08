@@ -3,8 +3,16 @@
 ## Overview
 This repository provides a modular framework for simulating and controlling robotic systems (e.g., cartpole, pendulum, manipulators) using Model Predictive Control (MPC) with MuJoCo as the simulator and acados as the controller. Below are some example simulations.
 
-![Cart Double Pendulum](assets/cart_double_pend.gif)
-![Double Pendulum](assets/double_pend.gif)
+<!-- ![Cart Double Pendulum](assets/cart_double_pend.gif)
+![Double Pendulum](assets/double_pend.gif) -->
+
+<p align="center">
+  <img src="assets/pend.gif" width="30%" />
+  <img src="assets/cartpole.gif" width="30%" />
+  <img src="assets/double_pend.gif" width="30%" />
+  <img src="assets/cart_double_pend.gif" width="30%" />
+  <img src="assets/two_dof_arm.gif" width="30%" />
+</p>
 
 Block diagram overview of the framework. Two distinct blocks for the simulator and controller where each is independent of the other, allowing the simulator to be replaced by an actual robot. The simulator uses MuJoCo while the controller uses acados. Additionally, Pinocchio provides efficient rigid body dynamics algorithms which is then converted to CasADi symbolic expressions to integrate with acados. PyTorch is used as the deep learning framework which is also converted into CasADi symbolic expressions through the use of L4CasADi. Finally, if inverse kinematics is required, PINK is utilized. Dotted lines signify optional connections.
 
