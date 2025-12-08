@@ -1,69 +1,118 @@
 # Simulator - Controller for Model Predicitve Control
+
 ## Overview
-![Block Diagram](assets/block_diagram.jpg)
-This repository provides a modular framework for simulating and controlling robotic systems (e.g., cartpole, pendulum) using Model Predictive Control (MPC) with MuJoCo and Pinocchio. The codebase supports uses MuJoCo for the simulator with acados and pinocchio for optimal control.
+This repository provides a modular framework for simulating and controlling robotic systems (e.g., cartpole, pendulum, manipulators) using Model Predictive Control (MPC) with MuJoCo as the simulator and acados as the controller. Below are some example simulations.
 
----
+![Cart Double Pendulum](assets/cart_double_pend.gif)
+![Double Pendulum](assets/double_pend.gif)
 
-## Structure
+Block diagram overview of the framework. Two distinct blocks for the simulator and controller where each is independent of the other, allowing the simulator to be replaced by an actual robot. The simulator uses MuJoCo while the controller uses acados. Additionally, Pinocchio provides efficient rigid body dynamics algorithms which is then converted to CasADi symbolic expressions to integrate with acados. PyTorch is used as the deep learning framework which is also converted into CasADi symbolic expressions through the use of L4CasADi. Finally, if inverse kinematics is required, PINK is utilized. Dotted lines signify optional connections.
 
-- **main.py**: Entry point for running MuJoCo simulations with MPC.
-- **controller.py**: Implements the [`AcadosMPCController`](controller.py) class and MPC setup using ACADOS.
-- **simulator.py**: Contains MuJoCo simulation loop ([`run_simulation`](simulator.py)), model loading, and configuration utilities.
-- **pin_models/**: Pinocchio-based models and dynamics classes
-- **pin_exporter.py**: Converts Pinocchio models to ACADOS ODE models ([`export_ode_model`](pin_exporter.py)).
-- **Utils.py**: Helpers for plotting ([`plot_signals`](Utils.py)), saving videos ([`save_video`](Utils.py)), and run summaries ([`save_summary`](Utils.py)).
-- **pin_visualizer.py**: Visualizes Pinocchio models using Meshcat.
-- **config.yaml**: Central configuration for models, MPC, and simulation parameters.
+<p align="center">
+  <img src="assets/block_diagram.png" alt="System Architecture" width="600"/>
+</p>
 
----
+## System Architecture
 
-## Getting Started
+System architecture diagram showing module interactions, configuration inputs, and data flow between the simulator, controller, neural-network components, and robot model utilities. Dotted lines signify optional connections.
 
-The codebase uses pixi to manage and run all the tasks.
+<p align="center">
+  <img src="assets/system_arch_graph.png" alt="System Architecture" width="600"/>
+</p>
 
-1. Clone the repo
-2. 
+## Installation & Usage
+
+The codebase uses pixi to manage the environmant and run all the tasks. I assume that pixi has already been installed. If not visit [pixi installation](https://pixi.sh/dev/installation/).
+
+1. **Clone the repository**
+    ```
+    git clone git@github.com:Nicosoh/mpc_MuJoCo.git
+    ```
+
+2. **Enter the project directory and install dependencies**
+    ```
+    cd mpc_mujoco
+    pixi install
+    ```
+
+3. **Build and install ACADOS from source**
+    ```
+    pixi run acados_full
+    ```
+
+4. **Verify ACADOS installation**
+    ```
+    pixi run minimal_example
+    ```
+
+5. **Run the Cartpole model**
+    ```
+    pixi run main_cartpole
+    ```
+    or
+    ```
+    pixi shell
+    python main.py cartpole
+    ```
+Results are saved in the data folder. A video, config and also graph. If render is set to false, the video will not be recorded.
+
+## Data Collection
+
+To collect data for a robot model:
 ```
-cd mpc_mujoco
-pixi install
+pixi run data_collector [robot_model]
 ```
-3. 
-Build and install acados from source
+And to visualize the data:
 ```
-pixi run acados_full
+pixi run data_viz [robot_model] [folder_name]
 ```
-4. Test acados installation
+For example with the pendulum:
 ```
-pixi run minimal_example
+pixi run data_collector pendulum
+pixi run data_viz pendulum 2025-12-02_17-59-3e5_pendulum_data_collection
 ```
-5. Run cartpole model
-```
-pixi run main_cartpole
-```
-Results are saved in the outputs folder. A video, config and also graph. If render is set to false, the video will not be recorded.
+Plots will be saved in the [folder_name]/plots
 
-## Customisation
-
-To create new models, a .xml will need to be created for the model in [models_xml](models_xml). It can then be visualised with:
+## Training a Neural Network
+To train a model, the dataset and DL model needs to be defined in the [`train config`](neural_network/configs/PendulumModelTrainConfig.ini).
 ```
-pixi shell
-python -m mujoco.viewer
+pixi run train_model [train_config]
 ```
-
-A similar model will also need to be created for pinocchio in [pin_models](pin_models). It can also be visualized with meshcat:
+To evaluate the model, the test dataset and model weights needs to be defiend in the [`test config`](neural_network/configs/PendulumModelTestConfig.ini).
 ```
-python pin_visualizer.py pendulum
+pixi run evaluate_model [test_config]
 ```
-The new model will need to be added to the if statement at the top of the [pin_visualizer.py](pin_visualizer.py) and [pin_exporter.py](pin_exporter.py)
+## Configurations
 
-## Notes
-Add the configs to the [config.yaml]](config.yaml) by creating a new section for your model. Some settings like the lengths or pole/beams can't be added in and will need to be defined in the [models_xml](models_xml) and [pin_models](pin_models) instead.
+Each module has its own configuration file:
 
-## Data Structure
-To perform offline training of the neural networks, data will be collected. In the simpliest case, it will be the states (pos & vel) with the associated cost as queried from acados. Respectively, this will form the input and output of the model which acts as the long horizon oracle. 
+- **main.py** → [`config.yaml`](config.yaml)
+- **Goal States(yrefs)** → [`yrefs`](yrefs)
+- **Collisions/Obstacles** → [`data_config.yaml`](collision_config/two_dof_arm_collision_config.py)
+- **Data Collector** → [`data_config.yaml`](data_collction/data_config.yaml)
+- **Neural Network Training** → [`PendulumModelTrainConfig.ini`](neural_network/configs/PendulumModelTrainConfig.ini)
+- **Neural Network Evaluation** → [`PendulumModelTestConfig.ini`](neural_network/configs/PendulumModelTestConfig.ini)
 
-### Cartpole
-`states = (x, theta, x_dot, theta_dot)`
-`cost = cost`
 
+## References
+
+- **MuJoCo** — A fast, physics-based simulation engine for robotics and control  
+  https://mujoco.org/
+
+- **acados** — A high-performance optimization framework for embedded optimal control  
+  https://github.com/acados/acados
+
+- **Pinocchio** — A fast and efficient library for rigid body dynamics and kinematics  
+  https://github.com/stack-of-tasks/pinocchio
+
+- **PINK** — Inverse kinematics solver built on top of Pinocchio  
+  https://github.com/stephane-caron/pink
+
+- **CasADi** — Symbolic framework and numerical optimization library for nonlinear control  
+  https://web.casadi.org/
+
+- **PyTorch** — Deep learning framework for tensor computation and neural networks  
+  https://pytorch.org/
+
+- **l4casadi** — Lightweight tools for integrating neural networks with CasADi  
+  https://github.com/Tim-Salzmann/l4casadi
