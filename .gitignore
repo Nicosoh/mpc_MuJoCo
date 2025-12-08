@@ -9,9 +9,7 @@ wheels/
 c_generated_code
 acados
 *.json
-*.png
 *.ruff_cache
-*.mp4
 archive
 outputs
 outputs_OCP
