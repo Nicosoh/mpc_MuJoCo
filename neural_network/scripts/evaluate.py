@@ -4,7 +4,7 @@ import os
 import ast
 from tqdm import tqdm
 from configparser import ConfigParser
-from neural_network.utils import import_scaling_params, run_scaling
+from neural_network.utils import run_scaling
 from torch.utils.data import DataLoader
 
 from neural_network.models import MODEL_REGISTRY
@@ -36,8 +36,8 @@ def evaluate_model(test_config_path, run_dir):
 
     # === Load scaling params if needed ===
     scaling_params = None
-    if apply_scaling:
-        scaling_params = import_scaling_params(checkpoint_dir)
+    # if apply_scaling:
+        # scaling_params = import_scaling_params(checkpoint_dir)
     
     # === Save configs ===
     train_config_save_path = os.path.join(run_dir, "train_config.ini")

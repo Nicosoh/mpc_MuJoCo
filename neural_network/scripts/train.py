@@ -1,13 +1,14 @@
-import torch
 import os
-import random
 import ast
-import torch.nn as nn
+import torch
+import random
 import numpy as np
-from torch.utils.data import DataLoader
-from pathlib import Path
+import torch.nn as nn
+
 from tqdm import tqdm
+from torch.utils.data import DataLoader
 from neural_network.utils import plot_loss
+from neural_network.losses import StationaryLoss
 
 from neural_network.models import MODEL_REGISTRY
 from neural_network.datasets import DATASET_REGISTRY
@@ -34,9 +35,17 @@ def train_model(config, run_dir, seed=42):
 
     # Model
     model_name = config.get("MODEL", "model_name")
+    load_checkpoint = config.getboolean("MODEL", "load_checkpoint")
+    if load_checkpoint:
+        checkpoint_path = config.get("MODEL", "checkpoint_path")
 
     # Validation
     eval_interval = config.getint("VAL", "val_interval")
+
+    # Loss
+    alpha = torch.tensor(config.getfloat("LOSS", "alpha"), dtype=torch.float32)
+    x_s = torch.tensor(ast.literal_eval(config.get("LOSS", "x_s")), dtype=torch.float32)
+    y_s = torch.tensor(ast.literal_eval(config.get("LOSS", "y_s")), dtype=torch.float32)
 
     # === Create dataset + dataloader ===
     # Load dataset dynamically
@@ -66,9 +75,12 @@ def train_model(config, run_dir, seed=42):
     # === Model / optimizer / loss ===
     # Load model dynamically
     ModelClass = MODEL_REGISTRY[model_name]
-    model = ModelClass().to(device)
+    model = ModelClass(config).to(device)
+    if load_checkpoint:
+        model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+        print(f"Loaded model weights from checkpoint: {checkpoint_path}")
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    criterion = nn.MSELoss()
+    criterion = StationaryLoss(alpha=alpha)
 
     # === Logging ===
     train_losses = []
@@ -91,8 +103,9 @@ def train_model(config, run_dir, seed=42):
             yb = yb.to(device)
 
             optimizer.zero_grad()
-            preds = model(xb)
-            loss = criterion(preds, yb)
+            preds_main = model(xb)
+            preds_stationary = model(x_s.to(device))
+            loss = criterion(preds_main, yb, preds_stationary, y_s.to(device))
             loss.backward()
             optimizer.step()
 
@@ -112,8 +125,9 @@ def train_model(config, run_dir, seed=42):
                 for xb, yb in val_loader:
                     xb = xb.to(device)
                     yb = yb.to(device)
-                    preds = model(xb)
-                    loss = criterion(preds, yb)
+                    preds_main = model(xb)
+                    preds_stationary = model(x_s.to(device))
+                    loss = criterion(preds_main, yb, preds_stationary, y_s.to(device))
                     val_loss += loss.item() * xb.size(0)
 
             avg_val_loss = val_loss / len(val_loader.dataset)

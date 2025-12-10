@@ -96,7 +96,8 @@ Each module has its own configuration file:
 
 - **main.py** → [`config.yaml`](config.yaml)
 - **Goal States(yrefs)** → [`yrefs`](yrefs)
-- **Collisions/Obstacles** → [`data_config.yaml`](collision_config/two_dof_arm_collision_config.py)
+- **Collisions/Obstacles** → [`two_dof_arm_collision_config.py`](collision_config/two_dof_arm_collision_config.py)
+  - Obstacles are only used for the manipulators.
 - **Data Collector** → [`data_config.yaml`](data_collction/data_config.yaml)
 - **Neural Network Training** → [`PendulumModelTrainConfig.ini`](neural_network/configs/PendulumModelTrainConfig.ini)
 - **Neural Network Evaluation** → [`PendulumModelTestConfig.ini`](neural_network/configs/PendulumModelTestConfig.ini)

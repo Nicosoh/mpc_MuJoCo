@@ -4,7 +4,7 @@ from .pendulum_model import *
 
 MODEL_REGISTRY = {
     "PendulumModel": PendulumModel,
-    "PendulumModelTruncated": PendulumModelTruncated,
+    # "PendulumModelTruncated": PendulumModelTruncated,
     # "BaselineNetwork": BaselineNetwork,
     # "MLP128": MLP128,
 }

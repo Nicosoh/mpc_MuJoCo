@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import os
-import json
 import torch
 
 def plot_loss(train_losses, val_losses, run_dir):
@@ -51,116 +50,86 @@ def plot_loss(train_losses, val_losses, run_dir):
     
     plt.show()
 
-def run_scaling(X, y, scaling_type, scaling_params, scaling_range_X, scaling_range_y, inverse=False):
+def run_scaling(X=None, y=None, scaling_type=None, scaling_params=None,
+                scaling_range_X=None, scaling_range_y=None, inverse=False):
     """
-    Apply loaded scaling parameters to tensors X and y.
+    Scale X and/or y using MinMaxnormalization.
+    Either X or y can be None if only one needs to be scaled/unscaled.
 
     Args:
-        X (torch.Tensor): Input features
-        y (torch.Tensor): Targets
-        scaling_params (dict): min/max or mean/std statistics
-        scaling_range_X (list of [min,max]): target scaling range for each X dimension
-        scaling_range_y (list [min, max]): target scaling range for y
+        X (torch.Tensor, optional): Input features, shape (n_samples, n_features)
+        y (torch.Tensor, optional): Targets, shape (n_samples, 1)
+        scaling_type (str): "standardize" or "normalize"
+        scaling_params (dict, optional): Precomputed statistics (mean/std or min/max)
+        scaling_range_X (torch.Tensor or list, optional): Target range per feature for normalization
+        scaling_range_y (torch.Tensor or list, optional): Target range for y
+        inverse (bool): If True, performs inverse scaling
+
+    Returns:
+        X_scaled, y_scaled (torch.Tensor or None)
     """
 
     eps = 1e-8
-    # --- Validate normalization ---
+
+    # Convert to tensors if provided
+    if X is not None and not isinstance(X, torch.Tensor):
+        X = torch.tensor(X, dtype=torch.float32)
+    if y is not None and not isinstance(y, torch.Tensor):
+        y = torch.tensor(y, dtype=torch.float32)
+
+    # Add batch dimension if 1D
+    if X is not None and X.ndim == 1:
+        X = X.unsqueeze(0)
+    if y is not None:
+        if y.ndim == 0:
+            y = y.unsqueeze(0).unsqueeze(1)
+        elif y.ndim == 1:
+            y = y.unsqueeze(1)
+
+    # Only normalize is implemented here
     if scaling_type == "normalize":
-        if (scaling_range_X is None) or (scaling_range_y is None):
-            raise ValueError("Normalization requires scaling_range_X and scaling_range_y.")
-        # Convert to tensors for vector math
-        scaling_range_X = torch.tensor(scaling_range_X, dtype=X.dtype, device=X.device)
-        scaling_range_y = torch.tensor(scaling_range_y, dtype=y.dtype, device=y.device)
+        if scaling_params is None:
+            raise ValueError("scaling_params must be provided for normalization.")
+        if (X is not None and scaling_range_X is None) or (y is not None and scaling_range_y is None):
+            raise ValueError("scaling_range_X/y must be provided for normalization.")
 
-    # --- Standardization ---
-    if scaling_type == "standardize":
+        # Extract min/max
+        X_min, X_max = scaling_params.get("X_min"), scaling_params.get("X_max")
+        y_min, y_max = scaling_params.get("y_min"), scaling_params.get("y_max")
+
+        # Forward scaling
         if not inverse:
-            X_scaled = (X - scaling_params["X_mean"]) / (scaling_params["X_std"] + eps)
-            y_scaled = (y - scaling_params["y_mean"]) / (scaling_params["y_std"] + eps)
+            if X is not None:
+                scaling_range_X = torch.tensor(scaling_range_X, dtype=X.dtype, device=X.device)
+                X_scaled = (X - X_min) / (X_max - X_min + eps)
+                X_scaled = X_scaled * (scaling_range_X[:, 1] - scaling_range_X[:, 0]) + scaling_range_X[:, 0]
+            else:
+                X_scaled = None
+
+            if y is not None:
+                scaling_range_y = torch.tensor(scaling_range_y, dtype=y.dtype, device=y.device)
+                y_scaled = (y - y_min) / (y_max - y_min + eps)
+                y_scaled = y_scaled * (scaling_range_y[1] - scaling_range_y[0]) + scaling_range_y[0]
+            else:
+                y_scaled = None
+
+        # Inverse scaling
         else:
-            X_scaled = X * (scaling_params["X_std"] + eps) + scaling_params["X_mean"]
-            y_scaled = y * (scaling_params["y_std"] + eps) + scaling_params["y_mean"]
+            if X is not None:
+                scaling_range_X = torch.tensor(scaling_range_X, dtype=X.dtype, device=X.device)
+                X_scaled = (X - scaling_range_X[:, 0]) / (scaling_range_X[:, 1] - scaling_range_X[:, 0] + eps)
+                X_scaled = X_scaled * (X_max - X_min) + X_min
+            else:
+                X_scaled = None
 
-    # --- Normalization using ranges from config.ini ---
-    elif scaling_type == "normalize":
-
-        X_min = scaling_params["X_min"]
-        X_max = scaling_params["X_max"]
-        y_min = scaling_params["y_min"]
-        y_max = scaling_params["y_max"]
-
-        # Forward
-        if not inverse:
-            # Scale X → user-defined ranges
-            # Each feature has its own target min/max
-            X_scaled = (
-                (X - X_min) / (X_max - X_min + eps)
-                * (scaling_range_X[:, 1] - scaling_range_X[:, 0])
-                + scaling_range_X[:, 0]
-            )
-
-            # Scale y → user-defined range
-            y_scaled = (
-                (y - y_min) / (y_max - y_min + eps)
-                * (scaling_range_y[1] - scaling_range_y[0])
-                + scaling_range_y[0]
-            )
-
-        else:
-            # Inverse for X
-            X_scaled = (
-                (X - scaling_range_X[:, 0]) 
-                / (scaling_range_X[:, 1] - scaling_range_X[:, 0] + eps)
-                * (X_max - X_min)
-                + X_min
-            )
-
-            # Inverse for y
-            y_scaled = (
-                (y - scaling_range_y[0])
-                / (scaling_range_y[1] - scaling_range_y[0] + eps)
-                * (y_max - y_min)
-                + y_min
-            )
+            if y is not None:
+                scaling_range_y = torch.tensor(scaling_range_y, dtype=y.dtype, device=y.device)
+                y_scaled = (y - scaling_range_y[0]) / (scaling_range_y[1] - scaling_range_y[0] + eps)
+                y_scaled = y_scaled * (y_max - y_min) + y_min
+            else:
+                y_scaled = None
 
     else:
-        raise ValueError(f"Unknown scaling type: {scaling_type}")
+        raise ValueError(f"Unknown scaling_type: {scaling_type}")
 
     return X_scaled, y_scaled
-
-def import_scaling_params(checkpoint_dir):
-    """
-    Import scaling parameters from a checkpoint folder.
-    Returns a dictionary with keys depending on type ("standardize" or "normalize")
-    """
-    file_path = os.path.join(checkpoint_dir, "normalization_stats.json")
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"No normalization_stats.json found in {checkpoint_dir}")
-
-    with open(file_path, "r") as f:
-        stats = json.load(f)
-
-    tensors = {}
-    if all(k in stats for k in ["X_mean", "X_std", "y_mean", "y_std"]):
-        # Standardization
-        tensors.update({k: torch.tensor(stats[k]) for k in ["X_mean", "X_std", "y_mean", "y_std"]})
-        tensors["type"] = "standardize"
-    elif all(k in stats for k in ["X_min", "X_max", "y_min", "y_max"]):
-        # Normalization
-        tensors.update({k: torch.tensor(stats[k]) for k in ["X_min", "X_max", "y_min", "y_max"]})
-        tensors["type"] = "normalize"
-    else:
-        raise ValueError("Normalization file does not contain recognized keys.")
-
-    return tensors
-
-def save_scaling_values(scaling_params, run_dir):
-    """Save scaling parameters to JSON"""
-    filename = {
-        "standardize": "standardization_stats.json",
-        "normalize": "normalization_stats.json"
-    }.get(scaling_params["type"], "scaling_stats.json")
-
-    serializable = {k: v.squeeze(0).tolist() if torch.is_tensor(v) else v for k, v in scaling_params.items()}
-    with open(os.path.join(run_dir, filename), "w") as f:
-        json.dump(serializable, f, indent=4)

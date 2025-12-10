@@ -1,13 +1,13 @@
-import numpy as np
-from acados_template import AcadosOcp, AcadosOcpSolver
-from pin_exporter import export_ode_model
 import scipy.linalg
-from casadi import vertcat
+
+import numpy as np
 import casadi as ca
 
-import l4casadi as l4c
-import torch
-from neural_network.models import PendulumModel, PendulumModelTruncated
+from casadi import vertcat
+from acados_template import AcadosOcp, AcadosOcpSolver
+from pin_exporter import export_ode_model
+
+from neural_network.torch_exporter import export_torch_model
 
 def clamp(x, lo=0.0, hi=1.0):
     return ca.fmin(ca.fmax(x, lo), hi)
@@ -43,7 +43,6 @@ def segment_segment_squared_distance(p1, p2, q1, q2):
     Qt = q1 + v * t
 
     return ca.dot(Ps - Qt, Ps - Qt), Ps, Qt
-
 
 def capsule_squared_distance_function():
     """
@@ -365,30 +364,21 @@ def NNsetup(config, yref, collision_config=None):
     nx = model.x.rows() # Possible to extract the last predicted state here to insert into NN. maybe...
     nu = model.u.rows()
     ny = nx + nu
-    ny_e = nx
 
     # set cost module
     ocp.cost.cost_type = 'NONLINEAR_LS'     # Stage cost
-    ocp.cost.cost_type_e = 'EXTERNAL'   # Terminal cost
+    ocp.cost.cost_type_e = 'NONLINEAR_LS'   # Terminal cost
 
     ocp.cost.W = scipy.linalg.block_diag(Q_mat, R_mat)  # Stage cost includes both states and input penalty
-    # ocp.cost.W_e = Q_mat                               # Terminal cost only inlcudes states
-    # ocp.cost.Vx_e = Q_mat
-    # === NN ===
-    device = "cpu"
-    checkpoint_path = "neural_network/output/2025-12-04_14-08-53_train_model/model_epoch_2252.pt"
-    NNmodel = PendulumModelTruncated().to(device)
-    state_dict = torch.load(checkpoint_path, map_location=device)
-    NNmodel.load_state_dict(state_dict)
-    NNmodel.eval()
 
-    # Wrap for CasADi
-    l4c_model = l4c.L4CasADi(NNmodel, device=device)
-    # import pdb; pdb.set_trace()
+    # === NN ===
+    l4c_model = export_torch_model(config)
+
     # Evaluate NN symbolically
     y_sym = l4c_model(ca.transpose(model.x))
-    ocp.model.cost_expr_ext_cost_e = y_sym
-    ocp.solver_options.ext_cost_num_hess = True
+    ocp.model.cost_y_expr_e = y_sym
+    # ocp.model.cost_expr_ext_cost_e = y_sym
+    # ocp.solver_options.ext_cost_num_hess = True # never set this
     ocp.solver_options.model_external_shared_lib_dir = l4c_model.shared_lib_dir
     ocp.solver_options.model_external_shared_lib_name = l4c_model.name
     # === ====
@@ -423,15 +413,12 @@ def NNsetup(config, yref, collision_config=None):
         yref = np.hstack((yref, yref_u))
 
         ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
-        # ocp.model.cost_y_expr_e = y_sym                   # Terminal cost only inlcudes states
         ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references to match first entry of yref for all states and inputs
-        # ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference to match first entry of yref for states only
 
     else:
         ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
-        # ocp.model.cost_y_expr_e = y_sym                   # Terminal cost only inlcudes states
         ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references to match first entry of yref for all states and inputs
-        # ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference to match first entry of yref for states only
+
 
     # Set input constraints
     ocp.constraints.lbu = -np.array(Fmax)

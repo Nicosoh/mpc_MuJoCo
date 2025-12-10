@@ -1,6 +1,9 @@
+import ast
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from neural_network.utils import run_scaling
 
 class PendulumModel(nn.Module):
     def __init__(self):
@@ -9,6 +12,7 @@ class PendulumModel(nn.Module):
         self.fc1 = nn.Linear(2, 64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, 64)
+        self.fc4 = nn.Linear(64, 1)
 
     def forward(self, x):
         x = F.tanh(self.fc1(x))
@@ -16,75 +20,93 @@ class PendulumModel(nn.Module):
         x = F.tanh(self.fc3(x))   
 
         # final output = 1/2 * ||z||^2
-        x = torch.tensor(0.5, dtype=x.dtype, device=x.device) * torch.sum(x**2, dim=1, keepdim=True)
+        x = self.fc4(x)
+        # x = torch.tensor(0.5, dtype=x.dtype, device=x.device) * torch.sum(x**2, dim=1, keepdim=True)
 
         return x
-
-# class PendulumModelTruncated(PendulumModel):
-#     def forward(self, x):
-#         x = F.tanh(self.fc1(x))
-#         x = F.tanh(self.fc2(x))
-#         x = F.tanh(self.fc3(x))
-#         x = torch.tensor(0.5, dtype=x.dtype, device=x.device) * torch.sum(x**2, dim=1, keepdim=True)
-#         return x  # return raw fc3 output
     
-class PendulumModelTruncated(PendulumModel):
-    def __init__(self):
+class PendulumModel(nn.Module):
+    def __init__(self, train_config):
         super().__init__()
 
-        # Hard-coded min/max as torch tensors
-        self.X_MIN = torch.tensor(
-            [-3.140068292617798, -17.82215690612793],
-            dtype=torch.float32
-        )
-        self.X_MAX = torch.tensor(
-            [ 3.1285789012908936, 17.884841918945312],
-            dtype=torch.float32
-        )
+        # MLP
+        self.fc0 = nn.Linear(2, 2)
+        self.fc1 = nn.Linear(2, 64)
+        self.fc2 = nn.Linear(64, 64)
+        self.fc3 = nn.Linear(64, 64)
+        self.fc4 = nn.Linear(64, 1)
 
-        # Torch constants
-        self.TWO      = torch.tensor(2.0,  dtype=torch.float32)
-        self.MINUS_ONE = torch.tensor(-1.0, dtype=torch.float32)
-        self.THIRTY_TWO = torch.tensor(32.0, dtype=torch.float32)
-        self.EPS      = torch.tensor(1e-8, dtype=torch.float32)
-        self.HALF     = torch.tensor(0.5, dtype=torch.float32)
+        # If scaling is required and is normalize
+        self.apply_scaling = train_config.getboolean("DATA", "apply_scaling")
+        if self.apply_scaling == True:
+            self.scaling_type = train_config.get("DATA", "scaling_type")
+            if self.scaling_type == "normalize":
+                # Scaling ranges from config
+                self.scaling_range_X = torch.tensor(ast.literal_eval(train_config.get("DATA", "scaling_range_X")), dtype=torch.float32)
+                self.scaling_range_y = torch.tensor(ast.literal_eval(train_config.get("DATA", "scaling_range_y")), dtype=torch.float32)
 
-        # Output scaling constants (torch)
-        self.Y_MIN = torch.tensor([0.008676528930664062], dtype=torch.float32)
-        self.Y_MAX = torch.tensor([1170.5596923828125],  dtype=torch.float32)
+                # Min/max for inputs and outputs
+                X_min = ast.literal_eval(train_config.get("DATA", "X_min"))
+                X_max = ast.literal_eval(train_config.get("DATA", "X_max"))
+                y_min = ast.literal_eval(train_config.get("DATA", "y_min"))
+                y_max = ast.literal_eval(train_config.get("DATA", "y_max"))
+
+                # Store as dict
+                self.scaling_params = {
+                    "X_min": torch.tensor(X_min, dtype=torch.float32),
+                    "X_max": torch.tensor(X_max, dtype=torch.float32),
+                    "y_min": torch.tensor(y_min, dtype=torch.float32),
+                    "y_max": torch.tensor(y_max, dtype=torch.float32)
+                }
+            else:
+                raise NotImplementedError("Only 'normalize' scaling_type is implemented.")
 
     def forward(self, x):
-        # Move constants to correct device/dtype
-        X_MIN = self.X_MIN.to(x.device).to(x.dtype)
-        X_MAX = self.X_MAX.to(x.device).to(x.dtype)
+        """
+        If scaling_params is None:
+            Training mode → model expects pre-scaled x
+        
+        If scaling_params is not None:
+            ACADOS/Inference mode → model scales x internally, runs the MLP,
+            then unscales the output.
+        """
 
-        TWO       = self.TWO.to(x.device).to(x.dtype)
-        EPS       = self.EPS.to(x.device).to(x.dtype)
-        HALF      = self.HALF.to(x.device).to(x.dtype)
-        MINUS_ONE = self.MINUS_ONE.to(x.device).to(x.dtype)
+        # ---------------------------------------------------------
+        # 1) Apply input scaling internally (ACADOS mode)
+        # ---------------------------------------------------------
+        if self.apply_scaling == True:
+            # Only X is scaled; y is None
+            x, _ = run_scaling(
+                x, None,
+                scaling_type=self.scaling_type,
+                scaling_params=self.scaling_params,
+                scaling_range_X=self.scaling_range_X,
+                scaling_range_y=self.scaling_range_y,
+                inverse=False
+            )
 
-        Y_MIN = self.Y_MIN.to(x.device).to(x.dtype)
-        Y_MAX = self.Y_MAX.to(x.device).to(x.dtype)
-
-        # -----------------------------------
-        # 1) Scale input from physical → [-1,1]
-        # -----------------------------------
-        x_scaled = TWO * (x - X_MIN) / (X_MAX - X_MIN + EPS) + MINUS_ONE
-
-        # -----------------------------------
+        # ---------------------------------------------------------
         # 2) Neural network forward pass
-        # -----------------------------------
-        h = torch.tanh(self.fc1(x_scaled))
-        h = torch.tanh(self.fc2(h))
-        h = torch.tanh(self.fc3(h))
+        # ---------------------------------------------------------
+        x = self.fc0(x)
+        x = F.tanh(self.fc1(x))
+        x = F.tanh(self.fc2(x))
+        x = F.tanh(self.fc3(x))
+        y = self.fc4(x)
+        y = torch.abs(y)
+        # y = 0.5 * torch.sum(x ** 2, dim=1, keepdim=True)  # in [0,32] range
 
-        # Your energy-like output directly in [0,32]
-        y_32 = HALF * torch.sum(h**2, dim=1, keepdim=True)
+        # # ---------------------------------------------------------
+        # # 3) Unscale output (ACADOS mode only)xs
+        # # ---------------------------------------------------------
+        # if self.apply_scaling == True:
+        #     _, y = run_scaling(
+        #         None, y,
+        #         scaling_type=self.scaling_type,
+        #         scaling_params=self.scaling_params,
+        #         scaling_range_X=self.scaling_range_X,
+        #         scaling_range_y=self.scaling_range_y,
+        #         inverse=True
+        #     )
 
-        # -----------------------------------
-        # 3) Scale output [0,32] → [y_min, y_max]
-        # -----------------------------------
-        # y_phys = (y_32 / 32) * (ymax - ymin) + ymin
-        y_phys = (y_32 / torch.tensor(32.0, device=x.device, dtype=x.dtype)) * (Y_MAX - Y_MIN) + Y_MIN
-
-        return y_phys
+        return y
