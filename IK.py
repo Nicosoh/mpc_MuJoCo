@@ -6,6 +6,7 @@ import qpsolvers
 import hppfcl as fcl
 import meshcat_shapes
 import pink
+
 from pink.utils import process_collision_pairs
 from pink import solve_ik
 from pink.barriers import SelfCollisionBarrier
@@ -76,6 +77,16 @@ def generate_reference_trajectory(yref, obstacles, config):
         robot.collision_data = process_collision_pairs(
             robot.model, robot.collision_model, "models_xml/two_dof_arm.srdf"
         )
+
+    def pad_yref(yref, config):
+        """Pad yref to match target_dim by adding zeros."""
+        yref_vel = np.zeros_like(yref)
+        yref_u = np.zeros((yref.shape[0], config["pin"]["nu"]))
+
+        yref_pos_vel = np.hstack([yref, yref_vel])
+        yref_full = np.hstack([yref, yref_vel, yref_u])
+
+        return yref_full, yref_pos_vel
 
     # Load model again from XML
     base_dir = "models_xml"
@@ -192,9 +203,8 @@ def generate_reference_trajectory(yref, obstacles, config):
     
     traj_qp = np.array(traj_qp) # Convert to np.array (only positions without velocity)
 
-    # Zero pad velocities to form full state      
-    traj_qv = np.zeros_like(traj_qp)
-    traj_qx = np.hstack([traj_qp, traj_qv])
+    traj_qx_u, traj_qx = pad_yref(traj_qp, config)
+
     config["mpc"]["x0_q"] = traj_qx[0] # Add a new field for x0 in joint space
 
-    return traj_qx, config
+    return traj_qx_u, config

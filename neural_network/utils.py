@@ -50,86 +50,142 @@ def plot_loss(train_losses, val_losses, run_dir):
     
     plt.show()
 
-def run_scaling(X=None, y=None, scaling_type=None, scaling_params=None,
-                scaling_range_X=None, scaling_range_y=None, inverse=False):
+# def run_scaling(X=None, y=None, scaling_type=None, scaling_params=None,
+#                 scaling_range_X=None, scaling_range_y=None, inverse=False):
+#     """
+#     Scale X and/or y using MinMaxnormalization.
+#     Either X or y can be None if only one needs to be scaled/unscaled.
+
+#     Args:
+#         X (torch.Tensor, optional): Input features, shape (n_samples, n_features)
+#         y (torch.Tensor, optional): Targets, shape (n_samples, 1)
+#         scaling_type (str): "standardize" or "normalize"
+#         scaling_params (dict, optional): Precomputed statistics (mean/std or min/max)
+#         scaling_range_X (torch.Tensor or list, optional): Target range per feature for normalization
+#         scaling_range_y (torch.Tensor or list, optional): Target range for y
+#         inverse (bool): If True, performs inverse scaling
+
+#     Returns:
+#         X_scaled, y_scaled (torch.Tensor or None)
+#     """
+
+#     eps = 1e-8
+
+#     # Only normalize is implemented here
+#     if scaling_type == "normalize":
+#         if scaling_params is None:
+#             raise ValueError("scaling_params must be provided for normalization.")
+#         if (X is not None and scaling_range_X is None) or (y is not None and scaling_range_y is None):
+#             raise ValueError("scaling_range_X/y must be provided for normalization.")
+
+#         # Extract min/max
+#         X_min, X_max = scaling_params.get("X_min"), scaling_params.get("X_max")
+#         y_min, y_max = scaling_params.get("y_min"), scaling_params.get("y_max")
+
+#         # Forward scaling
+#         if not inverse:
+#             if X is not None:
+#                 scaling_range_X = torch.tensor(scaling_range_X, dtype=X.dtype, device=X.device)
+#                 X_scaled = (X - X_min) / (X_max - X_min + eps)
+#                 X_scaled = X_scaled * (scaling_range_X[:, 1] - scaling_range_X[:, 0]) + scaling_range_X[:, 0]
+#             else:
+#                 X_scaled = None
+
+#             if y is not None:
+#                 scaling_range_y = torch.tensor(scaling_range_y, dtype=y.dtype, device=y.device)
+#                 y_scaled = (y - y_min) / (y_max - y_min + eps)
+#                 y_scaled = y_scaled * (scaling_range_y[1] - scaling_range_y[0]) + scaling_range_y[0]
+#             else:
+#                 y_scaled = None
+
+#         # Inverse scaling
+#         else:
+#             if X is not None:
+#                 scaling_range_X = torch.tensor(scaling_range_X, dtype=X.dtype, device=X.device)
+#                 X_scaled = (X - scaling_range_X[:, 0]) / (scaling_range_X[:, 1] - scaling_range_X[:, 0] + eps)
+#                 X_scaled = X_scaled * (X_max - X_min) + X_min
+#             else:
+#                 X_scaled = None
+
+#             if y is not None:
+#                 scaling_range_y = torch.tensor(scaling_range_y, dtype=y.dtype, device=y.device)
+#                 y_scaled = (y - scaling_range_y[0]) / (scaling_range_y[1] - scaling_range_y[0] + eps)
+#                 y_scaled = y_scaled * (y_max - y_min) + y_min
+#             else:
+#                 y_scaled = None
+
+#     else:
+#         raise ValueError(f"Unknown scaling_type: {scaling_type}")
+
+#     return X_scaled, y_scaled
+
+def run_scaling(
+    X: torch.Tensor = None,
+    y: torch.Tensor = None,
+    scaling_type: str = "normalize",
+    scaling_range_from_X=None,
+    scaling_range_from_y=None,
+    scaling_range_to_X=None,
+    scaling_range_to_y=None,
+    inverse: bool = False
+):
     """
-    Scale X and/or y using MinMaxnormalization.
-    Either X or y can be None if only one needs to be scaled/unscaled.
-
-    Args:
-        X (torch.Tensor, optional): Input features, shape (n_samples, n_features)
-        y (torch.Tensor, optional): Targets, shape (n_samples, 1)
-        scaling_type (str): "standardize" or "normalize"
-        scaling_params (dict, optional): Precomputed statistics (mean/std or min/max)
-        scaling_range_X (torch.Tensor or list, optional): Target range per feature for normalization
-        scaling_range_y (torch.Tensor or list, optional): Target range for y
-        inverse (bool): If True, performs inverse scaling
-
-    Returns:
-        X_scaled, y_scaled (torch.Tensor or None)
+    Modified so that:
+      scaling_range_from_X[0] = all feature mins
+      scaling_range_from_X[1] = all feature maxs
+      scaling_range_to_X[0]   = all feature output mins
+      scaling_range_to_X[1]   = all feature output maxs
     """
 
-    eps = 1e-8
+    def scale_forward(data, from_min, from_max, to_min, to_max):
+        return (data - from_min) / (from_max - from_min + 1e-12) * (to_max - to_min) + to_min
 
-    # Convert to tensors if provided
-    if X is not None and not isinstance(X, torch.Tensor):
-        X = torch.tensor(X, dtype=torch.float32)
-    if y is not None and not isinstance(y, torch.Tensor):
-        y = torch.tensor(y, dtype=torch.float32)
+    def scale_inverse(data, from_min, from_max, to_min, to_max):
+        return (data - to_min) / (to_max - to_min + 1e-12) * (from_max - from_min) + from_min
 
-    # Add batch dimension if 1D
-    if X is not None and X.ndim == 1:
-        X = X.unsqueeze(0)
+    X_out, y_out = None, None
+
+    # -----------------------------------------------------
+    # Process X
+    # -----------------------------------------------------
+    if X is not None:
+        X = X.float()
+
+        # NEW: interpret rows as shared scalar ranges
+        from_min_X = torch.tensor(scaling_range_from_X[0], dtype=torch.float32)
+        from_max_X = torch.tensor(scaling_range_from_X[1], dtype=torch.float32)
+
+        # NEW: interpret to_min_X/to_max_X as shared bounds for all features
+        to_min_value = scaling_range_to_X[0][0]  # first element only
+        to_max_value = scaling_range_to_X[1][0]  # first element only
+        to_min_X = torch.full_like(from_min_X, to_min_value)
+        to_max_X = torch.full_like(from_max_X, to_max_value)
+
+        if not inverse:
+            X_out = scale_forward(X, from_min_X, from_max_X, to_min_X, to_max_X)
+        else:
+            X_out = scale_inverse(X, from_min_X, from_max_X, to_min_X, to_max_X)
+
+    # -----------------------------------------------------
+    # Process y
+    # -----------------------------------------------------
     if y is not None:
-        if y.ndim == 0:
-            y = y.unsqueeze(0).unsqueeze(1)
-        elif y.ndim == 1:
+        y = y.float()
+        if y.dim() == 1:
             y = y.unsqueeze(1)
 
-    # Only normalize is implemented here
-    if scaling_type == "normalize":
-        if scaling_params is None:
-            raise ValueError("scaling_params must be provided for normalization.")
-        if (X is not None and scaling_range_X is None) or (y is not None and scaling_range_y is None):
-            raise ValueError("scaling_range_X/y must be provided for normalization.")
+        # single min/max
+        from_min_y = torch.tensor([scaling_range_from_y[0]])
+        from_max_y = torch.tensor([scaling_range_from_y[1]])
 
-        # Extract min/max
-        X_min, X_max = scaling_params.get("X_min"), scaling_params.get("X_max")
-        y_min, y_max = scaling_params.get("y_min"), scaling_params.get("y_max")
+        to_min_y = torch.tensor([scaling_range_to_y[0]])
+        to_max_y = torch.tensor([scaling_range_to_y[1]])
 
-        # Forward scaling
         if not inverse:
-            if X is not None:
-                scaling_range_X = torch.tensor(scaling_range_X, dtype=X.dtype, device=X.device)
-                X_scaled = (X - X_min) / (X_max - X_min + eps)
-                X_scaled = X_scaled * (scaling_range_X[:, 1] - scaling_range_X[:, 0]) + scaling_range_X[:, 0]
-            else:
-                X_scaled = None
-
-            if y is not None:
-                scaling_range_y = torch.tensor(scaling_range_y, dtype=y.dtype, device=y.device)
-                y_scaled = (y - y_min) / (y_max - y_min + eps)
-                y_scaled = y_scaled * (scaling_range_y[1] - scaling_range_y[0]) + scaling_range_y[0]
-            else:
-                y_scaled = None
-
-        # Inverse scaling
+            y_out = scale_forward(y, from_min_y, from_max_y, to_min_y, to_max_y)
         else:
-            if X is not None:
-                scaling_range_X = torch.tensor(scaling_range_X, dtype=X.dtype, device=X.device)
-                X_scaled = (X - scaling_range_X[:, 0]) / (scaling_range_X[:, 1] - scaling_range_X[:, 0] + eps)
-                X_scaled = X_scaled * (X_max - X_min) + X_min
-            else:
-                X_scaled = None
+            y_out = scale_inverse(y, from_min_y, from_max_y, to_min_y, to_max_y)
 
-            if y is not None:
-                scaling_range_y = torch.tensor(scaling_range_y, dtype=y.dtype, device=y.device)
-                y_scaled = (y - scaling_range_y[0]) / (scaling_range_y[1] - scaling_range_y[0] + eps)
-                y_scaled = y_scaled * (y_max - y_min) + y_min
-            else:
-                y_scaled = None
+        y_out = y_out.squeeze(1)
 
-    else:
-        raise ValueError(f"Unknown scaling_type: {scaling_type}")
-
-    return X_scaled, y_scaled
+    return X_out, y_out

@@ -130,148 +130,155 @@ def build_capsule_collision_constraints(robot_sys, links, obstacles, collision_p
 
     return vertcat(*constraints)
 
-def setup(config, yref, collision_config=None):
-    mpc_config = config["mpc"]
+CONTROLLER_REGISTRY = {}
 
-    Fmax = mpc_config["Fmax"]
-    N_horizon = mpc_config["N_horizon"]
-    RTI = mpc_config["use_RTI"]
-    x0 = np.array(mpc_config["x0"])
-    Tf = N_horizon * mpc_config["mpc_timestep"]  # Time horizon
-    Q_mat = np.diag(mpc_config["Q_mat"]) # State cost weight matrix
-    R_mat = np.diag(mpc_config["R_mat"]) # Input cost weight matrix
-    
-    # Create ocp object to formulate the OCP
-    ocp = AcadosOcp()
+def register_controller(cls):
+    CONTROLLER_REGISTRY[cls.__name__] = cls
+    return cls
 
-    # Call model creation function
-    model, robot_sys = export_ode_model(config)
-    ocp.model = model
-
-    # Extract state and input dimensions
-    nx = model.x.rows() # Possible to extract the last predicted state here to insert into NN. maybe...
-    nu = model.u.rows()
-    ny = nx + nu
-    ny_e = nx
-
-    # set cost module
-    ocp.cost.cost_type = 'NONLINEAR_LS'     # Stage cost
-    ocp.cost.cost_type_e = 'NONLINEAR_LS'   # Terminal cost
-
-    ocp.cost.W = scipy.linalg.block_diag(Q_mat, R_mat)  # Stage cost includes both states and input penalty
-    ocp.cost.W_e = Q_mat                                # Terminal cost only inlcudes states
-
-    # Get collision constraints
-    if mpc_config["IK_required"] and collision_config is not None:
-        # Generate collision constraints
-        # constraints = build_capsule_collision_constraints(robot_sys, 
-        #                                                       collision_config["links"], 
-        #                                                       collision_config["obstacles"], 
-        #                                                       collision_config["collision_pairs"])
-
-        # Add collision avoidance constraint between two capsules
-        capsule_dist_sq = capsule_squared_distance_function()
-
-        p1 = robot_sys.j_1
-        p2 = robot_sys.attachment_site
-
-        q1 = np.array([0.0, 0.7, 0.35])
-        q2 = np.array([0.0, 0.7, 0.65])
-
-        dist = capsule_dist_sq(p1, p2, q1, q2, 0.1, 0.05)
-
-        ocp.model.con_h_expr = dist
-        ocp.constraints.lh = np.array([0.05])       # epsilon (additional safety distance)
-        ocp.constraints.uh = np.array([1e6])
- 
-        x0 = np.array(mpc_config["x0_q"])
-
-        # Pad yref with input reference(u). Currently only position and velocity.
-        yref_u = np.zeros((yref.shape[0], nu))
-        yref = np.hstack((yref, yref_u))
-
-        ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
-        ocp.model.cost_y_expr_e = model.x                   # Terminal cost only inlcudes states
-        ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references to match first entry of yref for all states and inputs
-        ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference to match first entry of yref for states only
-
-    else:
-        ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
-        ocp.model.cost_y_expr_e = model.x                   # Terminal cost only inlcudes states
-        ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references to match first entry of yref for all states and inputs
-        ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference to match first entry of yref for states only
-
-    # Set input constraints
-    ocp.constraints.lbu = -np.array(Fmax)
-    ocp.constraints.ubu = np.array(Fmax)
-    # Apply above to all inputs
-    ocp.constraints.idxbu = np.arange(nu)
-
-    # Set initial constraint
-    ocp.constraints.x0 = x0
-
-    # set prediction horizon
-    ocp.solver_options.N_horizon = N_horizon
-    ocp.solver_options.tf = Tf # Total predicton time
-
-    ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM' # FULL_CONDENSING_QPOASES
-    ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
-    ocp.solver_options.integrator_type = 'IRK'
-    ocp.solver_options.sim_method_newton_iter = 10
-    ocp.solver_options.regularize_method = mpc_config["regularize_method"] # For the Hessian
-    ocp.solver_options.levenberg_marquardt = mpc_config["levenberg_marquardt"]
-    ocp.solver_options.nlp_solver_warm_start_first_qp_from_nlp = mpc_config["nlp_solver_warm_start_first_qp_from_nlp"]
-    ocp.solver_options.nlp_solver_warm_start_first_qp = mpc_config["nlp_solver_warm_start_first_qp"]
-    ocp.solver_options.qp_solver_warm_start = mpc_config["qp_solver_warm_start"]
-    # ocp.solver_options.adaptive_levenberg_marquardt_lam
-
-    if RTI:
-        ocp.solver_options.nlp_solver_type = 'SQP_RTI'
-    else:
-        ocp.solver_options.nlp_solver_type = 'SQP'
-        ocp.solver_options.globalization = 'MERIT_BACKTRACKING' # turns on globalization
-        ocp.solver_options.nlp_solver_max_iter = 150
-    
-    ocp.solver_options.qp_solver_cond_N = N_horizon
-
-    # Create solver based on settings above
-    solver_json = 'acados_ocp_' + model.name + '.json'
-    acados_ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json, verbose=False)
-
-    return acados_ocp_solver, yref
-
+@register_controller
 class BaseMPCController:
-    def __init__(self, config, yref, collision_config=None):
+    def __init__(self, config, collision_config=None):
+        # Extract parameters from config
+        self.use_RTI = config["mpc"]["use_RTI"]
+        self.x0 = np.array(config["mpc"]["x0"])
+        self.mpc_timestep = config["mpc"]["mpc_timestep"]
+        self.terminal_cost = config["mpc"]["terminal_cost"]
+        self.IK_required = config["mpc"]["IK_required"]
+
+        # Reassign x0 if IK is used
+        if self.IK_required:
+            self.x0 = np.array(config["mpc"]["x0_q"])
+
         # Setup MPC solver
-        self.ocp_solver, self.yref = setup(config, yref, collision_config)
+        self.setup(config, collision_config)
+
         self.nx = self.ocp_solver.acados_ocp.dims.nx
         self.nu = self.ocp_solver.acados_ocp.dims.nu
         self.N = self.ocp_solver.acados_ocp.dims.N
 
-        # Extract parameters from config
-        self.use_RTI = config["mpc"]["use_RTI"]
-        if config["mpc"]["IK_required"] and collision_config is not None:
-            x0 = np.array(config["mpc"]["x0_q"])
-        else:
-            x0 = np.array(config["mpc"]["x0"])
-        self.IK_required = config["mpc"]["IK_required"]
-        self.mpc_timestep = config["mpc"]["mpc_timestep"]
-
         # Warm start
         for _ in range(5):
-            self.ocp_solver.solve_for_x0(x0_bar=x0, fail_on_nonzero_status=True) # It is ok to fail during the warmup phase
+            self.ocp_solver.solve_for_x0(x0_bar=self.x0, fail_on_nonzero_status=True) # It is ok to fail during the warmup phase
+       
+    def setup(self, config, collision_config):
+        mpc_config = config["mpc"]
+
+        Fmax = mpc_config["Fmax"]
+        N_horizon = mpc_config["N_horizon"]
+        RTI = mpc_config["use_RTI"]
+        x0 = np.array(mpc_config["x0"])
+        Tf = N_horizon * mpc_config["mpc_timestep"]  # Time horizon
+        Q_mat = np.diag(mpc_config["Q_mat"]) # State cost weight matrix
+        R_mat = np.diag(mpc_config["R_mat"]) # Input cost weight matrix
+        
+        # Create ocp object to formulate the OCP
+        ocp = AcadosOcp()
+
+        # Call model creation function
+        model, robot_sys = export_ode_model(config)
+        ocp.model = model
+
+        # Extract state and input dimensions
+        nx = model.x.rows()
+        nu = model.u.rows()
+        ny = nx + nu
+        ny_e = nx
+
+        # Set stage cost module
+        ocp.cost.cost_type = 'NONLINEAR_LS'                 # Stage cost
+        ocp.cost.W = scipy.linalg.block_diag(Q_mat, R_mat)  # Stage cost includes both states and input
+        ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
+        ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references to match first entry of yref for all states and inputs
+
+        # Set terminal cost module
+        if self.terminal_cost:
+            self.define_terminal_cost(ocp, model, config)
+            
+        # Generate collision constraints
+        if collision_config is not None:
+            self.add_hard_constraints(ocp, model, robot_sys, collision_config)
+
+        # Set input constraints
+        ocp.constraints.lbu = -np.array(Fmax)
+        ocp.constraints.ubu = np.array(Fmax)
+
+        # Apply above to all inputs
+        ocp.constraints.idxbu = np.arange(nu)
+
+        # Set initial constraint
+        ocp.constraints.x0 = self.x0
+
+        # set prediction horizon
+        ocp.solver_options.N_horizon = N_horizon
+        ocp.solver_options.tf = Tf # Total predicton time
+
+        ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM' # FULL_CONDENSING_QPOASES
+        ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
+        ocp.solver_options.integrator_type = 'IRK'
+        ocp.solver_options.sim_method_newton_iter = 10
+        ocp.solver_options.regularize_method = mpc_config["regularize_method"] # For the Hessian
+        ocp.solver_options.levenberg_marquardt = mpc_config["levenberg_marquardt"]
+        ocp.solver_options.nlp_solver_warm_start_first_qp_from_nlp = mpc_config["nlp_solver_warm_start_first_qp_from_nlp"]
+        ocp.solver_options.nlp_solver_warm_start_first_qp = mpc_config["nlp_solver_warm_start_first_qp"]
+        ocp.solver_options.qp_solver_warm_start = mpc_config["qp_solver_warm_start"]
+
+        if RTI:
+            ocp.solver_options.nlp_solver_type = 'SQP_RTI'
+        else:
+            ocp.solver_options.nlp_solver_type = 'SQP'
+            ocp.solver_options.globalization = 'MERIT_BACKTRACKING' # turns on globalization
+            ocp.solver_options.nlp_solver_max_iter = 150
+        
+        ocp.solver_options.qp_solver_cond_N = N_horizon
+
+        # Create solver based on settings above
+        solver_json = 'acados_ocp_' + model.name + '.json'
+        self.ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json, verbose=False)
+        
+    def define_terminal_cost(self, ocp, model, config):
+        Q_mat = np.diag(config["mpc"]["Q_mat"])
+        ny_e = model.x.rows()
+    
+        ocp.cost.cost_type_e = 'NONLINEAR_LS'               # Terminal cost
+        ocp.cost.W_e = Q_mat                                # Terminal cost only inlcudes states
+        ocp.model.cost_y_expr_e = model.x                   # Terminal cost only inlcudes states
+        ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference to match first entry of yref for states only
+    
+    def add_hard_constraints(self, ocp, model, robot_sys, collision_config):
+        # Redefine in subclass
+        pass
+
+    def set_yref(self, yref_now):
+        for stage in range(self.N):
+            self.ocp_solver.cost_set(stage, "yref", yref_now, api='new')
+        if self.terminal_cost:
+            self.ocp_solver.cost_set(self.N, "yref", yref_now[:self.nx], api='new')  # Terminal reference (only x)
+    
+    def collect_traj(self, full_traj):
+        qpos_traj = []
+        qvel_traj = []
+        u_traj = []
+
+        if full_traj: # Extract full state, control trajectories
+            for i in range(self.N):
+                xi = self.ocp_solver.get(i, "x")
+                ui = self.ocp_solver.get(i, "u")
+                qpos_traj.append(xi[:self.nx//2])
+                qvel_traj.append(xi[self.nx//2:])
+                u_traj.append(ui)
+
+            # Get final state (at step N)
+            xN = self.ocp_solver.get(self.N, "x")
+            qpos_traj.append(xN[:self.nx//2])
+            qvel_traj.append(xN[self.nx//2:])
+        
+        return qpos_traj, qvel_traj, u_traj
 
     def __call__(self, x, yref_now, full_traj):
         """Compute MPC input given MuJoCo state."""
         # Set yref
-        if self.IK_required:
-            for stage in range(self.N):
-                self.ocp_solver.cost_set(stage, "yref", yref_now["stage"][stage], api='new')
-            self.ocp_solver.cost_set(self.N, "yref", yref_now["terminal"][:self.nx], api='new')  # Terminal reference (only x)
-        else:
-            for stage in range(self.N):
-                self.ocp_solver.cost_set(stage, "yref", yref_now, api='new')
-            # self.ocp_solver.cost_set(self.N, "yref", yref_now[:self.nx], api='new')  # Terminal reference (only x)
+        self.set_yref(yref_now)
 
         if self.use_RTI:
             # Preparation phase
@@ -299,92 +306,48 @@ class BaseMPCController:
             # Solve ocp and get next control input
             u = self.ocp_solver.solve_for_x0(x0_bar=x)
         
-        qpos_traj = []
-        qvel_traj = []
-        u_traj = []
+        qpos_traj, qvel_traj, u_traj = self.collect_traj(full_traj)
 
-        if full_traj: # Extract full state, control trajectories
-            for i in range(self.N):
-                xi = self.ocp_solver.get(i, "x")
-                ui = self.ocp_solver.get(i, "u")
-                qpos_traj.append(xi[:self.nx//2])
-                qvel_traj.append(xi[self.nx//2:])
-                u_traj.append(ui)
-
-            # Get final state (at step N)
-            xN = self.ocp_solver.get(self.N, "x")
-            qpos_traj.append(xN[:self.nx//2])
-            qvel_traj.append(xN[self.nx//2:])
-        
         cost = self.ocp_solver.get_cost()
 
         return u, cost, qpos_traj, qvel_traj, u_traj
-    
 
+@register_controller
 class NNMPCController(BaseMPCController):
-    def __init__(self, config, yref, collision_config=None):
-        # Setup MPC solver
-        self.ocp_solver, self.yref = NNsetup(config, yref, collision_config)
-        self.nx = self.ocp_solver.acados_ocp.dims.nx
-        self.nu = self.ocp_solver.acados_ocp.dims.nu
-        self.N = self.ocp_solver.acados_ocp.dims.N
+    def __init__(self, config, collision_config=None):
+        super().__init__(config, collision_config)
 
-        # Extract parameters from config
-        self.use_RTI = config["mpc"]["use_RTI"]
-        if config["mpc"]["IK_required"] and collision_config is not None:
-            x0 = np.array(config["mpc"]["x0_q"])
-        else:
-            x0 = np.array(config["mpc"]["x0"])
-        self.IK_required = config["mpc"]["IK_required"]
-        self.mpc_timestep = config["mpc"]["mpc_timestep"]
+        if not config["mpc"]["terminal_cost"]:
+            raise ValueError("NNMPCController requires terminal cost to be True.")
+    
+    def set_yref(self, yref_now):
+        for stage in range(self.N):
+            self.ocp_solver.cost_set(stage, "yref", yref_now, api='new')
+        if self.terminal_cost:
+            self.ocp_solver.cost_set(self.N, "yref", np.zeros((1,)), api='new')  # Terminal reference (only x)
+    
+    def define_terminal_cost(self, ocp, model, config):
+        ocp.cost.cost_type_e = 'NONLINEAR_LS'               # Terminal cost
+        ocp.cost.W_e = np.ones((1, 1))                      # Weights set to 1, meaning no scaling for the NN output
+        ocp.cost.yref_e = np.zeros((1, ))                   # Set terminal reference to zero for NN output
+        # Export trained NN model
+        l4c_model = export_torch_model(config)
+        # Evaluate NN symbolically
+        y_sym = l4c_model(ca.transpose(model.x))
+        ocp.model.cost_y_expr_e = y_sym
+        # Link shared library
+        ocp.solver_options.model_external_shared_lib_dir = l4c_model.shared_lib_dir
+        ocp.solver_options.model_external_shared_lib_name = l4c_model.name
 
-        # Warm start
-        for _ in range(5):
-            self.ocp_solver.solve_for_x0(x0_bar=x0, fail_on_nonzero_status=True) # It is ok to fail during the warmup phase
-
-def NNsetup(config, yref, collision_config=None):
-    mpc_config = config["mpc"]
-
-    Fmax = mpc_config["Fmax"]
-    N_horizon = mpc_config["N_horizon"]
-    RTI = mpc_config["use_RTI"]
-    x0 = np.array(mpc_config["x0"])
-    Tf = N_horizon * mpc_config["mpc_timestep"]  # Time horizon
-    Q_mat = np.diag(mpc_config["Q_mat"]) # State cost weight matrix
-    R_mat = np.diag(mpc_config["R_mat"]) # Input cost weight matrix
-
-    # Create ocp object to formulate the OCP
-    ocp = AcadosOcp()
-
-    # Call model creation function
-    model, robot_sys = export_ode_model(config)
-    ocp.model = model
-
-    # Extract state and input dimensions
-    nx = model.x.rows() # Possible to extract the last predicted state here to insert into NN. maybe...
-    nu = model.u.rows()
-    ny = nx + nu
-
-    # set cost module
-    ocp.cost.cost_type = 'NONLINEAR_LS'     # Stage cost
-    ocp.cost.cost_type_e = 'NONLINEAR_LS'   # Terminal cost
-
-    ocp.cost.W = scipy.linalg.block_diag(Q_mat, R_mat)  # Stage cost includes both states and input penalty
-
-    # === NN ===
-    l4c_model = export_torch_model(config)
-
-    # Evaluate NN symbolically
-    y_sym = l4c_model(ca.transpose(model.x))
-    ocp.model.cost_y_expr_e = y_sym
-    # ocp.model.cost_expr_ext_cost_e = y_sym
-    # ocp.solver_options.ext_cost_num_hess = True # never set this
-    ocp.solver_options.model_external_shared_lib_dir = l4c_model.shared_lib_dir
-    ocp.solver_options.model_external_shared_lib_name = l4c_model.name
-    # === ====
-
-    # Get collision constraints
-    if mpc_config["IK_required"] and collision_config is not None:
+@register_controller
+class ManipulatorMPCController(BaseMPCController):
+    def __init__(self, config, collision_config=None):        
+        super().__init__(config, collision_config)
+        
+        if not self.IK_required or collision_config is None:
+            raise ValueError("ManipulatorMPCController requires IK and collision configuration.")
+        
+    def add_hard_constraints(self, ocp, model, robot_sys, collision_config):
         # Generate collision constraints
         # constraints = build_capsule_collision_constraints(robot_sys, 
         #                                                       collision_config["links"], 
@@ -405,56 +368,13 @@ def NNsetup(config, yref, collision_config=None):
         ocp.model.con_h_expr = dist
         ocp.constraints.lh = np.array([0.05])       # epsilon (additional safety distance)
         ocp.constraints.uh = np.array([1e6])
- 
-        x0 = np.array(mpc_config["x0_q"])
-
-        # Pad yref with input reference(u). Currently only position and velocity.
-        yref_u = np.zeros((yref.shape[0], nu))
-        yref = np.hstack((yref, yref_u))
-
-        ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
-        ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references to match first entry of yref for all states and inputs
-
-    else:
-        ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
-        ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references to match first entry of yref for all states and inputs
-
-
-    # Set input constraints
-    ocp.constraints.lbu = -np.array(Fmax)
-    ocp.constraints.ubu = np.array(Fmax)
-    # Apply above to all inputs
-    ocp.constraints.idxbu = np.arange(nu)
-
-    # Set initial constraint
-    ocp.constraints.x0 = x0
-
-    # set prediction horizon
-    ocp.solver_options.N_horizon = N_horizon
-    ocp.solver_options.tf = Tf # Total predicton time
-
-    ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM' # FULL_CONDENSING_QPOASES
-    ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
-    ocp.solver_options.integrator_type = 'IRK'
-    ocp.solver_options.sim_method_newton_iter = 10
-    ocp.solver_options.regularize_method = mpc_config["regularize_method"] # For the Hessian
-    ocp.solver_options.levenberg_marquardt = mpc_config["levenberg_marquardt"]
-    ocp.solver_options.nlp_solver_warm_start_first_qp_from_nlp = mpc_config["nlp_solver_warm_start_first_qp_from_nlp"]
-    ocp.solver_options.nlp_solver_warm_start_first_qp = mpc_config["nlp_solver_warm_start_first_qp"]
-    ocp.solver_options.qp_solver_warm_start = mpc_config["qp_solver_warm_start"]
-    # ocp.solver_options.adaptive_levenberg_marquardt_lam
-
-    if RTI:
-        ocp.solver_options.nlp_solver_type = 'SQP_RTI'
-    else:
-        ocp.solver_options.nlp_solver_type = 'SQP'
-        ocp.solver_options.globalization = 'MERIT_BACKTRACKING' # turns on globalization
-        ocp.solver_options.nlp_solver_max_iter = 150
     
-    ocp.solver_options.qp_solver_cond_N = N_horizon
+    def set_yref(self, yref_now):
+        for stage in range(self.N):
+            self.ocp_solver.cost_set(stage, "yref", yref_now["stage"][stage], api='new')
+        self.ocp_solver.cost_set(self.N, "yref", yref_now["terminal"][:self.nx], api='new')  # Terminal reference (only x)
 
-    # Create solver based on settings above
-    solver_json = 'acados_ocp_' + model.name + '.json'
-    acados_ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json, verbose=False)
-
-    return acados_ocp_solver, yref
+@register_controller
+class NNManipulatorMPCController(ManipulatorMPCController, NNMPCController):
+    def __init__(self, config, collision_config=None):
+        super().__init__(config, collision_config)

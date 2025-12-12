@@ -3,7 +3,6 @@ import ast
 import torch
 import random
 import numpy as np
-import torch.nn as nn
 
 from tqdm import tqdm
 from torch.utils.data import DataLoader

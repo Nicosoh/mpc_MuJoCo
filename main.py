@@ -2,10 +2,11 @@ import time
 import yaml
 import argparse
 import os
+
 from datetime import datetime
 from utils import *
 from simulator import MuJoCoSimulator
-from controller import BaseMPCController, NNMPCController
+from controller import CONTROLLER_REGISTRY
 from IK import generate_reference_trajectory
 
 def main(model_name, data_collection=False, output_dir=None, timestamp=None, data_config=None):
@@ -47,7 +48,7 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         else:
             collision_config = None
 
-        controller = NNMPCController(config, yref, collision_config)                                  # Create MPCController 
+        controller = CONTROLLER_REGISTRY[config["mpc"]["controller_name"]](config, collision_config)    # Create MPCController 
 
         # Save run summary
         save_summary(config=config, output_dir=run_dir)                                                 # Save summary of all 
@@ -56,8 +57,8 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         start_time = time.time()
 
         # Create simulator object
-        simulator = MuJoCoSimulator(config, controller.yref, controller, collision_config)
-            
+        simulator = MuJoCoSimulator(config, yref, controller, collision_config)
+
         # Run simulation
         simulator.run()
 

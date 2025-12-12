@@ -1,16 +1,24 @@
-import torch
-import json
 import os
 import ast
+import json
+import torch
+import random
+import numpy as np
+
 from tqdm import tqdm
 from configparser import ConfigParser
-from neural_network.utils import run_scaling
 from torch.utils.data import DataLoader
+from neural_network.utils import run_scaling
 
 from neural_network.models import MODEL_REGISTRY
 from neural_network.datasets import DATASET_REGISTRY
 
-def evaluate_model(test_config_path, run_dir):
+def evaluate_model(test_config_path, run_dir, seed=42):
+        # === Set random seed ===
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
     # === Load val config ===
     test_config = ConfigParser()
     test_config.read(test_config_path)
@@ -28,16 +36,7 @@ def evaluate_model(test_config_path, run_dir):
     train_config.read(train_config_path)
     
     dataset_class = train_config.get("DATA", "dataset_class")
-    apply_scaling = train_config.getboolean("DATA", "apply_scaling")
-    scaling_type = train_config.get("DATA", "scaling_type")
     model_name = train_config.get("MODEL", "model_name")
-    scaling_range_X = ast.literal_eval(train_config.get("DATA", "scaling_range_X"))
-    scaling_range_y = ast.literal_eval(train_config.get("DATA", "scaling_range_y"))
-
-    # === Load scaling params if needed ===
-    scaling_params = None
-    # if apply_scaling:
-        # scaling_params = import_scaling_params(checkpoint_dir)
     
     # === Save configs ===
     train_config_save_path = os.path.join(run_dir, "train_config.ini")
@@ -56,16 +55,12 @@ def evaluate_model(test_config_path, run_dir):
     dataset = DatasetClass(config=train_config,          # During testing, this should always be false and if it was used 
                            run_dir=run_dir,             # during training then the values should be extracted from the train data.
                            mode = "test",
-                           scaling_params=scaling_params,               # Which is saved in the json
                            test_config=test_config)
-    
-    test_loader = DataLoader(dataset,
-                             batch_size=1,
-                             shuffle=False)
+    test_loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
     # === Load saved model ===
     ModelClass = MODEL_REGISTRY[model_name]
-    model = ModelClass().to(device)
+    model = ModelClass(train_config).to(device)
 
     print(f"Loading checkpoint: {checkpoint_path}")
     state_dict = torch.load(checkpoint_path, map_location=device)
@@ -77,21 +72,13 @@ def evaluate_model(test_config_path, run_dir):
     targets = []
 
     # === Evaluate ===
-    for xb, yb in tqdm(test_loader, desc="Evaluating"):
-        xb, yb = xb.to(device), yb.to(device)
+    with torch.no_grad():
+        for xb, yb in tqdm(test_loader, desc="Evaluating"):
+            xb, yb = xb.to(device), yb.to(device)
+            pred = model(xb)
 
-        with torch.no_grad():
-            pred_scaled = model(xb)
-
-        # Unscale prediction to original target space
-        if apply_scaling:
-            _, pred = run_scaling(pred_scaled, pred_scaled, scaling_type, scaling_params, scaling_range_X, scaling_range_y, inverse=True)  # inverse=True means unscale y
-            _, yb = run_scaling(yb, yb, scaling_type, scaling_params, scaling_range_X, scaling_range_y, inverse=True)
-        else:
-            pred = pred_scaled
-
-        preds.append(pred.cpu())
-        targets.append(yb.cpu())
+            preds.append(pred.cpu())
+            targets.append(yb.cpu())
 
     preds = torch.cat(preds, dim=0)
     targets = torch.cat(targets, dim=0)
