@@ -7,8 +7,7 @@ from robot_descriptions.loaders.mujoco import load_robot_description
 import mujoco
 
 # ========== PLOTTING ==========
-
-def plot_signals(time, logs, model, plots_config, yref, output_dir, file_name="plot"):
+def plot_signals(time, logs, model, config, output_dir, file_name="plot"):
     """
     Processes signals based on plots_config and plots them over time.
 
@@ -17,7 +16,7 @@ def plot_signals(time, logs, model, plots_config, yref, output_dir, file_name="p
     time : array-like
         Shared time axis.
     logs : dict
-        Dictionary containing signal arrays (e.g., qpos, qvel, u_applied).
+        Dictionary containing signal arrays (e.g., qpos, qvel, u_applied, yref).
     model : object
         Object containing model info: nq, nv, nu.
     plots_config : dict
@@ -25,6 +24,9 @@ def plot_signals(time, logs, model, plots_config, yref, output_dir, file_name="p
     output_dir : str
         Directory to save plots.
     """
+    plots_config = config["plots"]
+    IK_required = config["mpc"]["IK_required"]
+
     signals = {}
     ylabel_units = {}
 
@@ -33,7 +35,11 @@ def plot_signals(time, logs, model, plots_config, yref, output_dir, file_name="p
         if isinstance(val, list):
             logs[key] = np.array(val)
 
-    yref_full = expand_yref_over_time(yref, time)
+    # Process yref
+    yref_full = logs.get("yref", None)
+    if yref_full is not None and IK_required:
+        # Convert list of dicts into 2D array with first entry of 'stage'
+        yref_full = np.array([step["stage"][0] for step in yref_full])
 
     # Offsets to access yref by type
     source_offsets = {
@@ -42,7 +48,7 @@ def plot_signals(time, logs, model, plots_config, yref, output_dir, file_name="p
         "ctrl": model.nq + model.nv,
         "u_applied": model.nq + model.nv,  # treat alias like 'ctrl'
     }
-    
+
     for name, (source, idx, unit) in plots_config.items():
         if source == "qpos":
             assert idx < model.nq, f"Index {idx} out of range for qpos (nq={model.nq})"
@@ -74,17 +80,16 @@ def plot_signals(time, logs, model, plots_config, yref, output_dir, file_name="p
     fig, ax = plt.subplots(n, 1, figsize=figsize, dpi=dpi, sharex=True)
     if n == 1:
         ax = [ax]
-    
+
     for i, (name, values) in enumerate(signals.items()):
         ax[i].plot(time, values, label="Actual")
 
         source, idx, _ = plots_config[name]
         yref_idx = None
-        if source in source_offsets:
+        if yref_full is not None and source in source_offsets:
             yref_idx = source_offsets[source] + idx
-
-        if yref_idx is not None and yref_idx < yref_full.shape[1]:
-            ax[i].plot(time, yref_full[:, yref_idx], "--", label="Ref")
+            if yref_idx < yref_full.shape[1]:
+                ax[i].plot(time, yref_full[:, yref_idx], "--", label="Ref")
 
         ax[i].set_title(name)
         ax[i].set_ylabel(ylabel_units.get(name, ""))

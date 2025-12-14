@@ -99,8 +99,7 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
                         time=simulator.logs["time"],
                         logs=simulator.logs,
                         model=simulator.model,
-                        plots_config=simulator.config["plots"],
-                        yref=simulator.yref, #convert this to use the logs instead and add the case where if traj is used, then plot the traj.
+                        config=config,
                         output_dir=run_dir,
                     )
             except Exception as plot_err:

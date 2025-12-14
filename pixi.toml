@@ -1,12 +1,14 @@
 [workspace]
 name = "acados-pixi"
 channels = ["conda-forge"]
-platforms = ["osx-64", "linux-64"]
+# platforms = ["osx-64", "linux-64"]
+platforms = ["linux-64"]
+
 
 [dependencies]
 # Core build tools
 python = "3.11.*"
-cmake = ">=3.27"
+cmake = "=3.27"
 ninja = ">=1.11"
 pkg-config = "*"
 git = "*"
@@ -36,7 +38,6 @@ scikit-build = ">=0.17"
 
 [pypi-dependencies]
 tqdm = "*"
-torch = ">=2.2.2, <3"
 
 [activation.env]
 # Path to acados source (needed by acados_template)
@@ -77,8 +78,9 @@ acados_python = "python -m pip install -e external/acados/interfaces/acados_temp
 # One-shot: clone + configure + build + install + python interface
 acados_full = "pixi run acados_clone && pixi run acados_configure && pixi run acados_build && pixi run acados_install && pixi run acados_python"
 
-# Install l4casadi
-install_l4casadi = "export CMAKE_POLICY_VERSION_MINIMUM=3.5 && pip install l4casadi --no-build-isolation"
+# Install l4casadi and pytorch dependencies
+install_l4casadi = "pixi run pip install l4casadi --no-build-isolation"
+install_pytorch = "pixi run pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu"
 
 # Run the minimal Python example
 minimal_example = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY_PATH\" && python external/acados/examples/acados_python/getting_started/minimal_example_ocp.py"

@@ -206,6 +206,7 @@ class MuJoCoSimulator:
                     self.logs["yref"].append(yref_now)  # Keep track of the reference
                 else:
                     yref_now = get_reference_for_horizon(self.yref, self.data.time, N_horizon, mpc_timestep)
+                    self.logs["yref"].append(yref_now)
 
                 # Run MPC to compute control input, cost, and trajectory
                 self.last_u, cost, qpos_traj, qvel_traj, u_traj = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
