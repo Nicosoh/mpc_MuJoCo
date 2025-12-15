@@ -38,7 +38,9 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         config = load_x0(config=config)                                                                 # Load x0 (Starting position)
         yref = load_yref(model_name=config["model"]["name"])                                            # Load yref
 
-        if config["mpc"]["IK_required"]:                                                                # If dealing with manipulators
+        save_summary(config=config, output_dir=run_dir)                                                 # Save summary of all
+    
+        if config["IK"]["IK_required"]:                                                                # If dealing with manipulators
             collision_config = load_collision_config(model_name=config["model"]["name"])                # Load obstacles
             config["collision_config"] = collision_config                                               # Add to config for summary saving purpose
 
@@ -48,11 +50,10 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         else:
             collision_config = None
 
+        save_summary(config=config, output_dir=run_dir)                                                 # Save summary of all 
+
         controller = CONTROLLER_REGISTRY[config["mpc"]["controller_name"]](config, collision_config)    # Create MPCController 
 
-        # Save run summary
-        save_summary(config=config, output_dir=run_dir)                                                 # Save summary of all 
-    
         # Record start time
         start_time = time.time()
 

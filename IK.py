@@ -1,4 +1,5 @@
 import os
+import sys
 import numpy as np
 import pinocchio as pin
 import qpsolvers
@@ -16,19 +17,20 @@ from pinocchio.robot_wrapper import RobotWrapper
 from loop_rate_limiters import RateLimiter
 
 def generate_reference_trajectory(yref, obstacles, config):
-
     def step_IK():
         velocity = solve_ik(configuration, tasks.values(), dt, solver=solver, barriers=barriers, safety_break=False)
-        print("velocity: ", velocity)
+
         # Integrate motion
         configuration.integrate_inplace(velocity, dt)
-        print("error:", error)
-        # Update ee frame visual
-        viewer["ee_frame"].set_transform(configuration.get_transform_frame_to_world(tasks["ee"].frame).np)
-        # Display
-        viz.display(configuration.q)
-        
-        rate.sleep()
+
+        sys.stdout.write("\rvelocity: " + str(velocity) + " | error: {:.3e}".format(error))
+        sys.stdout.flush()
+
+        if visualize:
+            # Update ee frame visual
+            viewer["ee_frame"].set_transform(configuration.get_transform_frame_to_world(tasks["ee"].frame).np)
+            # Display
+            viz.display(configuration.q)
     
     def add_obstacle_capsules(robot, obstacles_dict):
         """
@@ -87,6 +89,10 @@ def generate_reference_trajectory(yref, obstacles, config):
         yref_full = np.hstack([yref, yref_vel, yref_u])
 
         return yref_full, yref_pos_vel
+    
+    # Extract IK config
+    visualize = config["IK"]["visualize_IK"]
+    max_iterations = config["IK"]["max_iterations"]
 
     # Load model again from XML
     base_dir = "models_xml"
@@ -94,7 +100,7 @@ def generate_reference_trajectory(yref, obstacles, config):
     filename = os.path.join(base_dir, f"{model_name}.xml")
     
     # IK parameters
-    stop_thres = 1e-3
+    stop_thres = config["IK"]["stop_threshold"]
 
     try:
         robot = RobotWrapper.BuildFromMJCF(filename=filename)
@@ -108,12 +114,13 @@ def generate_reference_trajectory(yref, obstacles, config):
     # Add obstacles
     add_obstacle_capsules(robot, obstacles)
 
-    # Launch Viewer
-    viz = start_meshcat_visualizer(robot)
-    viewer = viz.viewer
+    if visualize:
+        # Launch Viewer
+        viz = start_meshcat_visualizer(robot)
+        viewer = viz.viewer
 
-    meshcat_shapes.frame(viewer["target_frame"], opacity=0.3) # Target frame
-    meshcat_shapes.frame(viewer["ee_frame"], opacity=1.0) # End-effector frame
+        meshcat_shapes.frame(viewer["target_frame"], opacity=0.3) # Target frame
+        meshcat_shapes.frame(viewer["ee_frame"], opacity=1.0) # End-effector frame
 
     # -------------------------------
     # Define tasks
@@ -135,10 +142,11 @@ def generate_reference_trajectory(yref, obstacles, config):
         n_collision_pairs=len(robot.collision_model.collisionPairs),
         gain=20.0,
         safe_displacement_gain=1.0,
-        d_min=0.2, # needs to be >=0
+        d_min=0.02, # needs to be >=0
     )
 
     barriers = [collision_barrier]
+
     # First goal is the starting position(x0)
     x0 = np.array(config["mpc"]["x0"])
 
@@ -149,14 +157,15 @@ def generate_reference_trajectory(yref, obstacles, config):
     # Copy target format, set translation to x0
     T_target = tasks["ee"].transform_target_to_world.copy()
     T_target.translation = x0
-    print("Setting first IK target to x0:", x0)
+    sys.stdout.write("Setting first IK target to x0:" + str(x0) + "\n")
 
     # Set ee task target
     tasks["ee"].transform_target_to_world = T_target
 
-    # Show target in Meshcat
-    viewer["target_frame"].set_transform(T_target.np)
-    viz.display(configuration.q)
+    if visualize:
+        # Show target in Meshcat
+        viewer["target_frame"].set_transform(T_target.np)
+        viz.display(configuration.q)
 
     # Error
     error = np.linalg.norm(T_target.translation - configuration.get_transform_frame_to_world(tasks["ee"].frame).translation)
@@ -164,24 +173,30 @@ def generate_reference_trajectory(yref, obstacles, config):
     # Select QP solver
     solver = "daqp" if "daqp" in qpsolvers.available_solvers else qpsolvers.available_solvers[0]
 
-    rate = RateLimiter(frequency=1/config["mpc"]["mpc_timestep"], warn=False)
-    dt = rate.period
+    dt = config["mpc"]["mpc_timestep"]
 
+    iterations = 0
     # -------------------------------
     # Moving to starting position
     # -------------------------------
     while True:
         step_IK()
         error = np.linalg.norm(T_target.translation - configuration.get_transform_frame_to_world(tasks["ee"].frame).translation)
-        if error < stop_thres:
-            print("Starting position reached")
-            break
-    
 
+        if error < stop_thres:
+            sys.stdout.write("\nStarting position reached\n")
+            break
+
+        iterations += 1
+        if iterations > max_iterations:
+            raise RuntimeError(f"IK did not converge within {max_iterations} steps. Current error: {error:.3e}")
+    
     # Now set actual end goal
     T_target.translation = yref
-    # Show goal position in Meshcat
-    viewer["target_frame"].set_transform(T_target.np)
+
+    if visualize:
+        # Show goal position in Meshcat
+        viewer["target_frame"].set_transform(T_target.np)
 
     # Empty list to store traj
     traj_qp = []
@@ -192,16 +207,23 @@ def generate_reference_trajectory(yref, obstacles, config):
     # -------------------------------
     # Moving to goal position
     # -------------------------------
+    iterations = 0
     while True:
         step_IK()
         traj_qp.append(configuration.q)
         error = np.linalg.norm(T_target.translation - configuration.get_transform_frame_to_world(tasks["ee"].frame).translation)
 
         if error < stop_thres:
-            print("Target position reached")
+            sys.stdout.write("\nTarget position reached\n")
             break
+
+        iterations += 1
+        if iterations > max_iterations:
+            raise RuntimeError(f"IK did not converge within {max_iterations} steps. Current error: {error:.3e}")
     
     traj_qp = np.array(traj_qp) # Convert to np.array (only positions without velocity)
+
+    sys.stdout.write("Trajectory of length: " + str(traj_qp.shape) + "\n")
 
     traj_qx_u, traj_qx = pad_yref(traj_qp, config)
 

@@ -91,8 +91,10 @@ class MuJoCoSimulator:
         self.mpc_timestep = mpc_config["mpc_timestep"]
         early_termination = mpc_config["early_termination"]
         termination_cost = np.array(mpc_config["termination_cost"])
-        IK_required = mpc_config["IK_required"]
         solve_ocp = mpc_config["solve_ocp"]
+
+        # Extract parameters for IK
+        IK_required = self.config["IK"]["IK_required"]
 
         if IK_required:
             x0 = np.array(mpc_config["x0_q"])
@@ -200,7 +202,7 @@ class MuJoCoSimulator:
         # Only update MPC if needed
         if self.data.time >= self.next_mpc_time:
             try:
-                if not self.config["mpc"]["IK_required"]:
+                if not self.config["IK"]["IK_required"]:
                     # Get reference state at the current time
                     yref_now = get_yref_at_time(self.data.time, self.yref)
                     self.logs["yref"].append(yref_now)  # Keep track of the reference

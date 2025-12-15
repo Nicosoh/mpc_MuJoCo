@@ -62,7 +62,7 @@ def load_npz(filename, sep="/", input_dir=None):
     if not filename.endswith('.npz'):
         raise ValueError("Only .npz files are supported.")
 
-    data = np.load(filename)
+    data = np.load(filename, allow_pickle=True)
     output = {}
 
     for flat_key in data.files:

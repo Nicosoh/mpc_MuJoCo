@@ -4,9 +4,8 @@ import numpy as np
 import casadi as ca
 
 from casadi import vertcat
-from acados_template import AcadosOcp, AcadosOcpSolver
 from pin_exporter import export_ode_model
-
+from acados_template import AcadosOcp, AcadosOcpSolver
 from neural_network.torch_exporter import export_torch_model
 
 def clamp(x, lo=0.0, hi=1.0):
@@ -28,15 +27,14 @@ def segment_segment_squared_distance(p1, p2, q1, q2):
     d = ca.dot(u, w0)
     e = ca.dot(v, w0)
 
+    # Compute the denominator or safe eps
     denom = a*c - b*b
+    eps = 1e-8
+    denom_safe = ca.fmax(denom, eps)
 
-    # Compute s*
-    s = (b*e - c*d) / denom
-    s = clamp(s)
-
-    # Compute t*
-    t = (a*e - b*d) / denom
-    t = clamp(t)
+    # Compute s & t
+    s = clamp((b*e - c*d) / denom_safe)
+    t = clamp((a*e - b*d) / denom_safe)
 
     # Compute closest points
     Ps = p1 + u * s
@@ -89,44 +87,36 @@ def build_capsule_collision_constraints(robot_sys, links, obstacles, collision_p
         q2 = obs["to"]
         r2 = obs["radius"]
 
-        # q1 = np.array([1.1,0,0.5])
-        # q2 = np.array([1.1,0,1.0])
-
         dist = capsule_dist_sq(p1, p2, q1, q2, r1, r2)
 
-        constraints.append(dist)
+        # -------------------------
+        #     LINK CAPSULE
+        # -------------------------
+        link = links[link_name]
 
-        # # -------------------------
-        # #     LINK CAPSULE
-        # # -------------------------
-        # link = links[link_name]
+        # resolve symbolic endpoints from pin_model
+        p1 = getattr(robot_sys, link["from"])   # CasADi 3-vector
+        p2 = getattr(robot_sys, link["to"])     # CasADi 3-vector
+        r1 = link["radius"]
 
-        # # resolve symbolic endpoints from pin_model
-        # p1 = getattr(robot_sys, link["from"])   # CasADi 3-vector
-        # p2 = getattr(robot_sys, link["to"])     # CasADi 3-vector
-        # r1 = link["radius"]
-
-        # # -------------------------
-        # #     OBSTACLE CAPSULE
-        # # -------------------------
-        # obs = obstacles[obs_name]
-        # # q1 = ca.SX(obs["from"])
-        # # q2 = ca.SX(obs["to"])
-        # # r2 = obs["radius"]
-        # q1 = ca.SX(obs["from"])
-        # q2 = ca.SX(obs["to"])
-        # r2 = obs["radius"]
+        # -------------------------
+        #     OBSTACLE CAPSULE
+        # -------------------------
+        obs = obstacles[obs_name]
+        q1 = ca.SX(obs["from"])
+        q2 = ca.SX(obs["to"])
+        r2 = obs["radius"]
         
-        # # -------------------------
-        # #  SQUARED SEGMENT DISTANCE
-        # # -------------------------
-        # d2, Ps, Qt = segment_segment_squared_distance(p1, p2, q1, q2)
+        # -------------------------
+        #  SQUARED SEGMENT DISTANCE
+        # -------------------------
+        d2, Ps, Qt = segment_segment_squared_distance(p1, p2, q1, q2)
 
-        # # -------------------------
-        # #  HARD CONSTRAINT: d² ≥ (r1+r2)²
-        # # -------------------------
-        # min_dist_sq = (r1 + r2)**2
-        # constraints.append(d2 - min_dist_sq)
+        # -------------------------
+        #  HARD CONSTRAINT: d² ≥ (r1+r2)²
+        # -------------------------
+        min_dist_sq = (r1 + r2)**2
+        constraints.append(d2 - min_dist_sq)
 
     return vertcat(*constraints)
 
@@ -144,7 +134,7 @@ class BaseMPCController:
         self.x0 = np.array(config["mpc"]["x0"])
         self.mpc_timestep = config["mpc"]["mpc_timestep"]
         self.terminal_cost = config["mpc"]["terminal_cost"]
-        self.IK_required = config["mpc"]["IK_required"]
+        self.IK_required = config["IK"]["IK_required"]
 
         # Reassign x0 if IK is used
         if self.IK_required:
@@ -159,7 +149,7 @@ class BaseMPCController:
 
         # Warm start
         for _ in range(5):
-            self.ocp_solver.solve_for_x0(x0_bar=self.x0, fail_on_nonzero_status=True) # It is ok to fail during the warmup phase
+            self.ocp_solver.solve_for_x0(x0_bar=self.x0, fail_on_nonzero_status=False) # It is ok to fail during the warmup phase
        
     def setup(self, config, collision_config):
         mpc_config = config["mpc"]
@@ -349,26 +339,19 @@ class ManipulatorMPCController(BaseMPCController):
         
     def add_hard_constraints(self, ocp, model, robot_sys, collision_config):
         # Generate collision constraints
-        # constraints = build_capsule_collision_constraints(robot_sys, 
-        #                                                       collision_config["links"], 
-        #                                                       collision_config["obstacles"], 
-        #                                                       collision_config["collision_pairs"])
+        constraints = build_capsule_collision_constraints(robot_sys, 
+                                                              collision_config["links"], 
+                                                              collision_config["obstacles"], 
+                                                              collision_config["collision_pairs"])
 
-        # Add collision avoidance constraint between two capsules
-        capsule_dist_sq = capsule_squared_distance_function()
+        ocp.model.con_h_expr = constraints
+        ocp.constraints.lh = np.zeros(constraints.shape[0])
+        ocp.constraints.uh = 1e10 * np.ones(constraints.shape[0])
 
-        p1 = robot_sys.j_1
-        p2 = robot_sys.attachment_site
+        ocp.model.con_h_expr_e = constraints
+        ocp.constraints.lh_e = np.zeros(constraints.shape[0])
+        ocp.constraints.uh_e = 1e10 * np.ones(constraints.shape[0])
 
-        q1 = np.array([0.0, 0.7, 0.35])
-        q2 = np.array([0.0, 0.7, 0.65])
-
-        dist = capsule_dist_sq(p1, p2, q1, q2, 0.1, 0.05)
-
-        ocp.model.con_h_expr = dist
-        ocp.constraints.lh = np.array([0.05])       # epsilon (additional safety distance)
-        ocp.constraints.uh = np.array([1e6])
-    
     def set_yref(self, yref_now):
         for stage in range(self.N):
             self.ocp_solver.cost_set(stage, "yref", yref_now["stage"][stage], api='new')
