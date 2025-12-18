@@ -1,8 +1,8 @@
 [workspace]
 name = "acados-pixi"
 channels = ["conda-forge"]
-# platforms = ["osx-64", "linux-64"]
-platforms = ["linux-64"]
+platforms = ["osx-64", "linux-64"]
+# platforms = ["linux-64"]
 
 
 [dependencies]
@@ -106,8 +106,8 @@ main_iiwa14 = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY
 viz_iiwa14 = "python pin_visualizer.py iiwa14"
 
 # For two_dof_arm
-main_two_dof_arm = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY_PATH\" && python main.py two_dof_arm"
-viz_two_dof_arm = "python pin_visualizer.py two_dof_arm"
+main_twodofarm = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY_PATH\" && python main.py twodofarm"
+viz_twodofarm = "python pin_visualizer.py twodofarm"
 
 # For all models
 data_collector = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY_PATH\" && python -m data_collection.data_collector"
@@ -118,3 +118,5 @@ train_model = "python -m neural_network.main train_model"
 
 # Testing model
 evaluate_model = "python -m neural_network.main evaluate_model"
+
+replay_twodofarm = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY_PATH\" && python replay.py twodofarm"

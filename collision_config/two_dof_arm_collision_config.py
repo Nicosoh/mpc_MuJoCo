@@ -10,11 +10,14 @@ collision_config = {
 
     "obstacles": 
         {"obs1": {"from": np.array([0.8, 0.0, 0.25]), "to": np.array([0.8, 0.0, 0.55]), "radius": 0.05},
-        #  "obs2": {"from": np.array([0.0, 0.5, 0.65]), "to": np.array([0.0, 0.5, 0.95]), "radius": 0.05}
+        #  "obs2": {"from": np.array([0.8, 0.0, 0.25]), "to": np.array([0.6, 0.8, 0.55]), "radius": 0.05}
          
     },
 
     "collision_pairs": [("link2", "obs1"),
-                        # ("link1", "obs1")
+                        ("link1", "obs1"),
+                        # ("link1", "obs2"),
+                        # ("link2", "obs2"),
+
     ],
 }

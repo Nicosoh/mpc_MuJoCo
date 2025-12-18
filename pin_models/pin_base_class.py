@@ -17,13 +17,12 @@ class PinocchioCasadiRobotWrapper(RobotWrapper):
         self.timestep = config["mpc"]["mpc_timestep"]
         self.create_dynamics(pin_config)
         self.create_discrete_dynamics()
-        if config["mpc"]["IK_required"]:
+        if config["IK"]["IK_required"]:
             self.create_forward_kinematics()
 
     def create_dynamics(self, pin_config):
         """Create the acceleration expression and acceleration function."""
         nq = self.model.nq              # number of configuration variables
-        # nu = pin_config["nu"]           # number of control inputs
         nu = len(pin_config["actuated_joints"])
         nv = self.model.nv              # number of velocity variables
         q = casadi.SX.sym("q", nq)      # configuration (positions)
@@ -76,14 +75,10 @@ class PinocchioCasadiRobotWrapper(RobotWrapper):
         cpin.forwardKinematics(self.cmodel, self.cdata, self.q_node)
         cpin.updateFramePlacements(self.cmodel, self.cdata)
 
-        # choose the frame you want :
-        # self.ee_frame = self.ee_frame_id
-
         # CasADi FK expressions
         self.universe = self.cdata.oMf[self.cmodel.getFrameId("universe")].translation
         self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
         self.attachment_site = self.cdata.oMf[self.cmodel.getFrameId("attachment_site")].translation
-        # self.R_ee = self.cdata.oMf[self.ee_frame].rotation
 
     def forward(self, x, u): # Current state and input  -> next state
         nq = self.model.nq

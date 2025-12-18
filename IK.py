@@ -227,6 +227,6 @@ def generate_reference_trajectory(yref, obstacles, config):
 
     traj_qx_u, traj_qx = pad_yref(traj_qp, config)
 
-    config["mpc"]["x0_q"] = traj_qx[0] # Add a new field for x0 in joint space
+    config["mpc"]["x0_q"] = traj_qx[0].tolist() # Add a new field for x0 in joint space
 
     return traj_qx_u, config

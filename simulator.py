@@ -9,6 +9,11 @@ class MuJoCoSimulator:
         self.yref = yref
         self.collision_config = collision_config
         self.controller = controller
+        
+        # Extract config params
+        self.N_horizon = self.config["mpc"]["N_horizon"]
+        self.mpc_timestep = self.config["mpc"]["mpc_timestep"]
+        self.IK_required = self.config["IK"]["IK_required"]
 
         self.model, self.data = load_model(self.config)                     # Create MuJoCo simulator object with loaded model
         # self.sanity_check()                                                 # Sanity check between model, controller, yref, x0
@@ -21,7 +26,7 @@ class MuJoCoSimulator:
         
         # Reset model
         mujoco.mj_resetData(self.model, self.data)
-    
+
     def sanity_check(self):
         # --- Sanity checks ---
         nq, nv, nu = self.model.nq, self.model.nv, self.model.nu
@@ -190,9 +195,6 @@ class MuJoCoSimulator:
             self.logs[key] = np.array(self.logs[key])
 
     def step_sim(self):
-        N_horizon = self.config["mpc"]["N_horizon"]
-        mpc_timestep = self.config["mpc"]["mpc_timestep"]
-
         x = np.concatenate([self.data.qpos, self.data.qvel])
         cost = None
         qpos_traj = None
@@ -202,12 +204,12 @@ class MuJoCoSimulator:
         # Only update MPC if needed
         if self.data.time >= self.next_mpc_time:
             try:
-                if not self.config["IK"]["IK_required"]:
+                if not self.IK_required:
                     # Get reference state at the current time
                     yref_now = get_yref_at_time(self.data.time, self.yref)
                     self.logs["yref"].append(yref_now)  # Keep track of the reference
                 else:
-                    yref_now = get_reference_for_horizon(self.yref, self.data.time, N_horizon, mpc_timestep)
+                    yref_now = get_reference_for_horizon(self.yref, self.data.time, self.N_horizon, self.mpc_timestep)
                     self.logs["yref"].append(yref_now)
 
                 # Run MPC to compute control input, cost, and trajectory
@@ -259,8 +261,7 @@ def add_visual_capsule(scene, p1, p2, radius, rgba):
 
 def get_reference_for_horizon(traj, t, N, mpc_dt):
     """
-    Build Acados-compatible reference arrays over the horizon,
-    WITHOUT padding with a control reference.
+    Build Acados-compatible reference arrays over the horizon from full trajectory.
 
     Args:
         traj: ndarray shaped (T, nx)

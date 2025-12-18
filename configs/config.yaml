@@ -106,7 +106,7 @@ pendulum:
     nlp_solver_warm_start_first_qp_from_nlp: false
     nlp_solver_warm_start_first_qp: false
     qp_solver_warm_start: 0
-
+  
   NN:
     model_name: "PendulumModelAcados"
     checkpoint_path: "neural_network/output/2025-12-11_15-40-48_train_model_3/model_epoch_900.pt"
@@ -357,29 +357,34 @@ two_dof_arm:
     N_horizon: 200 # Prediction horizon
     use_RTI: true # Use Real-Time Iteration
     mpc_timestep: 0.001 # seconds
-    x0: [0.5, 0.0, 0.5]
+    x0: [-0.47427097381042016, 0.0, 0.29661653283626266]
     x0_random: false # If true, x0 above will not be used
-    x0_range: [[-3.142, 3.142], [-3.142, 3.142], [-0.5, 0.5], [-0.5, 0.5]] # Range for random x0
+    x0_range: [[-0.5, 0.5], [0, 0], [0.0, 1.0]] # Range for random x0
     x0_sampling: "uniform" # Only uniform for now
-    Q_mat: [15, 5, 0.02, 0.02] # State cost weights
+    Q_mat: [150, 120, 0.02, 0.02] # State cost weights
     R_mat: [0.02, 0.02] # Input cost weights
     terminal_cost: true
     early_termination: true # Enable early termination based on cost
-    termination_cost: 0.01 # Tolerance for early termination cost
-    solve_ocp: false # Enable if only a single step is required
+    termination_cost: 0.001 # Tolerance for early termination cost
+    solve_ocp: true # Enable if only a single step is required
     full_traj: true # If above is true, then this needs to be true as well
-    IK_required: true # Enable inverse kinematics in MPC setup (only for manipulators)
-    levenberg_marquardt: 100.0
+    levenberg_marquardt: 10.0
     regularize_method: 'NO_REGULARIZE'
     nlp_solver_warm_start_first_qp_from_nlp: true
     nlp_solver_warm_start_first_qp: true
     qp_solver_warm_start: 1
 
+  IK:
+    IK_required: true # Enable inverse kinematics in MPC setup (only for manipulators)
+    stop_threshold: 0.001
+    visualize_IK: false
+    max_iterations: 10000
+
   plots:
-    Pendulum 1 Angle: ["qpos", 0, "rad"]
-    Pendulum 2 Angle: ["qpos", 1, "rad"]
-    Pendulum 1 Angular Velocity: ["qvel", 0, "rad/s"]
-    Pendulum 2 Angular Velocity: ["qvel", 1, "rad/s"]
+    Joint 1 Angle: ["qpos", 0, "rad"]
+    Joint 2 Angle: ["qpos", 1, "rad"]
+    Joint 1 Angular Velocity: ["qvel", 0, "rad/s"]
+    Joint 2 Angular Velocity: ["qvel", 1, "rad/s"]
     MPC Cost: ["cost", 0, "Cost"]
     Control Input 1: ["ctrl", 0, "Nm"]
     Control Input 2: ["ctrl", 1, "Nm"]

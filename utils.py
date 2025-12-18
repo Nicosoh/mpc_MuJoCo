@@ -1,4 +1,6 @@
 import os
+import ast
+import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 import mediapy as media
@@ -25,7 +27,7 @@ def plot_signals(time, logs, model, config, output_dir, file_name="plot"):
         Directory to save plots.
     """
     plots_config = config["plots"]
-    IK_required = config["mpc"]["IK_required"]
+    IK_required = config["IK"]["IK_required"]
 
     signals = {}
     ylabel_units = {}
@@ -112,6 +114,10 @@ def ocp_plot(simulator, output_dir, file_name="OCP_plot"):
     qvel_traj = logs["qvel_traj"][0]
     u_traj = logs["u_traj"][0]
     yref = logs["yref"]
+
+    if isinstance(yref, dict):
+        yref = yref["stage"]
+
     nq = simulator.model.nq
     
     dt = config["mpc"]["mpc_timestep"]
@@ -124,7 +130,7 @@ def ocp_plot(simulator, output_dir, file_name="OCP_plot"):
     yref_qpos = np.tile(yref[0, : nq], (T, 1))       # shape (T, nq)
     yref_qvel = np.tile(yref[0, nq : 2 * nq], (T, 1))  # shape (T, nq)
     yref_u = np.tile(yref[0, 2 * nq :], (u_traj.shape[0], 1))  # shape (T-1, nu)
-    # pdb.set_trace()
+
     fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
     # Plot positions
@@ -209,54 +215,58 @@ def save_video(frames, output_dir, file_name="video", fps=30):
 
 # ========== SUMMARY SAVING ==========
     
-def _format_value(val):
-    import numpy as np
+# def _format_value(val):
+#     import numpy as np
 
-    if isinstance(val, np.ndarray):
-        # Clean, readable formatting for arrays
-        return np.array2string(val, precision=4, separator=", ")
-    elif isinstance(val, float):
-        return f"{val:.4f}"
-    elif isinstance(val, (list, tuple, np.ndarray)):
-        return np.array(val).tolist()
-    else:
-        return str(val)
+#     if isinstance(val, np.ndarray):
+#         # Clean, readable formatting for arrays
+#         return np.array2string(val, precision=4, separator=", ")
+#     elif isinstance(val, float):
+#         return f"{val:.4f}"
+#     elif isinstance(val, (list, tuple, np.ndarray)):
+#         return np.array(val).tolist()
+#     else:
+#         return str(val)
 
-def save_summary(config, output_dir, elapsed=None, file_name="summary"):
-    """
-    Save simulation config and details to a text file with running number.
+# def save_summary(config, output_dir, elapsed=None, file_name="summary"):
+#     """
+#     Save simulation config and details to a text file with running number.
 
-    Parameters
-    ----------
-    config : dict
-        Configuration dictionary.
-    elapsed : float, optional
-        Total runtime in seconds.
-    output_dir : str
-        Directory to save summary file.
-    file_name : str, optional
-        Name for the summary file. If None, defaults to 'summary'.
-    """
-    os.makedirs(output_dir, exist_ok=True)
-    full_path = os.path.join(output_dir, f"{file_name}.txt")
+#     Parameters
+#     ----------
+#     config : dict
+#         Configuration dictionary.
+#     elapsed : float, optional
+#         Total runtime in seconds.
+#     output_dir : str
+#         Directory to save summary file.
+#     file_name : str, optional
+#         Name for the summary file. If None, defaults to 'summary'.
+#     """
+#     os.makedirs(output_dir, exist_ok=True)
+#     full_path = os.path.join(output_dir, f"{file_name}.yaml")
 
-    with open(full_path, "w") as f:
-        f.write("Simulation Summary\n")
-        f.write("=================\n\n")
+#     with open(full_path, "w") as f:
+#         f.write("Simulation Summary\n")
+#         f.write("=================\n\n")
 
-        for section, params in config.items():
-            f.write(f"{section.capitalize()}:\n")
-            if isinstance(params, dict):
-                for key, val in params.items():
-                    f.write(f"  {key}: {_format_value(val)}\n")
-            else:
-                f.write(f"  {section}: {_format_value(params)}\n")
-            f.write("\n")
+#         for section, params in config.items():
+#             f.write(f"{section.capitalize()}:\n")
+#             if isinstance(params, dict):
+#                 for key, val in params.items():
+#                     f.write(f"  {key}: {_format_value(val)}\n")
+#             else:
+#                 f.write(f"  {section}: {_format_value(params)}\n")
+#             f.write("\n")
 
-        if elapsed is not None:
-            f.write(f"Total execution time: {elapsed:.2f} seconds\n")
+#         if elapsed is not None:
+#             f.write(f"Total execution time: {elapsed:.2f} seconds\n")
 
-    print(f"Summary saved to: {os.path.abspath(full_path)}")
+#     print(f"Summary saved to: {os.path.abspath(full_path)}")
+
+def save_summary(config, save_path):
+    with open(save_path, "w") as f:
+        yaml.safe_dump(config, f, sort_keys=False)
 
 def load_yref(model_name):
     try:
@@ -375,3 +385,6 @@ def get_yref_at_time(t_now, yref):
     # Find the last index where time <= t_now
     idx = np.searchsorted(times, t_now, side='right') - 1
     return states[idx]
+
+def get_num_config(section, option, config):
+    return ast.literal_eval(f"({config.get(section, option)})")

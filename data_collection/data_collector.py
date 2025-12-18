@@ -14,13 +14,13 @@ from main import main
 from utils import save_summary
 from data_collection import save_npz
 
-def run_data_collector(model_name):
+def run_data_collector(model_name, data_config_path="data_collection/data_config.ini"):
     # Load data collection config
-    with open("data_collection/data_config.yaml", "r") as f:
+    with open(data_config_path, "r") as f:
         data_config = yaml.safe_load(f)["data_collector"]
 
     runs = data_config["runs"]
-    total_elapsed = 0.0
+    # total_elapsed = 0.0
     all_logs = {}
     base_dir = "data"
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -40,7 +40,6 @@ def run_data_collector(model_name):
 
     # Run main simulation loop and collect data
     for step in range(runs):
-        run_key = f"run_{step:03d}"
         run_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         print(f"\n--- Starting data collection run {step+1}/{runs} ---")
 

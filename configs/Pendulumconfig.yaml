@@ -1,0 +1,60 @@
+# ----------------------------------------------------------------------------------------
+# PENDULUM MODEL CONFIGURATION
+# ----------------------------------------------------------------------------------------
+mujoco:
+  urdf_available: false
+  model_path: "models_xml/pendulum.xml"
+  sim_timestep: 0.001 # seconds
+  sim_duration: 5.0 # seconds
+  sim_framerate: 30  # Hz
+  render: true # Render simulation
+  verbose: false # Print debug information
+  resolution: [480, 640]
+
+model:
+  name: "pendulum"
+  mass:
+    pendulum: 0.1 # kg
+  inertia:
+    pendulum: [0.00001, 0.00001, 0.00001] # kg*m^2
+
+pin:
+  nu: 1 # Number of control inputs
+  actuated_joints: [0] # First and only joint
+
+mpc:
+  controller_name: "BaseMPCController"
+  # controller_name: "NNMPCController"
+  Fmax: [50] # Maximum force
+  N_horizon: 2 # Prediction horizon
+  use_RTI: False # Use Real-Time Iteration
+  mpc_timestep: 0.01 # seconds
+  x0: [3.142, 0.0]
+  x0_random: false # If true, x0 above will not be used
+  x0_range: [[-3.142, 3.142], [-0.5, 0.5]] # Range for random x0
+  x0_sampling: "uniform" # Only uniform for now
+  Q_mat: [2000, 0.02] # State cost weights
+  R_mat: [20] # Input cost weights
+  terminal_cost: true
+  early_termination: false # Enable early termination based on cost
+  termination_cost: 0.1 # Tolerance for early termination cost
+  solve_ocp: true # Enable if only a single step is required
+  full_traj: true # If above is true, then this needs to be true as well
+  IK_required: false # Enable inverse kinematics in MPC setup (only for manipulators)
+  levenberg_marquardt: 0.0
+  regularize_method: 'NO_REGULARIZE'
+  nlp_solver_warm_start_first_qp_from_nlp: false
+  nlp_solver_warm_start_first_qp: false
+  qp_solver_warm_start: 0
+
+IK:
+  IK_required: false
+NN:
+  model_name: "PendulumModelAcados"
+  checkpoint_path: "neural_network/output/2025-12-11_15-40-48_train_model_3/model_epoch_900.pt"
+
+plots:
+  Pendulum Angle: ["qpos", 0, "rad"]
+  Pendulum Angular Velocity: ["qvel", 0, "rad/s"]
+  MPC Cost: ["cost", 0, "Cost"]
+  Control Input: ["ctrl", 0, "Nm"]

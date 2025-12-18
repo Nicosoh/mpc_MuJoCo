@@ -5,6 +5,7 @@ import random
 import numpy as np
 
 from tqdm import tqdm
+from utils import get_num_config
 from torch.utils.data import DataLoader
 from neural_network.utils import plot_loss
 from neural_network.losses import StationaryLoss
@@ -24,7 +25,7 @@ def train_model(config, run_dir, seed=42):
 
     # === Config ===
     # Training
-    learning_rate = config.getfloat("TRAINING", "learning_rate")
+    learning_rate = get_num_config("TRAINING", "learning_rate", config)
     batch_size    = config.getint("TRAINING", "batch_size")
     num_epochs    = config.getint("TRAINING", "num_epochs")
     patience      = config.getint("TRAINING", "patience")
@@ -43,8 +44,8 @@ def train_model(config, run_dir, seed=42):
 
     # Loss
     alpha = torch.tensor(config.getfloat("LOSS", "alpha"), dtype=torch.float32)
-    x_s = torch.tensor(ast.literal_eval(config.get("LOSS", "x_s")), dtype=torch.float32)
-    y_s = torch.tensor(ast.literal_eval(config.get("LOSS", "y_s")), dtype=torch.float32)
+    x_s = torch.tensor(get_num_config("LOSS", "x_s", config), dtype=torch.float32)
+    y_s = torch.tensor(get_num_config("LOSS", "y_s", config), dtype=torch.float32)
 
     # === Create dataset + dataloader ===
     # Load dataset dynamically

@@ -1,0 +1,64 @@
+# ----------------------------------------------------------------------------------------
+# 2 DOF ARM CONFIGURATION
+# ----------------------------------------------------------------------------------------
+mujoco:
+  urdf_available: false
+  model_path: "models_xml/2dof_arm.xml"
+  sim_timestep: 0.001 # seconds
+  sim_duration: 3.0 # seconds
+  sim_framerate: 30  # Hz
+  render: true # Render simulation
+  verbose: false # Print debug information
+  resolution: [480, 640]
+
+model:
+  name: "two_dof_arm"
+  mass:
+    pendulum_stick1: 0.1 # kg
+    pendulum_stick2: 0.1 # kg
+  inertia:
+    pendulum_stick1: [0.002, 0.002, 0.002] # kg*m^2
+    pendulum_stick2: [0.002, 0.002, 0.002] # kg*m^2
+  velocitylimit: [1.0, 1.0]
+
+pin:
+  nu: 2 # Number of control inputs
+  actuated_joints: [0, 1] # First and second joints
+
+mpc:
+  controller_name: "ManipulatorMPCController"
+  Fmax: [10, 10] # Maximum force
+  N_horizon: 200 # Prediction horizon
+  use_RTI: true # Use Real-Time Iteration
+  mpc_timestep: 0.001 # seconds
+  x0: [0.5, 0.0, 0.5]
+  x0_random: false # If true, x0 above will not be used
+  x0_range: [[-0.5, 0.5], [0, 0], [0.0, 1.0]] # Range for random x0
+  x0_sampling: "uniform" # Only uniform for now
+  Q_mat: [150, 120, 0.02, 0.02] # State cost weights
+  R_mat: [0.02, 0.02] # Input cost weights
+  terminal_cost: true
+  early_termination: true # Enable early termination based on cost
+  termination_cost: 0.001 # Tolerance for early termination cost
+  solve_ocp: false # Enable if only a single step is required
+  full_traj: true # If above is true, then this needs to be true as well
+  levenberg_marquardt: 10.0
+  regularize_method: 'NO_REGULARIZE'
+  nlp_solver_warm_start_first_qp_from_nlp: true
+  nlp_solver_warm_start_first_qp: true
+  qp_solver_warm_start: 1
+
+IK:
+  IK_required: true # Enable inverse kinematics in MPC setup (only for manipulators)
+  stop_threshold: 0.001
+  visualize_IK: false
+  max_iterations: 10000
+
+plots:
+  Joint 1 Angle: ["qpos", 0, "rad"]
+  Joint 2 Angle: ["qpos", 1, "rad"]
+  Joint 1 Angular Velocity: ["qvel", 0, "rad/s"]
+  Joint 2 Angular Velocity: ["qvel", 1, "rad/s"]
+  MPC Cost: ["cost", 0, "Cost"]
+  Control Input 1: ["ctrl", 0, "Nm"]
+  Control Input 2: ["ctrl", 1, "Nm"]

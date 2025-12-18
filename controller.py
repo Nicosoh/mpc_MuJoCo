@@ -156,7 +156,6 @@ class BaseMPCController:
 
         Fmax = mpc_config["Fmax"]
         N_horizon = mpc_config["N_horizon"]
-        RTI = mpc_config["use_RTI"]
         x0 = np.array(mpc_config["x0"])
         Tf = N_horizon * mpc_config["mpc_timestep"]  # Time horizon
         Q_mat = np.diag(mpc_config["Q_mat"]) # State cost weight matrix
@@ -173,7 +172,6 @@ class BaseMPCController:
         nx = model.x.rows()
         nu = model.u.rows()
         ny = nx + nu
-        ny_e = nx
 
         # Set stage cost module
         ocp.cost.cost_type = 'NONLINEAR_LS'                 # Stage cost
@@ -213,7 +211,7 @@ class BaseMPCController:
         ocp.solver_options.nlp_solver_warm_start_first_qp = mpc_config["nlp_solver_warm_start_first_qp"]
         ocp.solver_options.qp_solver_warm_start = mpc_config["qp_solver_warm_start"]
 
-        if RTI:
+        if self.use_RTI:
             ocp.solver_options.nlp_solver_type = 'SQP_RTI'
         else:
             ocp.solver_options.nlp_solver_type = 'SQP'
@@ -236,8 +234,7 @@ class BaseMPCController:
         ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference to match first entry of yref for states only
     
     def add_hard_constraints(self, ocp, model, robot_sys, collision_config):
-        # Redefine in subclass
-        pass
+        raise NotImplementedError("add_hard_constraints method not implemented in BaseMPCController.")
 
     def set_yref(self, yref_now):
         for stage in range(self.N):
