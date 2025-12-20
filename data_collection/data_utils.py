@@ -1,47 +1,81 @@
 import numpy as np
 import os
 
-def save_npz(
-    filename,
-    data,
-    output_dir,
-    sep="/",
+# def save_npz(
+#     filename,
+#     data,
+#     output_dir,
+#     sep="/",
     
-):
-    """
-    Save a nested dictionary of NumPy arrays to a .npz file.
+# ):
+#     """
+#     Save a nested dictionary of NumPy arrays to a .npz file.
 
-    Parameters:
-    - filename (str): Base filename without number and extension (e.g., 'logs')
-    - data (dict): Nested dictionary like {run_id: {var_name: array}}
-    - sep (str): Separator for flattened keys
-    - output_dir (str or None): Directory to save the file. If None, save in current directory.
-    """
+#     Parameters:
+#     - filename (str): Base filename without number and extension (e.g., 'logs')
+#     - data (dict): Nested dictionary like {run_id: {var_name: array}}
+#     - sep (str): Separator for flattened keys
+#     - output_dir (str or None): Directory to save the file. If None, save in current directory.
+#     """
 
-    # Prepare output directory
+#     # Prepare output directory
+#     os.makedirs(output_dir, exist_ok=True)
+
+#     # Strip extension if user passed it
+#     base_name = filename
+#     if filename.endswith('.npz'):
+#         base_name = filename[:-4]
+    
+#     # Build full output path
+#     full_path = os.path.join(output_dir, f"{base_name}.npz")
+
+#     # Flatten the nested dictionary keys
+#     flat_data = {}
+#     for outer_key, inner_dict in data.items():
+#         for inner_key, value in inner_dict.items():
+#             flat_key = f"{outer_key}{sep}{inner_key}"
+#             flat_data[flat_key] = value
+
+#     # Save the file
+#     np.savez(full_path, **flat_data)
+
+#     print(f"Saved file: {full_path}")
+
+def save_npz(filename, data, output_dir, sep="/"):
+    """
+    Save a flat or nested dictionary of NumPy arrays to a .npz file.
+
+    Flat dict:
+        { "time": array, "qpos": array }
+
+    Nested dict:
+        { "run0": { "time": array, "qpos": array } }
+    """
     os.makedirs(output_dir, exist_ok=True)
 
-    # Strip extension if user passed it
-    base_name = filename
-    if filename.endswith('.npz'):
-        base_name = filename[:-4]
-    
-    # Build full output path
-    full_path = os.path.join(output_dir, f"{base_name}.npz")
+    if filename.endswith(".npz"):
+        filename = filename[:-4]
 
-    # Flatten the nested dictionary keys
+    full_path = os.path.join(output_dir, f"{filename}.npz")
+
     flat_data = {}
-    for outer_key, inner_dict in data.items():
-        for inner_key, value in inner_dict.items():
-            flat_key = f"{outer_key}{sep}{inner_key}"
-            flat_data[flat_key] = value
 
-    # Save the file
+    if not isinstance(data, dict):
+        raise TypeError(f"save_npz expected dict, got {type(data)}")
+
+    for key, value in data.items():
+        # Nested dict case
+        if isinstance(value, dict):
+            for inner_key, inner_value in value.items():
+                flat_data[f"{key}{sep}{inner_key}"] = inner_value
+        else:
+            # Flat dict case
+            flat_data[key] = value
+
     np.savez(full_path, **flat_data)
-
     print(f"Saved file: {full_path}")
 
-def load_npz(filename, sep="/", input_dir=None):
+def load_npz(filename, sep="/"):
     """
     Load arrays from a .npz file and reconstruct nested dict structure.
 
@@ -53,8 +87,6 @@ def load_npz(filename, sep="/", input_dir=None):
     Returns:
     - dict: Nested dictionary of arrays {outer_key: {inner_key: array}}
     """
-    if input_dir is not None:
-        filename = os.path.join(input_dir, filename)
 
     if not os.path.exists(filename):
         raise FileNotFoundError(f"File '{filename}' does not exist.")

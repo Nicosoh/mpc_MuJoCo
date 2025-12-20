@@ -8,6 +8,7 @@ from utils import *
 from simulator import MuJoCoSimulator
 from controller import CONTROLLER_REGISTRY
 from IK import generate_reference_trajectory
+from data_collection.data_utils import save_npz
 
 def main(model_name, data_collection=False, output_dir=None, timestamp=None, data_config=None):
     # Load configuration
@@ -95,6 +96,10 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
                 if simulator.frames and not config["mpc"]["solve_ocp"]:
                     save_video(simulator.frames, output_dir=run_dir, fps=simulator.config["mujoco"]["sim_framerate"])
 
+                if config["data"]["save_data"]:
+                    import pdb; pdb.set_trace()
+                    save_npz(data=simulator.logs, output_dir=run_dir, filename=f"{timestamp}_logs")
+
                 # Attempt to plot logs if available
                 if "logs" in simulator.__dict__ and "time" in simulator.logs and not config["mpc"]["solve_ocp"]:
                     plot_signals(
@@ -105,7 +110,7 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
                         output_dir=run_dir,
                     )
             except Exception as plot_err:
-                print(f"Could not generate summary or plots: {plot_err}")
+                print(f"Could not complete finally block: {plot_err}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Load config for a given model")
