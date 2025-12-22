@@ -119,4 +119,4 @@ train_model = "python -m neural_network.main train_model"
 # Testing model
 evaluate_model = "python -m neural_network.main evaluate_model"
 
-replay_twodofarm = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY_PATH\" && python replay.py twodofarm"
+replay = "mjpython replay.py"

@@ -2,6 +2,8 @@ import mujoco
 import numpy as np
 from tqdm import tqdm
 from utils import *
+import mujoco.viewer
+import time
 
 class MuJoCoSimulator:
     def __init__(self, config, yref, controller,collision_config=None):
@@ -293,3 +295,118 @@ def get_reference_for_horizon(traj, t, N, mpc_dt):
     yref_terminal = xrefs[-1]  # shape (nx,)
 
     return {"stage": yref_stage, "terminal": yref_terminal}
+
+class MujocoReplay:
+    def __init__(self, model_config, replay_config, logs_dict):
+        self.model_config = model_config
+        self.replay_config = replay_config
+
+        self.model, self.data = load_model(self.model_config)                  # Create MuJoCo simulator object with loaded model
+        self.model.opt.timestep = self.model_config["mpc"]["mpc_timestep"]     # Set simulation timestep
+
+        self.qpos = logs_dict["qpos"]
+        self.qvel = logs_dict["qvel"]
+
+        self.nframes = len(self.qpos)
+        self.frame = 0
+        self.playing = True
+        self.speed = replay_config["playback_speed"]
+        self.loop = replay_config["loop"]
+        self._last_time = None
+        self.render_fps = self.replay_config["render_fps"]
+        self._render_dt = 1.0 / self.render_fps
+        self._accumulator = 0.0
+
+        self.KEY_SPACE = 32
+        self.KEY_LEFT  = 263
+        self.KEY_RIGHT = 262
+        self.KEY_UP    = 265
+        self.KEY_DOWN  = 264
+    # ---------- input ----------
+
+    def key_callback(self, keycode):
+        if keycode == self.KEY_SPACE:
+            self.playing = not self.playing
+            print(f"Playing: {self.playing}")
+
+        elif keycode == self.KEY_RIGHT:
+            self._accumulator = 0.0
+            self.frame += 1
+            if self.loop:
+                self.frame %= self.nframes
+            else:
+                self.frame = min(self.frame, self.nframes - 1)
+            self.playing = False
+            print(f"Frame: {self.frame}")
+
+        elif keycode == self.KEY_LEFT:
+            self._accumulator = 0.0
+            self.frame -= 1
+            if self.loop:
+                self.frame %= self.nframes
+            else:
+                self.frame = max(self.frame, 0)
+            self.playing = False
+            print(f"Frame: {self.frame}")
+
+        elif keycode == self.KEY_UP:
+            self.speed *= 2.0
+            print(f"Speed: {self.speed:.2f}x")
+
+        elif keycode == self.KEY_DOWN:
+            self.speed *= 0.5
+            print(f"Speed: {self.speed:.2f}x")
+
+    # ---------- playback ----------
+    def advance(self, elapsed):
+        if not self.playing:
+            return
+
+        self._accumulator += self.speed * elapsed
+
+        while self._accumulator >= self.model.opt.timestep:
+            self.frame += 1
+            self._accumulator -= self.model.opt.timestep
+
+            if self.loop:
+                self.frame %= self.nframes
+            else:
+                if self.frame >= self.nframes - 1:
+                    self.frame = self.nframes - 1
+                    self.playing = False
+                    break
+
+    def apply_state(self):
+        self.data.qpos[:] = self.qpos[self.frame]
+
+        if self.qvel is not None:
+            self.data.qvel[:] = self.qvel[self.frame]
+        else:
+            self.data.qvel[:] = 0
+
+        mujoco.mj_forward(self.model, self.data)
+
+    # ---------- main loop ----------
+    def run(self):
+        with mujoco.viewer.launch_passive(
+            self.model,
+            self.data,
+            key_callback=self.key_callback,
+        ) as viewer:
+
+            self._last_time = time.time()
+
+            while viewer.is_running():
+                loop_start = time.time()
+
+                elapsed = loop_start - self._last_time
+                self._last_time = loop_start
+
+                self.advance(elapsed)
+                self.apply_state()
+                viewer.sync()
+
+                # ---- render rate limiting ----
+                sleep_time = self._render_dt - (time.time() - loop_start)
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
