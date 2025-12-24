@@ -90,6 +90,9 @@ def generate_reference_trajectory(yref, obstacles, config):
 
         return yref_full, yref_pos_vel
     
+    # Numpy print settings
+    np.set_printoptions(precision=3)
+    
     # Extract IK config
     visualize = config["IK"]["visualize_IK"]
     max_iterations = config["IK"]["max_iterations"]
@@ -140,9 +143,9 @@ def generate_reference_trajectory(yref, obstacles, config):
     # Collision barriers between self and obstacles
     collision_barrier = SelfCollisionBarrier(
         n_collision_pairs=len(robot.collision_model.collisionPairs),
-        gain=20.0,
+        gain=1.0,
         safe_displacement_gain=1.0,
-        d_min=0.02, # needs to be >=0
+        d_min=0.05, # safety distance for collision
     )
 
     barriers = [collision_barrier]

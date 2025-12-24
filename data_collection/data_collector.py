@@ -11,7 +11,7 @@ import yaml
 import time
 from datetime import datetime
 from main import main
-from utils import save_summary
+from utils import save_yaml
 from data_collection import save_npz
 
 def run_data_collector(model_name, data_config_path="data_collection/data_config.ini"):
@@ -72,7 +72,7 @@ def run_data_collector(model_name, data_config_path="data_collection/data_config
     elapsed = end_time - start_time
 
     # Save overall summary and data
-    save_summary(
+    save_yaml(
         data_config,
         elapsed=elapsed,
         output_dir=output_dir,

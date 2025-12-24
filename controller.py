@@ -184,7 +184,7 @@ class BaseMPCController:
             self.define_terminal_cost(ocp, model, config)
             
         # Generate collision constraints
-        if collision_config is not None:
+        if collision_config is not None and config["collision"]["include_obstacles"]:
             self.add_hard_constraints(ocp, model, robot_sys, collision_config)
 
         # Set input constraints
@@ -219,7 +219,7 @@ class BaseMPCController:
             ocp.solver_options.nlp_solver_max_iter = 150
         
         ocp.solver_options.qp_solver_cond_N = N_horizon
-
+        # ocp.solver_options.nlp_solver_tol_stat = 1e-1
         # Create solver based on settings above
         solver_json = 'acados_ocp_' + model.name + '.json'
         self.ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json, verbose=False)
@@ -273,8 +273,9 @@ class BaseMPCController:
             
             status = self.ocp_solver.solve()
             if status != 0:
-                raise RuntimeError("MPC solver returned status in RTI phase 1: ", status)
-
+                # raise RuntimeError("MPC solver returned status in RTI phase 1: ", status)
+                raise RuntimeError(f"MPC solver returned status {status} in RTI phase 1")
+            
             # Set initial state
             self.ocp_solver.set(0, "lbx", x)
             self.ocp_solver.set(0, "ubx", x)
@@ -284,7 +285,8 @@ class BaseMPCController:
 
             status = self.ocp_solver.solve()
             if status != 0:
-                raise RuntimeError("MPC solver returned status in RTI phase 2: ", status)
+                # raise RuntimeError("MPC solver returned status in RTI phase 2: ", status)
+                raise RuntimeError(f"MPC solver returned status {status} in RTI phase 2")
 
             # Get first control input
             u = self.ocp_solver.get(0, "u")

@@ -29,7 +29,7 @@ mpc:
   controller_name: "ManipulatorMPCController"
   Fmax: [10, 10] # Maximum force
   N_horizon: 200 # Prediction horizon
-  use_RTI: true # Use Real-Time Iteration
+  use_RTI: false # Use Real-Time Iteration
   mpc_timestep: 0.001 # seconds
   x0: [0.5, 0.0, 0.5]
   x0_random: false # If true, x0 above will not be used
@@ -48,11 +48,47 @@ mpc:
   nlp_solver_warm_start_first_qp: true
   qp_solver_warm_start: 1
 
+data:
+  save_data: true
+
 IK:
   IK_required: true # Enable inverse kinematics in MPC setup (only for manipulators)
   stop_threshold: 0.001
   visualize_IK: false
   max_iterations: 10000
+
+collision:
+  include_obstacles: true
+  links:  # Frames from pinocchio model
+    link1:
+      from: universe
+      to: j_1
+      radius: 0.1
+
+    link2:
+      from: j_1
+      to: attachment_site
+      radius: 0.1
+
+  obstacles_random: false
+  obstacles_num: 1
+  obstacles_range: [[0.3, 0.0, 0.0], [0.8, 0.0, 0.60],       # [[from_min_x,y,z, from_max_x,y,z], 
+                    [0.3, 0.0, 0.0], [0.8, 0.0, 0.60],       # [to_min_x,y,z, to_max_x,y,z], 
+                    [0.05, 0.05]]                             # [radius_min, radius_max]]
+  obstacles_sampling: uniform
+
+  obstacles: # Only if obstacles_random: true and will be replaced
+    # obs1:
+    #   from: [0.8, 0.0, 0.25]
+    #   to:   [0.8, 0.0, 0.55]
+    #   radius: 0.05
+    obs1:
+      from: [0.9026234501312647, 0.0, 0.49135301697943984]
+      to:   [0.7000292014215525, 0.0, 0.522811794520257]
+      radius: 0.05
+
+  collision_pairs: [[link2, obs1],
+                  [link1, obs1]]
 
 plots:
   Joint 1 Angle: ["qpos", 0, "rad"]
