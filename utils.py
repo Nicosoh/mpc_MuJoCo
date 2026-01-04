@@ -12,19 +12,7 @@ import mujoco
 def plot_signals(time, logs, model, config, output_dir, file_name="plot"):
     """
     Processes signals based on plots_config and plots them over time.
-
-    Parameters
-    ----------
-    time : array-like
-        Shared time axis.
-    logs : dict
-        Dictionary containing signal arrays (e.g., qpos, qvel, u_applied, yref).
-    model : object
-        Object containing model info: nq, nv, nu.
-    plots_config : dict
-        {name: (source, idx, unit)} config to specify signals to plot.
-    output_dir : str
-        Directory to save plots.
+    Now plots stage, terminal, and total costs on the same graph.
     """
     plots_config = config["plots"]
     IK_required = config["IK"]["IK_required"]
@@ -32,15 +20,16 @@ def plot_signals(time, logs, model, config, output_dir, file_name="plot"):
     signals = {}
     ylabel_units = {}
 
-    # Ensure logs entries are numpy arrays
+    # Ensure numeric lists in logs are converted to numpy arrays
     for key, val in logs.items():
         if isinstance(val, list):
-            logs[key] = np.array(val)
+            if len(val) == 0 or not isinstance(val[0], dict):
+                logs[key] = np.array(val)
 
     # Process yref
     yref_full = logs.get("yref", None)
     if yref_full is not None and IK_required:
-        # Convert list of dicts into 2D array with first entry of 'stage'
+        # Convert list of dicts into array if necessary
         yref_full = np.array([step["stage"][0] for step in yref_full])
 
     # Offsets to access yref by type
@@ -48,33 +37,40 @@ def plot_signals(time, logs, model, config, output_dir, file_name="plot"):
         "qpos": 0,
         "qvel": model.nq,
         "ctrl": model.nq + model.nv,
-        "u_applied": model.nq + model.nv,  # treat alias like 'ctrl'
+        "u_applied": model.nq + model.nv,
     }
 
+    # Separate cost keys to plot together
+    cost_keys = ["stage_cost", "terminal_cost", "total_cost"]
+
     for name, (source, idx, unit) in plots_config.items():
-        if source == "qpos":
-            assert idx < model.nq, f"Index {idx} out of range for qpos (nq={model.nq})"
-            signals[name] = logs["qpos"][:, idx]
-        elif source == "qvel":
-            assert idx < model.nv, f"Index {idx} out of range for qvel (nv={model.nv})"
-            signals[name] = logs["qvel"][:, idx]
-        elif source in ["ctrl", "u_applied"]:
-            assert idx < model.nu, f"Index {idx} out of range for control (nu={model.nu})"
-            signals[name] = logs["u_applied"][:, idx]
-        elif source == "cost":
-            # Cost is a 1D array, no indexing needed
-            assert "cost" in logs, "Cost not found in logs"
-            signals[name] = logs["cost"]
+        if source in ["qpos", "qvel", "ctrl", "u_applied"]:
+            if source == "qpos":
+                assert idx < model.nq
+                signals[name] = logs["qpos"][:, idx]
+            elif source == "qvel":
+                assert idx < model.nv
+                signals[name] = logs["qvel"][:, idx]
+            else:
+                assert idx < model.nu
+                signals[name] = logs["u_applied"][:, idx]
+        elif source in cost_keys:
+            # We'll handle these specially later
+            pass
         else:
             raise ValueError(f"Invalid signal source '{source}' in plots config for '{name}'")
-
         ylabel_units[name] = unit
 
-    # Now do the plotting
+    # --- Now do plotting ---
     os.makedirs(output_dir, exist_ok=True)
     full_path = os.path.join(output_dir, f"{file_name}.jpg")
 
+    # Prepare subplots
     n = len(signals)
+    # Add 1 extra subplot for cost if any cost keys exist
+    if any(k in logs for k in cost_keys):
+        n += 1
+
     dpi = 120
     width, height = 800, 200 * n
     figsize = (width / dpi, height / dpi)
@@ -83,19 +79,27 @@ def plot_signals(time, logs, model, config, output_dir, file_name="plot"):
     if n == 1:
         ax = [ax]
 
+    # Plot normal signals
     for i, (name, values) in enumerate(signals.items()):
         ax[i].plot(time, values, label="Actual")
-
         source, idx, _ = plots_config[name]
-        yref_idx = None
         if yref_full is not None and source in source_offsets:
             yref_idx = source_offsets[source] + idx
             if yref_idx < yref_full.shape[1]:
                 ax[i].plot(time, yref_full[:, yref_idx], "--", label="Ref")
-
         ax[i].set_title(name)
         ax[i].set_ylabel(ylabel_units.get(name, ""))
         ax[i].legend(loc="best")
+
+    # Plot cost on last subplot
+    if any(k in logs for k in cost_keys):
+        cost_ax = ax[-1]
+        for key in cost_keys:
+            if key in logs:
+                cost_ax.plot(time, logs[key], label=key.replace("_", " ").capitalize())
+        cost_ax.set_title("MPC Cost")
+        cost_ax.set_ylabel("Cost")
+        cost_ax.legend(loc="best")
 
     ax[-1].set_xlabel("Time (s)")
     plt.tight_layout()
@@ -214,76 +218,121 @@ def save_video(frames, output_dir, file_name="video", fps=30):
     print(f"Video saved to: {os.path.abspath(full_path)}")
 
 # ========== SUMMARY SAVING ==========
-    
-# def _format_value(val):
-#     import numpy as np
 
-#     if isinstance(val, np.ndarray):
-#         # Clean, readable formatting for arrays
-#         return np.array2string(val, precision=4, separator=", ")
-#     elif isinstance(val, float):
-#         return f"{val:.4f}"
-#     elif isinstance(val, (list, tuple, np.ndarray)):
-#         return np.array(val).tolist()
-#     else:
-#         return str(val)
-
-# def save_summary(config, output_dir, elapsed=None, file_name="summary"):
-#     """
-#     Save simulation config and details to a text file with running number.
-
-#     Parameters
-#     ----------
-#     config : dict
-#         Configuration dictionary.
-#     elapsed : float, optional
-#         Total runtime in seconds.
-#     output_dir : str
-#         Directory to save summary file.
-#     file_name : str, optional
-#         Name for the summary file. If None, defaults to 'summary'.
-#     """
-#     os.makedirs(output_dir, exist_ok=True)
-#     full_path = os.path.join(output_dir, f"{file_name}.yaml")
-
-#     with open(full_path, "w") as f:
-#         f.write("Simulation Summary\n")
-#         f.write("=================\n\n")
-
-#         for section, params in config.items():
-#             f.write(f"{section.capitalize()}:\n")
-#             if isinstance(params, dict):
-#                 for key, val in params.items():
-#                     f.write(f"  {key}: {_format_value(val)}\n")
-#             else:
-#                 f.write(f"  {section}: {_format_value(params)}\n")
-#             f.write("\n")
-
-#         if elapsed is not None:
-#             f.write(f"Total execution time: {elapsed:.2f} seconds\n")
-
-#     print(f"Summary saved to: {os.path.abspath(full_path)}")
-
-def save_summary(config, save_path):
+def save_yaml(config, save_path):
     with open(save_path, "w") as f:
         yaml.safe_dump(config, f, sort_keys=False)
 
+# ========== Loading yref ==========
 def load_yref(model_name):
     try:
         yref_module = importlib.import_module(f"yrefs.{model_name}_yref")
         return yref_module.yref
     except ModuleNotFoundError:
         raise ValueError(f"No yref file found for model '{model_name}'")
+
+# ========== Loading obstacles/collision setup ==========
+# def load_collision_config(model_name):
+#     try:
+#         cfg_module = importlib.import_module(
+#             f"collision_config.{model_name}_collision_config"
+#         )
+#         return cfg_module.collision_config
+#     except ModuleNotFoundError:
+#         raise ValueError(f"No collision config found for model '{model_name}'")
+
+def load_collision_config(config):
+    collision_cfg = config["collision"]
+
+    collision = {}
+
+    # ---------- LINKS ----------
+    collision["links"] = {}
+    for name, link in collision_cfg["links"].items():
+        collision["links"][name] = {
+            "from": link["from"],
+            "to": link["to"],
+            "radius": float(link["radius"]),
+        }
+
+    # ---------- OBSTACLES ----------
+    if collision_cfg["collision_avoidance"]:
+        if collision_cfg["obstacles_random"]:
+            obstacles = randomise_obstacles(config)
+        else:
+            obstacles = {}
+            for name, obs in collision_cfg["obstacles"].items():
+                obstacles[name] = {
+                    "from": np.array(obs["from"], dtype=float),
+                    "to": np.array(obs["to"], dtype=float),
+                    "radius": float(obs["radius"]),
+                }
+    else:
+        obstacles = {}
+
+    collision["obstacles"] = obstacles
+
+    # ---------- COLLISION PAIRS ----------
+    collision["collision_pairs"] = [
+        (pair[0], pair[1])
+        for pair in collision_cfg["collision_pairs"]
+    ]
+
+    # Validate collision pair namings
+    validate_collision_config(collision)
+
+    # Save obstacles if randomly generated
+    config["collision"]["obstacles"] = to_yaml_safe(collision["obstacles"])
+
+    return collision, config
+
+def randomise_obstacles(config):
+    collision_cfg = config["collision"]
+
+    num_obs = collision_cfg["obstacles_num"]
+    sampling = collision_cfg["obstacles_sampling"]
+
+    (   from_min, from_max,
+        to_min, to_max,
+        radius_range) = collision_cfg["obstacles_range"]
     
-def load_collision_config(model_name):
-    try:
-        cfg_module = importlib.import_module(
-            f"collision_config.{model_name}_collision_config"
-        )
-        return cfg_module.collision_config
-    except ModuleNotFoundError:
-        raise ValueError(f"No collision config found for model '{model_name}'")
-    
+    obstacles = {}
+
+    if sampling != "uniform":
+        raise ValueError(f"Unsupported obstacles_sampling method: {sampling}")
+
+    for i in range(num_obs):
+        obs_name = f"obs{i+1}"
+
+        from_pt = np.random.uniform(low=from_min, high=from_max)
+        to_pt   = np.random.uniform(low=to_min,   high=to_max)
+        radius  = np.random.uniform(low=radius_range[0],
+                                    high=radius_range[1])
+
+        obstacles[obs_name] = {
+            "from": from_pt,
+            "to": to_pt,
+            "radius": float(radius),
+        }
+
+    return obstacles
+
+def validate_collision_config(collision):
+    for link, obs in collision["collision_pairs"]:
+        if link not in collision["links"]:
+            raise KeyError(f"Unknown link in collision_pairs: {link}")
+        if obs not in collision["obstacles"]:
+            raise KeyError(f"Unknown obstacle in collision_pairs: {obs}")
+
+# ========== Loading x0 ==========
+def load_x0(config):
+    # Randomise inital state if specified
+    if config["mpc"]["x0_random"]:
+        x0 = randomise_x0(config)
+        config["mpc"]["x0"] = x0
+        print(f"Randomised initial state: {x0}")
+    return config
+
 def randomise_x0(config):
     x0_range = config["mpc"]["x0_range"]
     x0 = config["mpc"]["x0"]
@@ -295,14 +344,6 @@ def randomise_x0(config):
     else:
         raise ValueError(f"Unsupported x0_sampling method: {sampling}")
     return x0
-
-def load_x0(config):
-    # Randomise inital state if specified
-    if config["mpc"]["x0_random"]:
-        x0 = randomise_x0(config)
-        config["mpc"]["x0"] = x0
-        print(f"Randomised initial state: {x0}")
-    return config
 
 # Load model from xml file
 def load_model_from_xml(config):
@@ -388,3 +429,14 @@ def get_yref_at_time(t_now, yref):
 
 def get_num_config(section, option, config):
     return ast.literal_eval(f"({config.get(section, option)})")
+
+# ========== Convert items before saving to YAML ==========
+def to_yaml_safe(obj):
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {k: to_yaml_safe(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [to_yaml_safe(v) for v in obj]
+    else:
+        return obj

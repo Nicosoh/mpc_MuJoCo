@@ -42,7 +42,7 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         config_save_path = os.path.join(run_dir, f"{model_name}config.yaml")
         save_yaml(config=config, save_path=config_save_path)                                            # Save base summary
 
-        if config["collision"]["include_obstacles"]:                                                    # If enabled in config
+        if config["collision"]["collision_avoidance"]:                                                    # If enabled in config
             collision_config, config = load_collision_config(config)                                    # Load obstacles
         else:
             collision_config = None

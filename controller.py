@@ -130,6 +130,7 @@ def register_controller(cls):
 class BaseMPCController:
     def __init__(self, config, collision_config=None):
         # Extract parameters from config
+        self.config = config
         self.use_RTI = config["mpc"]["use_RTI"]
         self.x0 = np.array(config["mpc"]["x0"])
         self.mpc_timestep = config["mpc"]["mpc_timestep"]
@@ -156,7 +157,6 @@ class BaseMPCController:
 
         Fmax = mpc_config["Fmax"]
         N_horizon = mpc_config["N_horizon"]
-        x0 = np.array(mpc_config["x0"])
         Tf = N_horizon * mpc_config["mpc_timestep"]  # Time horizon
         Q_mat = np.diag(mpc_config["Q_mat"]) # State cost weight matrix
         R_mat = np.diag(mpc_config["R_mat"]) # Input cost weight matrix
@@ -184,7 +184,7 @@ class BaseMPCController:
             self.define_terminal_cost(ocp, model, config)
             
         # Generate collision constraints
-        if collision_config is not None and config["collision"]["include_obstacles"]:
+        if collision_config is not None and config["collision"]["collision_avoidance"]:
             self.add_hard_constraints(ocp, model, robot_sys, collision_config)
 
         # Set input constraints
@@ -219,13 +219,13 @@ class BaseMPCController:
             ocp.solver_options.nlp_solver_max_iter = 150
         
         ocp.solver_options.qp_solver_cond_N = N_horizon
-        # ocp.solver_options.nlp_solver_tol_stat = 1e-1
+        ocp.solver_options.nlp_solver_tol_stat = 1e-1
         # Create solver based on settings above
         solver_json = 'acados_ocp_' + model.name + '.json'
         self.ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json, verbose=False)
         
     def define_terminal_cost(self, ocp, model, config):
-        Q_mat = np.diag(config["mpc"]["Q_mat"])
+        Q_mat = np.diag(self.config["mpc"]["Q_mat"])
         ny_e = model.x.rows()
     
         ocp.cost.cost_type_e = 'NONLINEAR_LS'               # Terminal cost
@@ -259,8 +259,157 @@ class BaseMPCController:
             xN = self.ocp_solver.get(self.N, "x")
             qpos_traj.append(xN[:self.nx//2])
             qvel_traj.append(xN[self.nx//2:])
-        
+
+        qpos_traj = np.array(qpos_traj)
+        qvel_traj = np.array(qvel_traj)
+        u_traj = np.array(u_traj)
+
         return qpos_traj, qvel_traj, u_traj
+    
+    # def collect_cost(self, qpos_traj, qvel_traj, u_traj, yref_now):
+    #     """
+    #     Compute stage, terminal, and total tracking cost against a reference trajectory
+    #     or a single reference point, including both state and input tracking.
+
+    #     Parameters
+    #     ----------
+    #     qpos_traj : np.ndarray
+    #         Array of shape (N+1, nq)
+    #     qvel_traj : np.ndarray
+    #         Array of shape (N+1, nv)
+    #     u_traj : np.ndarray
+    #         Array of shape (N, nu)
+    #     yref_now : dict or np.ndarray
+    #         If dict:
+    #             "stage"    : (N, nx + nu)
+    #             "terminal" : (nx,)
+    #         If ndarray: single reference point (nx+nu,) used for stage; terminal uses state portion.
+
+    #     Returns
+    #     -------
+    #     stage_cost, terminal_cost, total_cost
+    #     """
+    #     if qpos_traj.size == 0 or qvel_traj.size == 0 or u_traj.size == 0:
+    #         raise ValueError("Empty trajectory detected, set full_traj=True.")
+
+    #     Q_mat = np.diag(self.config["mpc"]["Q_mat"])
+    #     R_mat = np.diag(self.config["mpc"]["R_mat"])
+
+    #     # Full state matrix: X = [qpos | qvel]
+    #     X = np.column_stack((qpos_traj, qvel_traj))  # shape (N+1, nx)
+    #     U = u_traj                                   # shape (N, nu)
+
+    #     nx = X.shape[1]
+    #     nu = U.shape[1]
+
+    #     # --- Stage cost ---
+    #     XU = np.hstack([X[:self.N], U[:self.N]])  # shape (N, nx+nu)
+
+    #     if isinstance(yref_now, dict):
+    #         stage_ref = yref_now["stage"]
+    #         terminal_ref = yref_now["terminal"][:nx]
+    #         if stage_ref.shape[0] != self.N:
+    #             raise ValueError(f"Stage reference shape {stage_ref.shape} incompatible with horizon {self.N}")
+    #     elif isinstance(yref_now, np.ndarray):
+    #         # Point tracking: broadcast single reference
+    #         if yref_now.shape[0] != nx + nu:
+    #             raise ValueError(f"Point reference shape {yref_now.shape} incompatible with state+input {nx+nu}")
+    #         stage_ref = np.tile(yref_now, (self.N, 1))  # repeat across horizon
+    #         terminal_ref = yref_now[:nx]               # use state portion for terminal
+    #     else:
+    #         raise TypeError("yref_now must be either dict or np.ndarray")
+
+    #     eXU_stage = XU - stage_ref
+
+    #     # Full weighting matrix for state + input
+    #     Q_full = np.block([
+    #         [Q_mat, np.zeros((nx, nu))],
+    #         [np.zeros((nu, nx)), R_mat]
+    #     ])  # shape (nx+nu, nx+nu)
+
+    #     # stage_cost_vec = np.einsum('ij,ij->i', eXU_stage @ Q_full, eXU_stage)
+    #     stage_cost_vec = np.sum((eXU_stage @ Q_full) * eXU_stage)
+    #     stage_cost = 0.5 * self.mpc_timestep * np.sum(stage_cost_vec)
+
+    #     # --- Terminal cost (state only) ---
+    #     eX_terminal = X[self.N] - terminal_ref
+    #     terminal_cost = 0.5 * eX_terminal @ Q_mat @ eX_terminal
+
+    #     total_cost = stage_cost + terminal_cost
+
+    #     # Compare with solver cost
+    #     solver_cost = self.ocp_solver.get_cost()
+    #     if not np.isclose(solver_cost, total_cost, rtol=1e-6, atol=1e-8):
+    #         raise RuntimeError(
+    #             "Cost mismatch detected:\n"
+    #             f"  solver_cost   = {solver_cost}\n"
+    #             f"  computed_cost = {total_cost}\n"
+    #             f"  abs_diff      = {abs(solver_cost - total_cost)}"
+    #         )
+        
+    #     return stage_cost, terminal_cost, total_cost
+    
+    def collect_cost(self, qpos_traj, qvel_traj, u_traj, yref_now):
+        if qpos_traj.size == 0 or qvel_traj.size == 0 or u_traj.size == 0:
+            raise ValueError("Empty trajectory detected, set full_traj=True.")
+
+        # Full state matrix: X = [qpos | qvel]
+        X = np.column_stack((qpos_traj, qvel_traj))  # shape (N+1, nx)
+        U = u_traj                                   # shape (N, nu)
+
+        stage_ref, terminal_ref = self.build_references(X, U, yref_now)
+
+        stage_cost = self.compute_stage_cost(X, U, stage_ref)
+        terminal_cost = self.compute_terminal_cost(X, terminal_ref)
+
+        total_cost = stage_cost + terminal_cost
+
+        self.check_solver_cost(total_cost)
+
+        return stage_cost, terminal_cost, total_cost
+    
+    def build_references(self, X, U, yref_now):
+        nx, nu = X.shape[1], U.shape[1]
+
+        if isinstance(yref_now, dict):
+            stage_ref = yref_now["stage"]
+            terminal_ref = yref_now["terminal"][:nx]
+        else:
+            stage_ref = np.tile(yref_now, (self.N, 1))
+            terminal_ref = yref_now[:nx]
+
+        return stage_ref, terminal_ref
+    
+    def compute_stage_cost(self, X, U, stage_ref):
+        Q = np.diag(self.config["mpc"]["Q_mat"])
+        R = np.diag(self.config["mpc"]["R_mat"])
+
+        nx, nu = X.shape[1], U.shape[1]
+
+        XU = np.hstack([X[:self.N], U[:self.N]])
+        e = XU - stage_ref
+
+        Q_full = np.block([
+            [Q, np.zeros((nx, nu))],
+            [np.zeros((nu, nx)), R]
+        ])
+
+        stage_cost = 0.5 * self.mpc_timestep * np.sum(
+            np.sum((e @ Q_full) * e, axis=1)
+        )
+        return stage_cost
+    
+    def compute_terminal_cost(self, X, terminal_ref):
+        Q = np.diag(self.config["mpc"]["Q_mat"])
+        e = X[self.N] - terminal_ref
+        return 0.5 * e @ Q @ e
+    
+    def check_solver_cost(self, total_cost):
+        solver_cost = self.ocp_solver.get_cost()
+        if not np.isclose(solver_cost, total_cost, rtol=1e-6, atol=1e-8):
+            raise RuntimeError(
+                f"Cost mismatch:\nsolver={solver_cost}\ncomputed={total_cost}"
+            )
 
     def __call__(self, x, yref_now, full_traj):
         """Compute MPC input given MuJoCo state."""
@@ -295,11 +444,13 @@ class BaseMPCController:
             # Solve ocp and get next control input
             u = self.ocp_solver.solve_for_x0(x0_bar=x)
         
+        # Collect traj
         qpos_traj, qvel_traj, u_traj = self.collect_traj(full_traj)
 
-        cost = self.ocp_solver.get_cost()
+        # Collect cost components
+        stage_cost, terminal_cost, total_cost = self.collect_cost(qpos_traj, qvel_traj, u_traj, yref_now)
 
-        return u, cost, qpos_traj, qvel_traj, u_traj
+        return u, stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj
 
 @register_controller
 class NNMPCController(BaseMPCController):
@@ -320,13 +471,24 @@ class NNMPCController(BaseMPCController):
         ocp.cost.W_e = np.ones((1, 1))                      # Weights set to 1, meaning no scaling for the NN output
         ocp.cost.yref_e = np.zeros((1, ))                   # Set terminal reference to zero for NN output
         # Export trained NN model
-        l4c_model = export_torch_model(config)
+        self.l4c_model = export_torch_model(config)
         # Evaluate NN symbolically
-        y_sym = l4c_model(ca.transpose(model.x))
+        y_sym = self.l4c_model(ca.transpose(model.x))
         ocp.model.cost_y_expr_e = y_sym
         # Link shared library
-        ocp.solver_options.model_external_shared_lib_dir = l4c_model.shared_lib_dir
-        ocp.solver_options.model_external_shared_lib_name = l4c_model.name
+        ocp.solver_options.model_external_shared_lib_dir = self.l4c_model.shared_lib_dir
+        ocp.solver_options.model_external_shared_lib_name = self.l4c_model.name
+    
+    def compute_terminal_cost(self, X, terminal_ref):
+        # Terminal state (nx,)
+        xN = X[self.N]
+
+        # Evaluate NN numerically
+        yN = np.asarray(self.l4c_model(xN)).squeeze()
+
+        # NONLINEAR_LS terminal cost
+        terminal_cost = 0.5 * yN**2
+        return terminal_cost
 
 @register_controller
 class ManipulatorMPCController(BaseMPCController):

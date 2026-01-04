@@ -1,52 +1,67 @@
 import yaml
 import argparse
 import os
-import re
 
 from utils import *
 from simulator import MujocoReplay
 from controller import CONTROLLER_REGISTRY
 from data_collection.data_utils import load_npz
 
-def main(config_path):
-    # Load model configuration
+def main(run_folder):
+    if not os.path.isdir(run_folder):
+        raise NotADirectoryError(f"Run folder does not exist: {run_folder}")
+
+    # ----------------------------
+    # Find YAML config
+    # ----------------------------
+    yaml_files = [
+        f for f in os.listdir(run_folder)
+        if f.endswith(".yaml")
+    ]
+
+    if len(yaml_files) == 0:
+        raise FileNotFoundError(f"No YAML config found in {run_folder}")
+    if len(yaml_files) > 1:
+        raise RuntimeError(f"Multiple YAML configs found in {run_folder}: {yaml_files}")
+
+    config_path = os.path.join(run_folder, yaml_files[0])
+
     with open(config_path, "r") as f:
         model_config = yaml.safe_load(f)
 
+    # ----------------------------
     # Load replay configuration
+    # ----------------------------
     with open("configs/replay_config.yaml", "r") as f:
         replay_config = yaml.safe_load(f)
 
-    # Extract playback speed from replay_config
-    playback_speed = replay_config["playback_speed"]
+    # ----------------------------
+    # Find NPZ logs
+    # ----------------------------
+    npz_files = [
+        f for f in os.listdir(run_folder)
+        if f.endswith(".npz")
+    ]
 
-    # Base output directory
-    run_dir = os.path.dirname(config_path)
-    dir_name = os.path.basename(run_dir)
+    if len(npz_files) == 0:
+        raise FileNotFoundError(f"No NPZ log file found in {run_folder}")
+    if len(npz_files) > 1:
+        raise RuntimeError(f"Multiple NPZ files found in {run_folder}: {npz_files}")
 
-    # extract timestamp from directory name
-    match = re.match(r"\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}", dir_name)
-    if not match:
-        raise RuntimeError(f"No timestamp found in directory name: {dir_name}")
+    npz_path = os.path.join(run_folder, npz_files[0])
 
-    timestamp = match.group(0)
+    logs_dict = load_npz(npz_path)["default"]
 
-    # Load logs from directory
-    npz_path = os.path.join(run_dir, f"{timestamp}_logs.npz")
-
-    if not os.path.exists(npz_path):
-        raise FileNotFoundError(f"Missing log file: {npz_path}")
-
-    logs_dict = load_npz(npz_path)['default']
-
-    # Initialize visualizer
+    # ----------------------------
+    # Run replay
+    # ----------------------------
     replay = MujocoReplay(model_config, replay_config, logs_dict)
     replay.run()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Replay a simulation with given config")
-    parser.add_argument("config_path", type=str, help="Path to the configuration YAML file")
+    parser = argparse.ArgumentParser(description="Replay a simulation from a run folder")
+    parser.add_argument("run_folder", type=str, help="Path to the run folder")
     args = parser.parse_args()
 
-    main(args.config_path)
+    main(args.run_folder)

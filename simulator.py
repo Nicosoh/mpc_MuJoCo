@@ -120,7 +120,9 @@ class MuJoCoSimulator:
             "qvel": [],
             "yref": [],
             "u_applied": [],
-            "cost": [],
+            "stage_cost": [],
+            "terminal_cost": [],
+            "total_cost": [],
             "qpos_traj": [],
             "qvel_traj": [],
             "u_traj": [],
@@ -142,15 +144,17 @@ class MuJoCoSimulator:
         # Main simulation loop
         while self.data.time < sim_duration:
             # Step simulation
-            cost, qpos_traj, qvel_traj, u_traj = self.step_sim()
+            stage_cost, terminal_cost, total_cost ,qpos_traj, qvel_traj, u_traj = self.step_sim()
 
             # Only log data if MPC actually produced new control
-            if cost is not None and qpos_traj is not None and qvel_traj is not None and u_traj is not None:
+            if total_cost is not None and qpos_traj is not None and qvel_traj is not None and u_traj is not None:
                 self.logs["time"].append(np.copy(self.data.time))
                 self.logs["qpos"].append(np.copy(self.data.qpos))
                 self.logs["qvel"].append(np.copy(self.data.qvel))
                 self.logs["u_applied"].append(np.copy(self.data.ctrl))
-                self.logs["cost"].append(cost)
+                self.logs["stage_cost"].append(stage_cost)
+                self.logs["terminal_cost"].append(terminal_cost)
+                self.logs["total_cost"].append(total_cost)
                 self.logs["qpos_traj"].append(qpos_traj)
                 self.logs["qvel_traj"].append(qvel_traj)
                 self.logs["u_traj"].append(u_traj)
@@ -161,7 +165,7 @@ class MuJoCoSimulator:
                     f"qpos = {np.round(self.data.qpos, 2)} | "
                     f"qvel = {np.round(self.data.qvel, 2)} | "
                     f"ctrl = {np.round(self.data.ctrl, 2)} | "
-                    f"cost = {np.round(cost, 2)}"
+                    f"cost = {np.round(total_cost, 2)}"
                 )
             
             # Render if enabled
@@ -183,8 +187,8 @@ class MuJoCoSimulator:
                 break
 
             # Check for early termination condition
-            if cost is not None and cost < termination_cost and early_termination:
-                pbar.write(f"Terminating early at t = {self.data.time:.2f}s with cost = {cost:.2f}")
+            if total_cost is not None and total_cost < termination_cost and early_termination:
+                pbar.write(f"Terminating early at t = {self.data.time:.2f}s with cost = {total_cost:.2f}")
                 break
 
             # Update progress bar
@@ -193,12 +197,14 @@ class MuJoCoSimulator:
         pbar.close()
         
         # Convert logs to arrays
-        for key in ["qpos", "qvel", "u_applied", "cost", "qpos_traj", "qvel_traj", "u_traj", "time", "yref"]:
+        for key in ["qpos", "qvel", "u_applied", "stage_cost", "terminal_cost" ,"total_cost", "qpos_traj", "qvel_traj", "u_traj", "time", "yref"]:
             self.logs[key] = np.array(self.logs[key])
 
     def step_sim(self):
         x = np.concatenate([self.data.qpos, self.data.qvel])
-        cost = None
+        total_cost = None
+        stage_cost = None
+        terminal_cost = None
         qpos_traj = None
         qvel_traj = None
         u_traj = None
@@ -215,7 +221,7 @@ class MuJoCoSimulator:
                     self.logs["yref"].append(yref_now)
 
                 # Run MPC to compute control input, cost, and trajectory
-                self.last_u, cost, qpos_traj, qvel_traj, u_traj = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
+                self.last_u, stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
 
                 # += to next mpc time step
                 self.next_mpc_time += self.mpc_timestep
@@ -231,7 +237,7 @@ class MuJoCoSimulator:
         # Step simulation
         mujoco.mj_step(self.model, self.data)
 
-        return cost, qpos_traj, qvel_traj, u_traj
+        return stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj
 
 def add_visual_capsule(scene, p1, p2, radius, rgba):
     """Adds a visual-only capsule to an mjvScene (no physics)."""
