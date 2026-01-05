@@ -214,7 +214,8 @@ class MuJoCoSimulator:
             try:
                 if not self.IK_required:
                     # Get reference state at the current time
-                    yref_now = get_yref_at_time(self.data.time, self.yref)
+                    # yref_now = get_yref_at_time(self.data.time, self.yref)
+                    yref_now = self.yref
                     self.logs["yref"].append(yref_now)  # Keep track of the reference
                 else:
                     yref_now = get_reference_for_horizon(self.yref, self.data.time, self.N_horizon, self.mpc_timestep)

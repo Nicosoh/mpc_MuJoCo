@@ -495,10 +495,11 @@ class ManipulatorMPCController(BaseMPCController):
     def __init__(self, config, collision_config=None):        
         super().__init__(config, collision_config)
         
-        if not self.IK_required or collision_config is None:
+        if not self.IK_required:
             raise ValueError("ManipulatorMPCController requires IK and collision configuration.")
         
     def add_hard_constraints(self, ocp, model, robot_sys, collision_config):
+        import pdb; pdb.set_trace()
         # Generate collision constraints
         constraints = build_capsule_collision_constraints(robot_sys, 
                                                               collision_config["links"], 

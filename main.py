@@ -36,13 +36,14 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
 
     try:
         # Prerequisities 
-        config = load_x0(config=config)                                                                 # Load x0 (Starting position)
-        yref = load_yref(model_name=config["model"]["name"])                                            # Load yref
+        config = load_x0(config)                                                                        # Load x0 (Starting position)
+        yref = load_yref(config)                                                                        # Load yref
+        config["yref"]["yref"] = yref.tolist()                                                          # Save yref to config
 
         config_save_path = os.path.join(run_dir, f"{model_name}config.yaml")
         save_yaml(config=config, save_path=config_save_path)                                            # Save base summary
 
-        if config["collision"]["collision_avoidance"]:                                                    # If enabled in config
+        if config["collision"]["collision_avoidance"]:                                                  # If enabled in config
             collision_config, config = load_collision_config(config)                                    # Load obstacles
         else:
             collision_config = None
@@ -50,8 +51,8 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         save_yaml(config=config, save_path=config_save_path)                                            # Save summary with updated obstacles
 
         if config["IK"]["IK_required"]:                                                                 # If dealing with manipulators
-            yref, config = generate_reference_trajectory(yref, collision_config["obstacles"], config)   # Run IK to generate trajectory
-            config["yref_end"] = yref[-1].tolist()                                                      # Add to config for summary saving purpose
+            yref, config = generate_reference_trajectory(yref, collision_config, config)                # Run IK to generate trajectory
+            config["yref"]["yref_end"] = yref[-1].tolist()                                              # Add to config for summary saving purpose
             np.save(os.path.join(run_dir, "yref.npy"), yref)                                            # Save yref for reference
 
         save_yaml(config=config, save_path=config_save_path)                                            # Save summary with IK inputs

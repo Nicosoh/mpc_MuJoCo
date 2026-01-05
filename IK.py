@@ -16,7 +16,7 @@ from pink.visualization import start_meshcat_visualizer
 from pinocchio.robot_wrapper import RobotWrapper
 from loop_rate_limiters import RateLimiter
 
-def generate_reference_trajectory(yref, obstacles, config):
+def generate_reference_trajectory(yref, collision_config, config):
     def step_IK():
         velocity = solve_ik(configuration, tasks.values(), dt, solver=solver, barriers=barriers, safety_break=False)
 
@@ -115,7 +115,8 @@ def generate_reference_trajectory(yref, obstacles, config):
     robot.model.velocityLimit = np.array(config["model"]["velocitylimit"])
 
     # Add obstacles
-    add_obstacle_capsules(robot, obstacles)
+    if collision_config is not None:
+        add_obstacle_capsules(robot, collision_config["obstacles"])
 
     if visualize:
         # Launch Viewer
@@ -140,15 +141,18 @@ def generate_reference_trajectory(yref, obstacles, config):
     # Initial configuration
     configuration = pink.Configuration(model=robot.model, data=robot.data, q=robot.q0, collision_model=robot.collision_model, collision_data=robot.collision_data)
 
-    # Collision barriers between self and obstacles
-    collision_barrier = SelfCollisionBarrier(
-        n_collision_pairs=len(robot.collision_model.collisionPairs),
-        gain=1.0,
-        safe_displacement_gain=1.0,
-        d_min=0.05, # safety distance for collision
-    )
+    if collision_config is not None:
+        # Collision barriers between self and obstacles
+        collision_barrier = SelfCollisionBarrier(
+            n_collision_pairs=len(robot.collision_model.collisionPairs),
+            gain=1.0,
+            safe_displacement_gain=1.0,
+            d_min=0.05, # safety distance for collision
+        )
 
-    barriers = [collision_barrier]
+        barriers = [collision_barrier]
+    else:
+        barriers = None
 
     # First goal is the starting position(x0)
     x0 = np.array(config["mpc"]["x0"])

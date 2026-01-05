@@ -32,7 +32,7 @@ mpc:
   use_RTI: false # Use Real-Time Iteration
   mpc_timestep: 0.001 # seconds
   x0: [0.5, 0.0, 0.5]
-  x0_random: false # If true, x0 above will not be used
+  x0_random: true # If true, x0 above will not be used
   x0_range: [[-0.5, 0.5], [0, 0], [0.0, 1.0]] # Range for random x0
   x0_sampling: "uniform" # Only uniform for now
   Q_mat: [150, 120, 0.02, 0.02] # State cost weights
@@ -58,7 +58,7 @@ IK:
   max_iterations: 10000
 
 collision:
-  collision_avoidance: true
+  collision_avoidance: false
   links:  # Frames from pinocchio model
     link1:
       from: universe
@@ -89,6 +89,13 @@ collision:
 
   collision_pairs: [[link2, obs1],
                   [link1, obs1]]
+
+yref:
+  yref_random: true
+  yref_sampling: uniform
+  yref_range: [[0.0, 0.0, 0.0], [1.0, 0.0, 1.0]] # [[min_xyz], [max_xyz]]
+
+  yref: [1.0, 0.0, 1.0]
 
 plots:
   Joint 1 Angle: ["qpos", 0, "rad"]

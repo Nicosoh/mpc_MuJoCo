@@ -224,12 +224,34 @@ def save_yaml(config, save_path):
         yaml.safe_dump(config, f, sort_keys=False)
 
 # ========== Loading yref ==========
-def load_yref(model_name):
-    try:
-        yref_module = importlib.import_module(f"yrefs.{model_name}_yref")
-        return yref_module.yref
-    except ModuleNotFoundError:
-        raise ValueError(f"No yref file found for model '{model_name}'")
+# def load_yref(model_name):
+#     try:
+#         yref_module = importlib.import_module(f"yrefs.{model_name}_yref")
+#         return yref_module.yref
+#     except ModuleNotFoundError:
+#         raise ValueError(f"No yref file found for model '{model_name}'")
+
+def load_yref(config):
+    if config["yref"]["yref_random"]:
+        return randomise_yref(config)
+    else:
+        return np.array(config["yref"]["yref"])
+    
+def randomise_yref(config):
+    yref_range = config["yref"]["yref_range"]
+    sampling = config["yref"]["yref_sampling"]
+
+    if sampling == "uniform":
+        min_xyz = np.array(yref_range[0])
+        max_xyz = np.array(yref_range[1])
+
+        yref = np.random.uniform(low=min_xyz, high=max_xyz)
+    else:
+        raise ValueError(f"Unsupported yref_sampling method: {sampling}")
+    
+    print(f"Randomised final state: {yref}")
+    
+    return yref
 
 # ========== Loading obstacles/collision setup ==========
 # def load_collision_config(model_name):

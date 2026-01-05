@@ -43,7 +43,6 @@ class PendulumModelAcados(PendulumModel):
         x = F.tanh(self.fc2(x))
         x = F.tanh(self.fc3(x))
         x = self.fc4(x)                                                     # Output layer without activation ("scaling" layer)
-        # x = torch.tensor(0.5, dtype=x.dtype, device=x.device) * x**2      # Stripped Least Squares which mimics acados cost
 
         return x
     

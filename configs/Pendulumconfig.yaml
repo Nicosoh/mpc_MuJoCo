@@ -23,8 +23,8 @@ pin:
   actuated_joints: [0] # First and only joint
 
 mpc:
-  # controller_name: "BaseMPCController"
-  controller_name: "NNMPCController"
+  controller_name: "BaseMPCController"
+  # controller_name: "NNMPCController"
   Fmax: [50] # Maximum force
   N_horizon: 2 # Prediction horizon
   use_RTI: False # Use Real-Time Iteration
@@ -55,6 +55,10 @@ data:
 
 collision:
   collision_avoidance: false
+
+yref:
+  yref_random: false        # Should always be false since there is only one stationary point
+  yref: [0.0, 0.0, 0.0]     # [angle, angular_velocity, input]
 
 NN:
   model_name: "PendulumModelAcados"
