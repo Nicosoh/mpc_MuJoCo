@@ -9,6 +9,7 @@ from simulator import MuJoCoSimulator
 from controller import CONTROLLER_REGISTRY
 from IK import generate_reference_trajectory
 from data_collection.data_utils import save_npz
+from IK_copy import InverseKinematicsSolver
 
 def main(model_name, data_collection=False, output_dir=None, timestamp=None, data_config=None):
     # Load configuration
@@ -51,7 +52,10 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         save_yaml(config=config, save_path=config_save_path)                                            # Save summary with updated obstacles
 
         if config["IK"]["IK_required"]:                                                                 # If dealing with manipulators
-            yref, config = generate_reference_trajectory(yref, collision_config, config)                # Run IK to generate trajectory
+            # yref, config = generate_reference_trajectory(yref, collision_config, config)                # Run IK to generate trajectory
+            IK = InverseKinematicsSolver(config, collision_config)
+            IK.run_IK_to_x0()
+            yref, config = IK.call_IK(yref)
             config["yref"]["yref_end"] = yref[-1].tolist()                                              # Add to config for summary saving purpose
             np.save(os.path.join(run_dir, "yref.npy"), yref)                                            # Save yref for reference
 
@@ -76,7 +80,7 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         if data_collection: #quit here if data collection
             return simulator.logs
         elif config["mpc"]["solve_ocp"]: #quit here if only solving for single OCP
-             return ocp_plot(simulator, run_dir)
+             return ocp_plot(simulator, run_dir, config)
 
     except Exception as e:
         import traceback

@@ -38,7 +38,7 @@ mpc:
   terminal_cost: true
   early_termination: false # Enable early termination based on cost
   termination_cost: 0.1 # Tolerance for early termination cost
-  solve_ocp: false # Enable if only a single step is required
+  solve_ocp: true # Enable if only a single step is required
   full_traj: true # If above is true, then this needs to be true as well
   IK_required: false # Enable inverse kinematics in MPC setup (only for manipulators)
   levenberg_marquardt: 0.0

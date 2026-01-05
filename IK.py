@@ -14,7 +14,6 @@ from pink.barriers import SelfCollisionBarrier
 from pink.tasks import FrameTask, PostureTask
 from pink.visualization import start_meshcat_visualizer
 from pinocchio.robot_wrapper import RobotWrapper
-from loop_rate_limiters import RateLimiter
 
 def generate_reference_trajectory(yref, collision_config, config):
     def step_IK():
@@ -96,15 +95,13 @@ def generate_reference_trajectory(yref, collision_config, config):
     # Extract IK config
     visualize = config["IK"]["visualize_IK"]
     max_iterations = config["IK"]["max_iterations"]
+    stop_thres = config["IK"]["stop_threshold"]
 
     # Load model again from XML
     base_dir = "models_xml"
     model_name = config["model"]["name"].lower()  # e.g., "two_dof_arm"
     filename = os.path.join(base_dir, f"{model_name}.xml")
     
-    # IK parameters
-    stop_thres = config["IK"]["stop_threshold"]
-
     try:
         robot = RobotWrapper.BuildFromMJCF(filename=filename)
 

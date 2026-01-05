@@ -266,89 +266,6 @@ class BaseMPCController:
 
         return qpos_traj, qvel_traj, u_traj
     
-    # def collect_cost(self, qpos_traj, qvel_traj, u_traj, yref_now):
-    #     """
-    #     Compute stage, terminal, and total tracking cost against a reference trajectory
-    #     or a single reference point, including both state and input tracking.
-
-    #     Parameters
-    #     ----------
-    #     qpos_traj : np.ndarray
-    #         Array of shape (N+1, nq)
-    #     qvel_traj : np.ndarray
-    #         Array of shape (N+1, nv)
-    #     u_traj : np.ndarray
-    #         Array of shape (N, nu)
-    #     yref_now : dict or np.ndarray
-    #         If dict:
-    #             "stage"    : (N, nx + nu)
-    #             "terminal" : (nx,)
-    #         If ndarray: single reference point (nx+nu,) used for stage; terminal uses state portion.
-
-    #     Returns
-    #     -------
-    #     stage_cost, terminal_cost, total_cost
-    #     """
-    #     if qpos_traj.size == 0 or qvel_traj.size == 0 or u_traj.size == 0:
-    #         raise ValueError("Empty trajectory detected, set full_traj=True.")
-
-    #     Q_mat = np.diag(self.config["mpc"]["Q_mat"])
-    #     R_mat = np.diag(self.config["mpc"]["R_mat"])
-
-    #     # Full state matrix: X = [qpos | qvel]
-    #     X = np.column_stack((qpos_traj, qvel_traj))  # shape (N+1, nx)
-    #     U = u_traj                                   # shape (N, nu)
-
-    #     nx = X.shape[1]
-    #     nu = U.shape[1]
-
-    #     # --- Stage cost ---
-    #     XU = np.hstack([X[:self.N], U[:self.N]])  # shape (N, nx+nu)
-
-    #     if isinstance(yref_now, dict):
-    #         stage_ref = yref_now["stage"]
-    #         terminal_ref = yref_now["terminal"][:nx]
-    #         if stage_ref.shape[0] != self.N:
-    #             raise ValueError(f"Stage reference shape {stage_ref.shape} incompatible with horizon {self.N}")
-    #     elif isinstance(yref_now, np.ndarray):
-    #         # Point tracking: broadcast single reference
-    #         if yref_now.shape[0] != nx + nu:
-    #             raise ValueError(f"Point reference shape {yref_now.shape} incompatible with state+input {nx+nu}")
-    #         stage_ref = np.tile(yref_now, (self.N, 1))  # repeat across horizon
-    #         terminal_ref = yref_now[:nx]               # use state portion for terminal
-    #     else:
-    #         raise TypeError("yref_now must be either dict or np.ndarray")
-
-    #     eXU_stage = XU - stage_ref
-
-    #     # Full weighting matrix for state + input
-    #     Q_full = np.block([
-    #         [Q_mat, np.zeros((nx, nu))],
-    #         [np.zeros((nu, nx)), R_mat]
-    #     ])  # shape (nx+nu, nx+nu)
-
-    #     # stage_cost_vec = np.einsum('ij,ij->i', eXU_stage @ Q_full, eXU_stage)
-    #     stage_cost_vec = np.sum((eXU_stage @ Q_full) * eXU_stage)
-    #     stage_cost = 0.5 * self.mpc_timestep * np.sum(stage_cost_vec)
-
-    #     # --- Terminal cost (state only) ---
-    #     eX_terminal = X[self.N] - terminal_ref
-    #     terminal_cost = 0.5 * eX_terminal @ Q_mat @ eX_terminal
-
-    #     total_cost = stage_cost + terminal_cost
-
-    #     # Compare with solver cost
-    #     solver_cost = self.ocp_solver.get_cost()
-    #     if not np.isclose(solver_cost, total_cost, rtol=1e-6, atol=1e-8):
-    #         raise RuntimeError(
-    #             "Cost mismatch detected:\n"
-    #             f"  solver_cost   = {solver_cost}\n"
-    #             f"  computed_cost = {total_cost}\n"
-    #             f"  abs_diff      = {abs(solver_cost - total_cost)}"
-    #         )
-        
-    #     return stage_cost, terminal_cost, total_cost
-    
     def collect_cost(self, qpos_traj, qvel_traj, u_traj, yref_now):
         if qpos_traj.size == 0 or qvel_traj.size == 0 or u_traj.size == 0:
             raise ValueError("Empty trajectory detected, set full_traj=True.")
@@ -496,7 +413,7 @@ class ManipulatorMPCController(BaseMPCController):
         super().__init__(config, collision_config)
         
         if not self.IK_required:
-            raise ValueError("ManipulatorMPCController requires IK and collision configuration.")
+            raise ValueError("ManipulatorMPCController requires IK.")
         
     def add_hard_constraints(self, ocp, model, robot_sys, collision_config):
         import pdb; pdb.set_trace()

@@ -107,7 +107,7 @@ def plot_signals(time, logs, model, config, output_dir, file_name="plot"):
     print(f"Plot saved to: {os.path.abspath(full_path)}")
     plt.show()
 
-def ocp_plot(simulator, output_dir, file_name="OCP_plot"):
+def ocp_plot(simulator, output_dir, config,file_name="OCP_plot"):
     os.makedirs(output_dir, exist_ok=True)
     full_path = os.path.join(output_dir, f"{file_name}.jpg")
 
@@ -118,9 +118,9 @@ def ocp_plot(simulator, output_dir, file_name="OCP_plot"):
     qvel_traj = logs["qvel_traj"][0]
     u_traj = logs["u_traj"][0]
     yref = logs["yref"]
-
-    if isinstance(yref, dict):
-        yref = yref["stage"]
+    
+    if config["IK"]["IK_required"]:
+        yref = np.vstack([yref[0]["stage"], yref[0]["terminal"]])
 
     nq = simulator.model.nq
     
@@ -130,11 +130,16 @@ def ocp_plot(simulator, output_dir, file_name="OCP_plot"):
 
     time_u = np.arange(u_traj.shape[0]) * dt  # Time axis for control inputs
 
-    # Extract constant reference from first yref entry (ignore time)
-    yref_qpos = np.tile(yref[0, : nq], (T, 1))       # shape (T, nq)
-    yref_qvel = np.tile(yref[0, nq : 2 * nq], (T, 1))  # shape (T, nq)
-    yref_u = np.tile(yref[0, 2 * nq :], (u_traj.shape[0], 1))  # shape (T-1, nu)
-
+    if config["IK"]["IK_required"]:
+        yref_qpos = yref[:, :nq]
+        yref_qvel = yref[:, nq:2*nq]
+        yref_u = yref[:-1, 2*nq:]
+    else:
+        # Extract constant reference from first yref entry (ignore time)
+        yref_qpos = np.tile(yref[0, : nq], (T, 1))       # shape (T, nq)
+        yref_qvel = np.tile(yref[0, nq : 2 * nq], (T, 1))  # shape (T, nq)
+        yref_u = np.tile(yref[0, 2 * nq :], (u_traj.shape[0], 1))  # shape (T-1, nu)
+    import pdb; pdb.set_trace()
     fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
     # Plot positions
@@ -250,7 +255,7 @@ def randomise_yref(config):
         raise ValueError(f"Unsupported yref_sampling method: {sampling}")
     
     print(f"Randomised final state: {yref}")
-    
+
     return yref
 
 # ========== Loading obstacles/collision setup ==========

@@ -14,7 +14,7 @@ from main import main
 from utils import save_yaml
 from data_collection import save_npz
 
-def run_data_collector(model_name, data_config_path="data_collection/data_config.ini"):
+def run_data_collector(model_name, data_config_path="data_collection/data_config.yaml"):
     # Load data collection config
     with open(data_config_path, "r") as f:
         data_config = yaml.safe_load(f)["data_collector"]
@@ -29,6 +29,10 @@ def run_data_collector(model_name, data_config_path="data_collection/data_config
     output_dir = os.path.join(base_dir, f"{timestamp}_{model_name}_data_collection")
     os.makedirs(output_dir, exist_ok=True)
     output_log_path = os.path.join(output_dir, "output.log")
+
+    # Yaml save path
+    yaml_save_path = os.path.join(output_dir, "data_config.yaml")
+    save_yaml(data_config, yaml_save_path)
 
     # Initialize / clear the log file
     with open(output_log_path, "w") as f:
@@ -71,14 +75,7 @@ def run_data_collector(model_name, data_config_path="data_collection/data_config
     end_time = time.time()
     elapsed = end_time - start_time
 
-    # Save overall summary and data
-    save_yaml(
-        data_config,
-        elapsed=elapsed,
-        output_dir=output_dir,
-        file_name="data_summary"
-    )
-
+    # Save data
     save_npz(f"{timestamp}_{model_name}_logs.npz", data=all_logs, output_dir=output_dir)
     
     # Initialize / clear the log file
