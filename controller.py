@@ -3,122 +3,11 @@ import scipy.linalg
 import numpy as np
 import casadi as ca
 
-from casadi import vertcat
+from utils import *
+from casadi import vertcat, SX
 from pin_exporter import export_ode_model
 from acados_template import AcadosOcp, AcadosOcpSolver
 from neural_network.torch_exporter import export_torch_model
-
-def clamp(x, lo=0.0, hi=1.0):
-    return ca.fmin(ca.fmax(x, lo), hi)
-
-def segment_segment_squared_distance(p1, p2, q1, q2):
-    """
-    p1, p2, q1, q2 : CasADi SX or MX 3×1 vectors
-    returns squared distance between segments P and Q
-    """
-
-    u = p2 - p1   # segment P direction
-    v = q2 - q1   # segment Q direction
-    w0 = p1 - q1
-
-    a = ca.dot(u, u)
-    b = ca.dot(u, v)
-    c = ca.dot(v, v)
-    d = ca.dot(u, w0)
-    e = ca.dot(v, w0)
-
-    # Compute the denominator or safe eps
-    denom = a*c - b*b
-    eps = 1e-8
-    denom_safe = ca.fmax(denom, eps)
-
-    # Compute s & t
-    s = clamp((b*e - c*d) / denom_safe)
-    t = clamp((a*e - b*d) / denom_safe)
-
-    # Compute closest points
-    Ps = p1 + u * s
-    Qt = q1 + v * t
-
-    return ca.dot(Ps - Qt, Ps - Qt), Ps, Qt
-
-def capsule_squared_distance_function():
-    """
-    Returns a CasADi function:
-       f(p1,p2,q1,q2,r1,r2) = squared distance between two capsules
-    """
-
-    p1 = ca.SX.sym("p1", 3)
-    p2 = ca.SX.sym("p2", 3)
-    q1 = ca.SX.sym("q1", 3)
-    q2 = ca.SX.sym("q2", 3)
-
-    r1 = ca.SX.sym("r1")   # radius of capsule 1
-    r2 = ca.SX.sym("r2")   # radius of capsule 2
-
-    d2_seg, Ps, Qt = segment_segment_squared_distance(p1, p2, q1, q2)
-
-    # true capsule distance = max(0, distance - r1 - r2)
-    dist = d2_seg - (r1 + r2)**2
-
-    return ca.Function(
-        "capsule_dist_sq",
-        [p1, p2, q1, q2, r1, r2],
-        [dist],
-        ["p1", "p2", "q1", "q2", "r1", "r2"],
-        ["dist_sq"]
-    )
-
-def build_capsule_collision_constraints(robot_sys, links, obstacles, collision_pairs):
-    constraints = []
-
-    for link_name, obs_name in collision_pairs:
-
-        capsule_dist_sq = capsule_squared_distance_function()
-
-        link = links[link_name]
-
-        p1 = getattr(robot_sys, link["from"])   # CasADi 3-vector
-        p2 = getattr(robot_sys, link["to"])     # CasADi 3-vector
-        r1 = link["radius"]
-
-        obs = obstacles[obs_name]
-        q1 = obs["from"]
-        q2 = obs["to"]
-        r2 = obs["radius"]
-
-        dist = capsule_dist_sq(p1, p2, q1, q2, r1, r2)
-
-        # -------------------------
-        #     LINK CAPSULE
-        # -------------------------
-        link = links[link_name]
-
-        # resolve symbolic endpoints from pin_model
-        p1 = getattr(robot_sys, link["from"])   # CasADi 3-vector
-        p2 = getattr(robot_sys, link["to"])     # CasADi 3-vector
-        r1 = link["radius"]
-
-        # -------------------------
-        #     OBSTACLE CAPSULE
-        # -------------------------
-        obs = obstacles[obs_name]
-        q1 = ca.SX(obs["from"])
-        q2 = ca.SX(obs["to"])
-        r2 = obs["radius"]
-        
-        # -------------------------
-        #  SQUARED SEGMENT DISTANCE
-        # -------------------------
-        d2, Ps, Qt = segment_segment_squared_distance(p1, p2, q1, q2)
-
-        # -------------------------
-        #  HARD CONSTRAINT: d² ≥ (r1+r2)²
-        # -------------------------
-        min_dist_sq = (r1 + r2)**2
-        constraints.append(d2 - min_dist_sq)
-
-    return vertcat(*constraints)
 
 CONTROLLER_REGISTRY = {}
 
@@ -440,3 +329,30 @@ class ManipulatorMPCController(BaseMPCController):
 class NNManipulatorMPCController(ManipulatorMPCController, NNMPCController):
     def __init__(self, config, collision_config=None):
         super().__init__(config, collision_config)
+    
+    def define_terminal_cost(self, ocp, model, config):
+        ocp.cost.cost_type_e = 'NONLINEAR_LS'               # Terminal cost
+        ocp.cost.W_e = np.ones((1, 1))                      # Weights set to 1, meaning no scaling for the NN output
+        ocp.cost.yref_e = np.zeros((1, ))                   # Set terminal reference to zero for NN output
+
+        # Create parameters for goal, obstacle
+        nx = model.x.rows()                                 # Total numebr of states but goal pose only includes joint angles.
+        ocp.model.p = SX.sym('p', nx/2)
+
+        # Export trained NN model
+        self.l4c_model = export_torch_model(config)
+        # Evaluate NN symbolically
+        y_sym = self.l4c_model(ca.transpose(model.x))
+        ocp.model.cost_y_expr_e = y_sym
+        # Link shared library
+        ocp.solver_options.model_external_shared_lib_dir = self.l4c_model.shared_lib_dir
+        ocp.solver_options.model_external_shared_lib_name = self.l4c_model.name
+    
+    def set_yref(self, yref_now):
+        p_full = np.array(self.config["yref"]["yref_end"])                                  # Modify this in future to change obstacle/goal pose
+        p = p_full[:self.nx]
+        for stage in range(self.N):
+            self.ocp_solver.cost_set(stage, "yref", yref_now["stage"][stage], api='new')
+            self.ocp_solver.set(stage, "p", p)                                             # Modify Goal/obstacle position
+        self.ocp_solver.cost_set(self.N, "yref", yref_now["terminal"][:self.nx], api='new')  # Terminal reference (only x)
+        self.ocp_solver.set(self.N, "p", p)                                             # Modify Goal/obstacle position

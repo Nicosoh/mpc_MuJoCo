@@ -14,6 +14,7 @@ from pink.barriers import SelfCollisionBarrier
 from pink.tasks import FrameTask, PostureTask
 from pink.visualization import start_meshcat_visualizer
 from pinocchio.robot_wrapper import RobotWrapper
+from pink.limits import AccelerationLimit
 
 class InverseKinematicsSolver:
     def __init__(self, config, collision_config=None):
@@ -51,7 +52,7 @@ class InverseKinematicsSolver:
         self.solver = "daqp" if "daqp" in qpsolvers.available_solvers else qpsolvers.available_solvers[0]
         
     def load_model(self):
-        # Load model again from XML
+        # Load model from XML
         base_dir = "models_xml"
         model_name = self.config["model"]["name"].lower()  # e.g., "two_dof_arm"
         filename = os.path.join(base_dir, f"{model_name}.xml")
@@ -61,6 +62,7 @@ class InverseKinematicsSolver:
             self.robot = RobotWrapper.BuildFromMJCF(filename=filename)
             # Set velocitylimit 
             self.robot.model.velocityLimit = np.array(self.config["model"]["velocitylimit"])
+            self.accellimit = AccelerationLimit(self.robot.model, np.array(self.config["model"]["velocitylimit"])*10)
         except FileNotFoundError:
             raise FileNotFoundError(f"Model file '{filename}' does not exist. Check your models_xml folder.")
         
@@ -159,15 +161,16 @@ class InverseKinematicsSolver:
     def IK_loop(self, record: bool, x0: bool):
         iterations = 0
         error = np.linalg.norm(self.T_target.translation - self.configuration.get_transform_frame_to_world(self.tasks["ee"].frame).translation)
-
+        limits = (self.configuration.model.velocity_limit, self.accellimit)
         while error > self.stop_thres:
-            velocity = solve_ik(self.configuration, self.tasks.values(), self.dt, solver=self.solver, barriers=self.barriers, safety_break=False)
+            velocity = solve_ik(self.configuration, self.tasks.values(), self.dt, solver=self.solver, barriers=self.barriers, limits = limits, safety_break=False)
 
             # Integrate motion
-            q_out = self.configuration.integrate(velocity, self.dt)
-
-            self.configuration = pink.Configuration(self.robot.model, self.robot.data, q_out)
-            pin.updateFramePlacements(self.robot.model, self.robot.data)
+            # q_out = self.configuration.integrate(velocity, self.dt)
+            self.configuration.integrate_inplace(velocity, self.dt)
+            self.accellimit.set_last_integration(velocity, self.dt)
+            # self.configuration = pink.Configuration(self.robot.model, self.robot.data, q_out)
+            # pin.updateFramePlacements(self.robot.model, self.robot.data)
 
             error = np.linalg.norm(self.T_target.translation - self.configuration.get_transform_frame_to_world(self.tasks["ee"].frame).translation)
             
@@ -181,7 +184,8 @@ class InverseKinematicsSolver:
                 self.update_robot_viz(self.configuration.q)
 
             if record:
-                self.traj_qp.append(q_out)
+                # self.traj_qp.append(q_out)
+                self.traj_qp.append(self.configuration.q)
 
             iterations += 1
             if iterations > self.max_iterations:
@@ -189,8 +193,10 @@ class InverseKinematicsSolver:
         sys.stdout.write("\nPosition reached\n")
 
         if x0:
-            self.q_x0 = q_out
-            self.traj_qp.append(q_out)
+            # self.q_x0 = q_out
+            # self.traj_qp.append(q_out)
+            self.q_x0 = self.configuration.q
+            self.traj_qp.append(self.configuration.q)
     
     def run_IK_to_x0(self):
         # First goal is the starting position(x0)

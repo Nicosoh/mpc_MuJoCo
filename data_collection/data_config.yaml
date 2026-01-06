@@ -5,4 +5,4 @@
 
 data_collector:
   runs: 10
-  max_steps: 50
+  max_steps: 500

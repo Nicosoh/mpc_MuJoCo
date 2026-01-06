@@ -25,7 +25,7 @@ def export_torch_model(config):
     state_dict = torch.load(checkpoint_path, map_location=device)
     NNmodel.load_state_dict(state_dict)
     NNmodel.eval()
-    
+
     # Wrap for CasADi
     l4c_model = l4c.L4CasADi(NNmodel, device=device)
 

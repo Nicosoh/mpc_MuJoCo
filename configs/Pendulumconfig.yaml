@@ -23,22 +23,23 @@ pin:
   actuated_joints: [0] # First and only joint
 
 mpc:
-  controller_name: "BaseMPCController"
-  # controller_name: "NNMPCController"
+  # controller_name: "BaseMPCController"
+  controller_name: "NNMPCController"
   Fmax: [50] # Maximum force
-  N_horizon: 2 # Prediction horizon
+  N_horizon: 5 # Prediction horizon
   use_RTI: False # Use Real-Time Iteration
   mpc_timestep: 0.01 # seconds
-  x0: [3.142, 0.0]
+  # x0: [3.142, 0.0]
+  x0: [-1.702437617635593, 0.15633105949216464]
   x0_random: false # If true, x0 above will not be used
   x0_range: [[-3.142, 3.142], [-0.5, 0.5]] # Range for random x0
   x0_sampling: "uniform" # Only uniform for now
   Q_mat: [2000, 0.02] # State cost weights
   R_mat: [20] # Input cost weights
   terminal_cost: true
-  early_termination: false # Enable early termination based on cost
+  early_termination: true # Enable early termination based on cost
   termination_cost: 0.1 # Tolerance for early termination cost
-  solve_ocp: true # Enable if only a single step is required
+  solve_ocp: false # Enable if only a single step is required
   full_traj: true # If above is true, then this needs to be true as well
   IK_required: false # Enable inverse kinematics in MPC setup (only for manipulators)
   levenberg_marquardt: 0.0

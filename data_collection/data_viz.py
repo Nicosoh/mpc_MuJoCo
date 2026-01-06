@@ -9,9 +9,9 @@ import os
 import mplcursors
 
 def main(model_name, log_dir, run, samples):
-        # Load config for the model
-    with open("config.yaml", "r") as f:
-        config = yaml.safe_load(f).get(model_name)
+    # Load config for the model
+    with open(f"configs/{model_name}config.yaml", "r") as f: # 
+        config = yaml.safe_load(f)
 
     log_file= log_dir[:-16]
     log_file = os.path.join("data", log_dir, f"{log_file}_logs.npz")
@@ -19,7 +19,7 @@ def main(model_name, log_dir, run, samples):
 
     # Load data
     all_logs = load_npz(log_file)
-
+    
     # Run plotting functions
     plot_traj(all_logs, save_dir=plots_dir, samples=samples, config=config, run_filter=run)
     plot_dist(all_logs, save_dir=plots_dir,  config=config)
@@ -32,7 +32,7 @@ def plot_traj(
     config=None,
     run_filter=None,
     tstep=1,    # <- Plot predicted trajectories every tstep steps
-    hstep=10,     # <- Subsample points within each horizon prediction
+    hstep=1,     # <- Subsample points within each horizon prediction
     ):
 
     os.makedirs(save_dir, exist_ok=True) # Create output directory if it doesn't exist
@@ -120,7 +120,7 @@ def plot_traj(
     # === PLOT COST OVER TIME ===
     fig_cost, ax_cost = plt.subplots(figsize=(10, 4))
     for run_key in run_keys:
-        cost = all_logs[run_key]["cost"]  # shape: (timesteps,)
+        cost = all_logs[run_key]["total_cost"]  # shape: (timesteps,)
         timesteps = np.arange(len(cost))
         ax_cost.plot(timesteps, cost, label=run_key, alpha=0.7)
 
@@ -293,7 +293,7 @@ def plot_dist(
     fig_cost, ax_cost = plt.subplots(figsize=(8, 4))
     all_costs = []
     for run_key in run_keys:
-        cost = all_logs[run_key]["cost"]
+        cost = all_logs[run_key]["total_cost"]
         all_costs.append(cost)
 
     all_costs = np.concatenate(all_costs)

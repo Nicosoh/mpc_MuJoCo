@@ -1,12 +1,14 @@
 import os
 import ast
 import yaml
-import numpy as np
-import matplotlib.pyplot as plt
-import mediapy as media
-import importlib
-from robot_descriptions.loaders.mujoco import load_robot_description
 import mujoco
+import numpy as np
+import casadi as ca
+import mediapy as media
+import matplotlib.pyplot as plt
+
+from casadi import vertcat
+from robot_descriptions.loaders.mujoco import load_robot_description
 
 # ========== PLOTTING ==========
 def plot_signals(time, logs, model, config, output_dir, file_name="plot"):
@@ -139,7 +141,7 @@ def ocp_plot(simulator, output_dir, config,file_name="OCP_plot"):
         yref_qpos = np.tile(yref[0, : nq], (T, 1))       # shape (T, nq)
         yref_qvel = np.tile(yref[0, nq : 2 * nq], (T, 1))  # shape (T, nq)
         yref_u = np.tile(yref[0, 2 * nq :], (u_traj.shape[0], 1))  # shape (T-1, nu)
-    import pdb; pdb.set_trace()
+
     fig, axs = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
 
     # Plot positions
@@ -467,3 +469,116 @@ def to_yaml_safe(obj):
         return [to_yaml_safe(v) for v in obj]
     else:
         return obj
+
+# ========== Controller, Add Constrtaints ============
+def clamp(x, lo=0.0, hi=1.0):
+    return ca.fmin(ca.fmax(x, lo), hi)
+
+def segment_segment_squared_distance(p1, p2, q1, q2):
+    """
+    p1, p2, q1, q2 : CasADi SX or MX 3×1 vectors
+    returns squared distance between segments P and Q
+    """
+
+    u = p2 - p1   # segment P direction
+    v = q2 - q1   # segment Q direction
+    w0 = p1 - q1
+
+    a = ca.dot(u, u)
+    b = ca.dot(u, v)
+    c = ca.dot(v, v)
+    d = ca.dot(u, w0)
+    e = ca.dot(v, w0)
+
+    # Compute the denominator or safe eps
+    denom = a*c - b*b
+    eps = 1e-8
+    denom_safe = ca.fmax(denom, eps)
+
+    # Compute s & t
+    s = clamp((b*e - c*d) / denom_safe)
+    t = clamp((a*e - b*d) / denom_safe)
+
+    # Compute closest points
+    Ps = p1 + u * s
+    Qt = q1 + v * t
+
+    return ca.dot(Ps - Qt, Ps - Qt), Ps, Qt
+
+def capsule_squared_distance_function():
+    """
+    Returns a CasADi function:
+       f(p1,p2,q1,q2,r1,r2) = squared distance between two capsules
+    """
+
+    p1 = ca.SX.sym("p1", 3)
+    p2 = ca.SX.sym("p2", 3)
+    q1 = ca.SX.sym("q1", 3)
+    q2 = ca.SX.sym("q2", 3)
+
+    r1 = ca.SX.sym("r1")   # radius of capsule 1
+    r2 = ca.SX.sym("r2")   # radius of capsule 2
+
+    d2_seg, Ps, Qt = segment_segment_squared_distance(p1, p2, q1, q2)
+
+    # true capsule distance = max(0, distance - r1 - r2)
+    dist = d2_seg - (r1 + r2)**2
+
+    return ca.Function(
+        "capsule_dist_sq",
+        [p1, p2, q1, q2, r1, r2],
+        [dist],
+        ["p1", "p2", "q1", "q2", "r1", "r2"],
+        ["dist_sq"]
+    )
+
+def build_capsule_collision_constraints(robot_sys, links, obstacles, collision_pairs):
+    constraints = []
+
+    for link_name, obs_name in collision_pairs:
+
+        capsule_dist_sq = capsule_squared_distance_function()
+
+        link = links[link_name]
+
+        p1 = getattr(robot_sys, link["from"])   # CasADi 3-vector
+        p2 = getattr(robot_sys, link["to"])     # CasADi 3-vector
+        r1 = link["radius"]
+
+        obs = obstacles[obs_name]
+        q1 = obs["from"]
+        q2 = obs["to"]
+        r2 = obs["radius"]
+
+        dist = capsule_dist_sq(p1, p2, q1, q2, r1, r2)
+
+        # -------------------------
+        #     LINK CAPSULE
+        # -------------------------
+        link = links[link_name]
+
+        # resolve symbolic endpoints from pin_model
+        p1 = getattr(robot_sys, link["from"])   # CasADi 3-vector
+        p2 = getattr(robot_sys, link["to"])     # CasADi 3-vector
+        r1 = link["radius"]
+
+        # -------------------------
+        #     OBSTACLE CAPSULE
+        # -------------------------
+        obs = obstacles[obs_name]
+        q1 = ca.SX(obs["from"])
+        q2 = ca.SX(obs["to"])
+        r2 = obs["radius"]
+        
+        # -------------------------
+        #  SQUARED SEGMENT DISTANCE
+        # -------------------------
+        d2, Ps, Qt = segment_segment_squared_distance(p1, p2, q1, q2)
+
+        # -------------------------
+        #  HARD CONSTRAINT: d² ≥ (r1+r2)²
+        # -------------------------
+        min_dist_sq = (r1 + r2)**2
+        constraints.append(d2 - min_dist_sq)
+
+    return vertcat(*constraints)

@@ -28,11 +28,11 @@ pin:
 mpc:
   controller_name: "ManipulatorMPCController"
   Fmax: [10, 10] # Maximum force
-  N_horizon: 100 # Prediction horizon
+  N_horizon: 200 # Prediction horizon
   use_RTI: false # Use Real-Time Iteration
   mpc_timestep: 0.005 # seconds
   x0: [0.5, 0.0, 0.5]
-  x0_random: true # If true, x0 above will not be used
+  x0_random: false # If true, x0 above will not be used
   x0_range: [[-0.5, 0.5], [0, 0], [0.0, 1.0]] # Range for random x0
   x0_sampling: "uniform" # Only uniform for now
   Q_mat: [150, 120, 0.02, 0.02] # State cost weights
@@ -40,7 +40,7 @@ mpc:
   terminal_cost: true
   early_termination: true # Enable early termination based on cost
   termination_cost: 0.001 # Tolerance for early termination cost
-  solve_ocp: false # Enable if only a single step is required
+  solve_ocp: true # Enable if only a single step is required
   full_traj: true # If above is true, then this needs to be true as well
   levenberg_marquardt: 10.0
   regularize_method: 'NO_REGULARIZE'
@@ -91,7 +91,7 @@ collision:
                   [link1, obs1]]
 
 yref:
-  yref_random: true
+  yref_random: false
   yref_sampling: uniform
   yref_range: [[0.0, 0.0, 0.0], [1.0, 0.0, 1.0]] # [[min_xyz], [max_xyz]]
 
