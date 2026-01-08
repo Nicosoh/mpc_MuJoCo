@@ -1,14 +1,15 @@
 import torch
+
 import numpy as np
 
 from torch.utils.data import Dataset, random_split
 from data_collection import load_npz
 from utils import get_num_config
 
-class PendulumDataset(Dataset):
+class TwoDofArmDataset(Dataset):
     """
-    Dataset for Pendulum:
-    Inputs X = [qpos, qvel]
+    Dataset for TwoDofArm:
+    Inputs X = [qpos1, qpos2, qvel1, qvel2, yref_qpos1, yref_qpos2]
     Targets y = cost
     Handles multiple runs inside the data dictionary.
 
@@ -18,6 +19,7 @@ class PendulumDataset(Dataset):
         self.run_dir = run_dir
         self.mode = mode
 
+
         # =============================================================
         #                     TRAIN MODE
         # =============================================================
@@ -25,7 +27,7 @@ class PendulumDataset(Dataset):
             # Load stationary point config 
             self.Xs_config = torch.tensor(get_num_config("LOSS", "x_s", config), dtype=torch.float32)
             self.ys_config = torch.tensor(get_num_config("LOSS", "y_s", config), dtype=torch.float32)
-            
+
             # Load train data
             data_path = config.get("DATA", "data_path")
             data = load_npz(data_path)
@@ -57,10 +59,11 @@ class PendulumDataset(Dataset):
             run_data = data[run_key]
             qpos = run_data["qpos"]
             qvel = run_data["qvel"]
-            cost = run_data["cost"]
+            cost = run_data["total_cost"]
+            yref_q = np.tile(run_data["yref_full"][-1][:2], (qpos.shape[0], 1))
 
             # Concatenate qpos and qvel
-            X_run = np.concatenate([qpos, qvel], axis=1)
+            X_run = np.concatenate([qpos, qvel, yref_q], axis=1)
             X_list.append(X_run)
 
             # Ensure cost is 2D
@@ -70,7 +73,10 @@ class PendulumDataset(Dataset):
                 y_run = cost
             y_list.append(y_run)
 
-            Xs_list.append(np.tile(self.Xs_config, (qpos.shape[0], 1)))
+            # Form duplicated array that follows stationary point/end objective
+            Xs_run = np.concatenate([np.tile(self.Xs_config, (qpos.shape[0], 1)), yref_q], axis=1)
+
+            Xs_list.append(Xs_run)
             ys_list.append(np.tile(self.ys_config, (qpos.shape[0], 1)))
 
         # Stack all runs together
@@ -78,7 +84,7 @@ class PendulumDataset(Dataset):
         self.Xs = torch.from_numpy(np.vstack(Xs_list)).float()
         self.y = torch.from_numpy(np.vstack(y_list)).float()
         self.ys = torch.from_numpy(np.vstack(ys_list)).float()
-    
+
     def train_val_data(self, val_split=0.2, seed=42):
         dataset_size = len(self.X)
         val_size = int(val_split * dataset_size)
