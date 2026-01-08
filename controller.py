@@ -206,9 +206,12 @@ class BaseMPCController:
         return stage_cost
     
     def compute_terminal_cost(self, X, terminal_ref):
-        Q = np.diag(self.config["mpc"]["Q_mat"])
-        e = X[self.N] - terminal_ref
-        return 0.5 * e @ Q @ e
+        if self.terminal_cost:
+            Q = np.diag(self.config["mpc"]["Q_mat"])
+            e = X[self.N] - terminal_ref
+            return 0.5 * e @ Q @ e
+        else:
+            return 0
     
     def check_solver_cost(self, total_cost):
         solver_cost = self.ocp_solver.get_cost()
@@ -305,7 +308,6 @@ class ManipulatorMPCController(BaseMPCController):
             raise ValueError("ManipulatorMPCController requires IK.")
         
     def add_hard_constraints(self, ocp, model, robot_sys, collision_config):
-        import pdb; pdb.set_trace()
         # Generate collision constraints
         constraints = build_capsule_collision_constraints(robot_sys, 
                                                               collision_config["links"], 
@@ -323,7 +325,8 @@ class ManipulatorMPCController(BaseMPCController):
     def set_yref(self, yref_now):
         for stage in range(self.N):
             self.ocp_solver.cost_set(stage, "yref", yref_now["stage"][stage], api='new')
-        self.ocp_solver.cost_set(self.N, "yref", yref_now["terminal"][:self.nx], api='new')  # Terminal reference (only x)
+        if self.terminal_cost:
+            self.ocp_solver.cost_set(self.N, "yref", yref_now["terminal"][:self.nx], api='new')  # Terminal reference (only x)
 
 @register_controller
 class NNManipulatorMPCController(ManipulatorMPCController, NNMPCController):
