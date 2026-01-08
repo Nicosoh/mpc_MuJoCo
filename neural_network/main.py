@@ -20,7 +20,7 @@ if __name__ == '__main__':
     # TRAIN_MODEL
     parser_train_model = subparsers.add_parser("train_model", help="Train the model")
     parser_train_model.add_argument(
-        '--config', type=str, required=True, help='Path to .ini config file for training'
+        '--config_path', type=str, required=True, help='Path to .ini config file for training'
     )
 
     # EVALUATE_MODEL
@@ -43,8 +43,8 @@ if __name__ == '__main__':
 
     if args.script_name == 'train_model':
         config = configparser.ConfigParser()
-        config.read(args.config)
-        print(f'Training with config from {args.config}')
+        config.read(args.config_path)
+        print(f'Training with config from {args.config_path}')
         train_model(config, run_dir)
     elif args.script_name == 'evaluate_model':
         evaluate_model(args.config_path, run_dir)
