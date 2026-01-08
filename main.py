@@ -37,7 +37,8 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
 
     try:
         # Prerequisities 
-        config = load_x0(config)                                                                        # Load x0 (Starting position)
+        x0 = load_x0(config)                                                                            # Load x0 (Starting position)
+        config["mpc"]["x0"] = x0.tolist()                                                               # Save x0 to config
         yref = load_yref(config)                                                                        # Load yref
         config["yref"]["yref"] = yref.tolist()                                                          # Save yref to config
 
@@ -55,9 +56,8 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
             # yref, config = generate_reference_trajectory(yref, collision_config, config)                # Run IK to generate trajectory
             IK = InverseKinematicsSolver(config, collision_config)
             IK.run_IK_to_x0()
-            yref, config = IK.call_IK(yref)
+            yref, vref, config = IK.call_IK(yref)
             config["yref"]["yref_end"] = yref[-1].tolist()                                              # Add to config for summary saving purpose
-            np.save(os.path.join(run_dir, "yref.npy"), yref)                                            # Save yref for reference
 
         save_yaml(config=config, save_path=config_save_path)                                            # Save summary with IK inputs
 
