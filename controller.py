@@ -108,7 +108,7 @@ class BaseMPCController:
             ocp.solver_options.nlp_solver_max_iter = 150
         
         ocp.solver_options.qp_solver_cond_N = N_horizon
-        ocp.solver_options.nlp_solver_tol_stat = 1e-1
+        ocp.solver_options.nlp_solver_tol_stat = 1e-3
         # Create solver based on settings above
         solver_json = 'acados_ocp_' + model.name + '.json'
         self.ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json, verbose=False)
@@ -251,7 +251,7 @@ class BaseMPCController:
 
         else: # Without RTI
             # Solve ocp and get next control input
-            u = self.ocp_solver.solve_for_x0(x0_bar=x)
+            u = self.ocp_solver.solve_for_x0(x0_bar=x, fail_on_nonzero_status=False)
         
         # Collect traj
         qpos_traj, qvel_traj, u_traj = self.collect_traj(full_traj)
@@ -340,12 +340,13 @@ class NNManipulatorMPCController(ManipulatorMPCController, NNMPCController):
 
         # Create parameters for goal, obstacle
         nx = model.x.rows()                                 # Total numebr of states but goal pose only includes joint angles.
-        ocp.model.p = SX.sym('p', nx/2)
+        ocp.model.p = SX.sym('p', nx//2)
+        ocp.parameter_values = np.zeros(nx//2)
 
         # Export trained NN model
         self.l4c_model = export_torch_model(config)
         # Evaluate NN symbolically
-        y_sym = self.l4c_model(ca.transpose(model.x))
+        y_sym = self.l4c_model(ca.transpose(vertcat(model.x, ocp.model.p)))
         ocp.model.cost_y_expr_e = y_sym
         # Link shared library
         ocp.solver_options.model_external_shared_lib_dir = self.l4c_model.shared_lib_dir
@@ -353,9 +354,31 @@ class NNManipulatorMPCController(ManipulatorMPCController, NNMPCController):
     
     def set_yref(self, yref_now):
         p_full = np.array(self.config["yref"]["yref_end"])                                  # Modify this in future to change obstacle/goal pose
-        p = p_full[:self.nx]
+        p = p_full[:self.nx//2]
+
+        # Stage
         for stage in range(self.N):
             self.ocp_solver.cost_set(stage, "yref", yref_now["stage"][stage], api='new')
             self.ocp_solver.set(stage, "p", p)                                             # Modify Goal/obstacle position
-        self.ocp_solver.cost_set(self.N, "yref", yref_now["terminal"][:self.nx], api='new')  # Terminal reference (only x)
+
+        # Terminal
+        if self.terminal_cost:
+            self.ocp_solver.cost_set(self.N, "yref", np.zeros((1,)), api='new')  # Terminal reference (only x)
+
         self.ocp_solver.set(self.N, "p", p)                                             # Modify Goal/obstacle position
+
+    def compute_terminal_cost(self, X, terminal_ref):
+        # Terminal state (nx,)
+        xN = X[self.N]
+
+        p_full = np.array(self.config["yref"]["yref_end"])                                  # Modify this in future to change obstacle/goal pose
+        p = p_full[:self.nx//2]
+
+        xN_p = np.concatenate([xN, p])
+
+        # Evaluate NN numerically
+        yN = np.asarray(self.l4c_model(xN_p)).squeeze()
+
+        # NONLINEAR_LS terminal cost
+        terminal_cost = 0.5 * yN**2
+        return terminal_cost

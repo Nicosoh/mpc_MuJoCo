@@ -40,7 +40,10 @@ class TwoDofArmDataset(Dataset):
         #                     TEST MODE
         # =============================================================
         elif mode == "test":
-
+            # Load stationary point config 
+            self.Xs_config = torch.tensor(get_num_config("LOSS", "x_s", config), dtype=torch.float32)
+            self.ys_config = torch.tensor(get_num_config("LOSS", "y_s", config), dtype=torch.float32)
+            
             if test_config is None:
                 raise ValueError("test_config must be provided for test mode")
 

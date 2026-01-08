@@ -29,6 +29,7 @@ def train_model(config, run_dir, seed=42):
     batch_size    = config.getint("TRAINING", "batch_size")
     num_epochs    = config.getint("TRAINING", "num_epochs")
     patience      = config.getint("TRAINING", "patience")
+    min_lr        = config.getfloat("TRAINING", "min_lr")
 
     # Data
     dataset_class = config.get("DATA", "dataset_class")
@@ -152,14 +153,45 @@ def train_model(config, run_dir, seed=42):
             else:
                 vals_since_improvement += 1
             
-            # If no improvement for a certain number of epochs, restore best weights and reduce learning rate
+            # # If no improvement for a certain number of epochs, restore best weights and reduce learning rate
+            # if vals_since_improvement >= patience:
+            #     tqdm.write(
+            #         f"Validation loss did not improve for {patience} validations. Reducing learning rate and restoring best model weights.")
+            #     if best_model_path is not None:
+            #         model.load_state_dict(torch.load(best_model_path))
+            #     for param_group in optimizer.param_groups:
+            #         param_group['lr'] /= 10
+            #     vals_since_improvement = 0
+
             if vals_since_improvement >= patience:
-                tqdm.write(
-                    f"Validation loss did not improve for {patience} validations. Reducing learning rate and restoring best model weights.")
-                if best_model_path is not None:
-                    model.load_state_dict(torch.load(best_model_path))
+                lr_reduced = False
+
                 for param_group in optimizer.param_groups:
-                    param_group['lr'] /= 10
+                    old_lr = param_group['lr']
+                    new_lr = max(old_lr / 10, min_lr)
+
+                    if new_lr < old_lr:
+                        param_group['lr'] = new_lr
+                        lr_reduced = True
+
+                if lr_reduced:
+                    tqdm.write(
+                        f"Validation loss did not improve for {patience} validations. "
+                        "Reducing learning rate and restoring best model weights."
+                    )
+
+                    if best_model_path is not None:
+                        model.load_state_dict(torch.load(best_model_path))
+
+                    tqdm.write(
+                        f"LR reduced from {old_lr:.2e} to {new_lr:.2e}"
+                    )
+                else:
+                    tqdm.write(
+                        f"Validation loss did not improve for {patience} validations, "
+                        f"but LR is already at minimum ({min_lr:.2e}). No reload performed."
+                    )
+
                 vals_since_improvement = 0
 
     plot_loss(train_losses, val_losses, run_dir=run_dir)

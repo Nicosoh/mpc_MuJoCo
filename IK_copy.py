@@ -200,17 +200,17 @@ class InverseKinematicsSolver:
             if iterations > self.max_iterations:
                 raise RuntimeError(f"IK did not converge within {self.max_iterations} steps. Current error: {error:.3e}")
             
-            if np.all(velocity < self.velocity_thres):
-                if vel_below_thresh > 10:
-                    raise RuntimeError("All velocity values are below the threshold")
-                else:
-                    vel_below_thresh += 1
+            if np.all(np.abs(velocity) < self.velocity_thres):
+                vel_below_thresh += 1
+            else:
+                vel_below_thresh = 0  # reset if condition breaks
+
+            if vel_below_thresh >= 10:
+                raise RuntimeError("Velocity below threshold for 10 consecutive iterations")
 
         sys.stdout.write("\nPosition reached\n")
 
         if x0:
-            # self.q_x0 = q_out
-            # self.traj_q.append(q_out)
             self.traj_v.append(velocity)
             self.q_x0 = self.configuration.q
             self.traj_q.append(self.configuration.q)

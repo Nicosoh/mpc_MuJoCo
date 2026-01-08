@@ -31,8 +31,8 @@ def plot_traj(
     seed=44,
     config=None,
     run_filter=None,
-    tstep=1,    # <- Plot predicted trajectories every tstep steps
-    hstep=1,     # <- Subsample points within each horizon prediction
+    tstep=10,    # <- Plot predicted trajectories every tstep steps
+    hstep=2,     # <- Subsample points within each horizon prediction
     ):
 
     os.makedirs(save_dir, exist_ok=True) # Create output directory if it doesn't exist

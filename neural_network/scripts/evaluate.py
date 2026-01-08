@@ -13,7 +13,7 @@ from neural_network.models import MODEL_REGISTRY
 from neural_network.datasets import DATASET_REGISTRY
 
 def evaluate_model(test_config_path, run_dir, seed=42):
-        # === Set random seed ===
+    # === Set random seed ===
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -72,7 +72,7 @@ def evaluate_model(test_config_path, run_dir, seed=42):
 
     # === Evaluate ===
     with torch.no_grad():
-        for xb, yb in tqdm(test_loader, desc="Evaluating"):
+        for xb, _, yb, _ in tqdm(test_loader, desc="Evaluating"):
             xb, yb = xb.to(device), yb.to(device)
             pred = model(xb)
 
