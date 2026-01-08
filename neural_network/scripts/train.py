@@ -44,8 +44,6 @@ def train_model(config, run_dir, seed=42):
 
     # Loss
     alpha = torch.tensor(config.getfloat("LOSS", "alpha"), dtype=torch.float32)
-    x_s = torch.tensor(get_num_config("LOSS", "x_s", config), dtype=torch.float32)
-    y_s = torch.tensor(get_num_config("LOSS", "y_s", config), dtype=torch.float32)
 
     # === Create dataset + dataloader ===
     # Load dataset dynamically
@@ -98,14 +96,14 @@ def train_model(config, run_dir, seed=42):
         model.train()
         total_loss = 0.0
 
-        for xb, yb in train_loader:
+        for xb, xs, yb, ys in train_loader:
             xb = xb.to(device)
             yb = yb.to(device)
 
             optimizer.zero_grad()
             preds_main = model(xb)
-            preds_stationary = model(x_s.to(device))
-            loss = criterion(preds_main, yb, preds_stationary, y_s.to(device))
+            preds_stationary = model(xs.to(device))
+            loss = criterion(preds_main, yb, preds_stationary, ys.to(device))
             loss.backward()
             optimizer.step()
 
@@ -122,12 +120,12 @@ def train_model(config, run_dir, seed=42):
             val_loss = 0.0
 
             with torch.no_grad():
-                for xb, yb in val_loader:
+                for xb, xs, yb, ys in val_loader:
                     xb = xb.to(device)
                     yb = yb.to(device)
                     preds_main = model(xb)
-                    preds_stationary = model(x_s.to(device))
-                    loss = criterion(preds_main, yb, preds_stationary, y_s.to(device))
+                    preds_stationary = model(xs.to(device))
+                    loss = criterion(preds_main, yb, preds_stationary, ys.to(device))
                     val_loss += loss.item() * xb.size(0)
 
             avg_val_loss = val_loss / len(val_loader.dataset)

@@ -231,13 +231,6 @@ def save_yaml(config, save_path):
         yaml.safe_dump(config, f, sort_keys=False)
 
 # ========== Loading yref ==========
-# def load_yref(model_name):
-#     try:
-#         yref_module = importlib.import_module(f"yrefs.{model_name}_yref")
-#         return yref_module.yref
-#     except ModuleNotFoundError:
-#         raise ValueError(f"No yref file found for model '{model_name}'")
-
 def load_yref(config):
     if config["yref"]["yref_random"]:
         return randomise_yref(config)
@@ -256,20 +249,34 @@ def randomise_yref(config):
     else:
         raise ValueError(f"Unsupported yref_sampling method: {sampling}")
     
-    print(f"Randomised final state: {yref}")
+    print(f"Randomised yref state: {yref}")
 
     return yref
 
-# ========== Loading obstacles/collision setup ==========
-# def load_collision_config(model_name):
-#     try:
-#         cfg_module = importlib.import_module(
-#             f"collision_config.{model_name}_collision_config"
-#         )
-#         return cfg_module.collision_config
-#     except ModuleNotFoundError:
-#         raise ValueError(f"No collision config found for model '{model_name}'")
+# ========== Loading x0 ==========
+def load_x0(config):
+    # Randomise inital state if specified
+    if config["mpc"]["x0_random"]:
+        x0 = randomise_x0(config)
+        print(f"Randomised x0 state: {x0}")
+    else:
+        x0 = np.array(config["mpc"]["x0"])
+    return x0
 
+def randomise_x0(config):
+    x0_range = config["mpc"]["x0_range"]
+    sampling = config["mpc"]["x0_sampling"]
+
+    if sampling == "uniform":
+        min_xyz = np.array(x0_range[0])
+        max_xyz = np.array(x0_range[1])
+
+        x0 = np.random.uniform(low=min_xyz, high=max_xyz)
+    else:
+        raise ValueError(f"Unsupported x0_sampling method: {sampling}")
+    return x0
+
+# ========== Loading obstacles/collision setup ==========
 def load_collision_config(config):
     collision_cfg = config["collision"]
 
@@ -352,27 +359,6 @@ def validate_collision_config(collision):
             raise KeyError(f"Unknown link in collision_pairs: {link}")
         if obs not in collision["obstacles"]:
             raise KeyError(f"Unknown obstacle in collision_pairs: {obs}")
-
-# ========== Loading x0 ==========
-def load_x0(config):
-    # Randomise inital state if specified
-    if config["mpc"]["x0_random"]:
-        x0 = randomise_x0(config)
-        config["mpc"]["x0"] = x0
-        print(f"Randomised initial state: {x0}")
-    return config
-
-def randomise_x0(config):
-    x0_range = config["mpc"]["x0_range"]
-    x0 = config["mpc"]["x0"]
-    sampling = config["mpc"]["x0_sampling"]
-
-    if sampling == "uniform":
-        for i in range(len(x0)):
-            x0[i] = np.random.uniform(low=x0_range[i][0], high=x0_range[i][1])
-    else:
-        raise ValueError(f"Unsupported x0_sampling method: {sampling}")
-    return x0
 
 # Load model from xml file
 def load_model_from_xml(config):
