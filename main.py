@@ -7,9 +7,8 @@ from datetime import datetime
 from utils import *
 from simulator import MuJoCoSimulator
 from controller import CONTROLLER_REGISTRY
-from IK import generate_reference_trajectory
+from IK import InverseKinematicsSolver
 from data_collection.data_utils import save_npz
-from IK_copy import InverseKinematicsSolver
 
 def main(model_name, data_collection=False, output_dir=None, timestamp=None, data_config=None):
     # Load configuration
@@ -36,32 +35,34 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
     print(f"Saving current run data to: {run_dir}")
 
     try:
-        # Prerequisities 
-        x0 = load_x0(config)                                                                            # Load x0 (Starting position)
-        config["mpc"]["x0"] = x0.tolist()                                                               # Save x0 to config
-        yref = load_yref(config)                                                                        # Load yref
-        config["yref"]["yref"] = yref.tolist()                                                          # Save yref to config
-
         config_save_path = os.path.join(run_dir, f"{model_name}config.yaml")
-        save_yaml(config=config, save_path=config_save_path)                                            # Save base summary
-
-        if config["collision"]["collision_avoidance"]:                                                  # If enabled in config
-            collision_config, config = load_collision_config(config)                                    # Load obstacles
+        # ======== Collisions/obstacles ========
+        if config["collision"]["collision_avoidance"]:                                                      # If enabled in config
+            collision_config, config = load_collision_config(config)                                        # Load obstacles
         else:
             collision_config = None
 
-        save_yaml(config=config, save_path=config_save_path)                                            # Save summary with updated obstacles
+        save_yaml(config=config, save_path=config_save_path)                                                # Save summary with updated obstacles
 
-        if config["IK"]["IK_required"]:                                                                 # If dealing with manipulators
-            # yref, config = generate_reference_trajectory(yref, collision_config, config)                # Run IK to generate trajectory
+        # ======== x0/yref ======== 
+        if not config["IK"]["IK_required"]: 
+            x0 = load_x0(config)                                                                            # Load x0 (Starting position)
+            config["mpc"]["x0"] = x0.tolist()                                                               # Save x0 to config
+            yref = load_yref(config)                                                                        # Load yref
+            config["yref"]["yref"] = yref.tolist()                                                          # Save yref to config
+
+        else:                                                                                               # If dealing with manipulators
             IK = InverseKinematicsSolver(config, collision_config)
-            IK.run_IK_to_x0()
-            yref, vref, config = IK.call_IK(yref)
-            config["yref"]["yref_end"] = yref[-1].tolist()                                              # Add to config for summary saving purpose
+            config = IK.config
+            save_yaml(config=config, save_path=config_save_path)
+
+            yref = load_yref(config)                                                                        # Load yref
+            config["mpc"]["yref"] = yref.tolist()
+            yref, config = IK.IK_to_XYZ(yref)                                                                 # Add to config for summary saving purpose
 
         save_yaml(config=config, save_path=config_save_path)                                            # Save summary with IK inputs
 
-        controller = CONTROLLER_REGISTRY[config["mpc"]["controller_name"]](config, collision_config)    # Create MPCController 
+        controller = CONTROLLER_REGISTRY[config["mpc"]["controller_name"]](config, collision_config)        # Create MPCController 
 
         # Record start time
         start_time = time.time()

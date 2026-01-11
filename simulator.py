@@ -120,6 +120,7 @@ class MuJoCoSimulator:
             "qvel": [],
             "yref": [],
             "yref_full": self.yref,
+            "yref_xyz": self.config["mpc"]["yref"],
             "u_applied": [],
             "stage_cost": [],
             "terminal_cost": [],
@@ -198,7 +199,8 @@ class MuJoCoSimulator:
         pbar.close()
         
         # Convert logs to arrays
-        for key in ["qpos", "qvel", "u_applied", "stage_cost", "terminal_cost" ,"total_cost", "qpos_traj", "qvel_traj", "u_traj", "time", "yref", "yref_full"]:
+        # for key in ["qpos", "qvel", "u_applied", "stage_cost", "terminal_cost" ,"total_cost", "qpos_traj", "qvel_traj", "u_traj", "time", "yref", "yref_full", "x0"]:
+        for key in self.logs.keys():
             self.logs[key] = np.array(self.logs[key])
 
     def step_sim(self):

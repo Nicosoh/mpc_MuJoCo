@@ -25,20 +25,23 @@ pin:
   actuated_joints: [0, 1] # First and second joints
 
 mpc:
-  # controller_name: "ManipulatorMPCController"
-  controller_name: "NNManipulatorMPCController"
+  controller_name: "ManipulatorMPCController"
+  # controller_name: "NNManipulatorMPCController"
   Fmax: [10, 10] # Maximum force
   N_horizon: 20 # Prediction horizon
   use_RTI: false # Use Real-Time Iteration
   mpc_timestep: 0.01 # seconds
-  # x0: [0.5, 0.0, 0.5]
-  x0: [-0.4837057468212944, 0.0, 1.1895845068020883]
-  x0_random: false # If true, x0 above will not be used
-  x0_range: [[-0.3, 0.0, 1.0], [-0.5, 0.0, 1.3]] # Range for random x0 [[min_xyz], [max_xyz]]
-  x0_sampling: "uniform" # Only uniform for now
+  x0_q: [0.0, 0.0]    # Initial joint position
+  x0_q_random: true # If true, x0 above will not be used
+  x0_q_range: [[-0.5, 0.0, 1.0], [0.5, 0.0, 1.5]] # Range for random x0 [[min_xyz], [max_xyz]]
+  x0_q_sampling: "uniform" # Only uniform for now
+  yref: [0.4049, 0.0, 1.014]
+  yref_random: true
+  yref_range: [[-0.5, 0.0, 1.0], [0.5, 0.0, 1.5]] # [[min_xyz], [max_xyz]]
+  yref_sampling: uniform
   Q_mat: [150, 120, 0.02, 0.02] # State cost weights
   R_mat: [0.01, 0.01] # Input cost weights
-  terminal_cost: true
+  terminal_cost: false
   early_termination: true # Enable early termination based on cost
   termination_cost: 0.001 # Tolerance for early termination cost
   solve_ocp: false # Enable if only a single step is required
@@ -57,10 +60,11 @@ IK:
   stop_threshold: 0.001
   visualize_IK: false
   max_iterations: 100000          # max iters before considering goal not reachable
-  velocity_threshold: 0.0001    # min velocity from solve_ik before considering goal not reachable
+  velocity_threshold: 0.001    # min velocity from solve_ik before considering goal not reachable
   velocitylimit: [1.0, 1.0] # rad/s
   limit_acceleration: false
-  accelerationlimit: [50.0, 50.0] # rad/s^2
+  accelerationlimit: [50.0, 50.0] # rad/s^2\
+  safety_distance: 0.05 # minimum distance to maintain from obstacles
 
 collision:
   collision_avoidance: true
@@ -91,17 +95,9 @@ collision:
   collision_pairs: [[link2, obs1],
                   [link1, obs1]]
 
-yref:
-  yref_random: false
-  yref_sampling: uniform
-  yref_range: [[0.3, 0.0, 1.0], [0.5, 0.0, 1.3]] # [[min_xyz], [max_xyz]]
-
-  # yref: [1.0, 0.0, 1.0]
-  yref: [0.404965149933065, 0.0, 1.014924023939036]
-
 NN:
   model_name: "TwoDofArmModelAcados"
-  checkpoint_path: "neural_network/output/2026-01-08_22-09-46_train_model/model_epoch_110.pt"
+  checkpoint_path: ""
 
 plots:
   Joint 1 Angle: ["qpos", 0, "rad"]

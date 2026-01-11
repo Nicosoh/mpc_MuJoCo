@@ -1,5 +1,6 @@
 <mujoco model="2dof_arm">
-    
+    <compiler angle="radian"/>
+
     <!-- Background texture -->
     <asset>
         <texture name="grid" type="2d" builtin="checker" rgb1=".1 .2 .3"
@@ -16,7 +17,7 @@
 
         <!-- First Link -->
         <body name="pendulum_stick1" pos="0 0 0">
-            <joint name="hinge1" type="hinge" axis="0 1 0" pos="0 0 0"/>
+            <joint name="hinge1" type="hinge" axis="0 1 0" pos="0 0 0" range="-1.57 1.57"/>
             <!-- Only for visuals -->
             <!-- <geom name="pendulum_stick_geom1" type="capsule" fromto="0 0 0 0 0 0.8" size="0.025"/> -->
             <geom name="visual_capsule1" type="capsule" fromto="0 0 0 0 0 0.8" size="0.1" rgba="0.2 0.6 1.0 0.3"/>
@@ -28,7 +29,7 @@
 
             <!-- Second Link -->
             <body name="pendulum_stick2" pos="0 0 0.8">
-                <joint name="hinge2" type="hinge" axis="0 1 0" pos="0 0 0"/>
+                <joint name="hinge2" type="hinge" axis="0 1 0" pos="0 0 0" range="-3.142 3.142"/>
                 <!-- Only for visuals -->
                 <!-- <geom name="pendulum_stick_geom2" type="capsule" fromto="0 0 0 0 0 0.8" size="0.025"/> -->
                 <geom name="visual_capsule2" type="capsule" fromto="0 0 0 0 0 0.8" size="0.1" rgba="0.2 0.6 1.0 0.3"/>

@@ -232,14 +232,14 @@ def save_yaml(config, save_path):
 
 # ========== Loading yref ==========
 def load_yref(config):
-    if config["yref"]["yref_random"]:
+    if config["mpc"]["yref_random"]:
         return randomise_yref(config)
     else:
-        return np.array(config["yref"]["yref"])
+        return np.array(config["mpc"]["yref"])
     
 def randomise_yref(config):
-    yref_range = config["yref"]["yref_range"]
-    sampling = config["yref"]["yref_sampling"]
+    yref_range = config["mpc"]["yref_range"]
+    sampling = config["mpc"]["yref_sampling"]
 
     if sampling == "uniform":
         min_xyz = np.array(yref_range[0])
