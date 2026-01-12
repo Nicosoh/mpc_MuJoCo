@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import os
 import torch
 
-def plot_loss(train_losses, val_losses, run_dir):
+def plot_loss(train_losses, val_losses, run_dir, show_plot=True):
     """
     Plots training and validation loss curves, distinguishing different learning rates.
 
@@ -47,8 +47,11 @@ def plot_loss(train_losses, val_losses, run_dir):
     if save_path is not None:
         plt.savefig(save_path, dpi=200, bbox_inches='tight')
         print(f"Loss plot saved to {save_path}")
+
+    if show_plot:
+        plt.show()
     
-    plt.show()
+    plt.close()
 
 # def run_scaling(X=None, y=None, scaling_type=None, scaling_params=None,
 #                 scaling_range_X=None, scaling_range_y=None, inverse=False):

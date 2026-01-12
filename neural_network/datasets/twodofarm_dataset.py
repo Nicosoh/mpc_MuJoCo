@@ -43,7 +43,7 @@ class TwoDofArmDataset(Dataset):
             # Load stationary point config 
             self.Xs_config = torch.tensor(get_num_config("LOSS", "x_s", config), dtype=torch.float32)
             self.ys_config = torch.tensor(get_num_config("LOSS", "y_s", config), dtype=torch.float32)
-            
+
             if test_config is None:
                 raise ValueError("test_config must be provided for test mode")
 
@@ -63,7 +63,7 @@ class TwoDofArmDataset(Dataset):
             qpos = run_data["qpos"]
             qvel = run_data["qvel"]
             cost = run_data["total_cost"]
-            yref_q = np.tile(run_data["yref_full"][-1][:2], (qpos.shape[0], 1))
+            yref_q = np.tile(run_data["yref_xyz"], (qpos.shape[0], 1))
 
             # Concatenate qpos and qvel
             X_run = np.concatenate([qpos, qvel, yref_q], axis=1)

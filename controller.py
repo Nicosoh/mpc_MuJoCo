@@ -39,7 +39,7 @@ class BaseMPCController:
 
         # Warm start
         for _ in range(5):
-            self.ocp_solver.solve_for_x0(x0_bar=self.x0, fail_on_nonzero_status=False) # It is ok to fail during the warmup phase
+            self.ocp_solver.solve_for_x0(x0_bar=self.x0, fail_on_nonzero_status=False, print_stats_on_failure=False) # It is ok to fail during the warmup phase
        
     def setup(self, config, collision_config):
         mpc_config = config["mpc"]
@@ -105,7 +105,7 @@ class BaseMPCController:
         else:
             ocp.solver_options.nlp_solver_type = 'SQP'
             ocp.solver_options.globalization = 'MERIT_BACKTRACKING' # turns on globalization
-            ocp.solver_options.nlp_solver_max_iter = 150
+            ocp.solver_options.nlp_solver_max_iter = 100
         
         ocp.solver_options.qp_solver_cond_N = N_horizon
         ocp.solver_options.nlp_solver_tol_stat = 1e-3
@@ -243,15 +243,26 @@ class BaseMPCController:
 
             status = self.ocp_solver.solve()
             if status != 0:
-                # raise RuntimeError("MPC solver returned status in RTI phase 2: ", status)
                 raise RuntimeError(f"MPC solver returned status {status} in RTI phase 2")
 
             # Get first control input
             u = self.ocp_solver.get(0, "u")
 
-        else: # Without RTI
+        # else: # Without RTI
             # Solve ocp and get next control input
+            # u = self.ocp_solver.solve_for_x0(x0_bar=x, fail_on_nonzero_status=False, print_stats_on_failure=False)
             u = self.ocp_solver.solve_for_x0(x0_bar=x, fail_on_nonzero_status=False)
+        
+        else: # Without RTI (modofied solve_for_x0 to avoid min_step issue)
+            self.ocp_solver.set(0, "lbx", x)
+            self.ocp_solver.set(0, "ubx", x)
+
+            status = self.ocp_solver.solve()
+
+            if status != 0 and status != 2:
+                raise RuntimeError(f"MPC solver returned status {status} in SQP mode")
+
+            u = self.ocp_solver.get(0, "u")
         
         # Collect traj
         qpos_traj, qvel_traj, u_traj = self.collect_traj(full_traj)
@@ -304,9 +315,6 @@ class ManipulatorMPCController(BaseMPCController):
     def __init__(self, config, collision_config=None):        
         super().__init__(config, collision_config)
         
-        if not self.IK_required:
-            raise ValueError("ManipulatorMPCController requires IK.")
-        
     def add_hard_constraints(self, ocp, model, robot_sys, collision_config):
         # Generate collision constraints
         constraints = build_capsule_collision_constraints(robot_sys, 
@@ -339,9 +347,9 @@ class NNManipulatorMPCController(ManipulatorMPCController, NNMPCController):
         ocp.cost.yref_e = np.zeros((1, ))                   # Set terminal reference to zero for NN output
 
         # Create parameters for goal, obstacle
-        nx = model.x.rows()                                 # Total numebr of states but goal pose only includes joint angles.
-        ocp.model.p = SX.sym('p', nx//2)
-        ocp.parameter_values = np.zeros(nx//2)
+        self.p = np.array(self.config["mpc"]["yref"])
+        ocp.model.p = SX.sym('p', self.p.shape[0])  # Full yref as parameter
+        ocp.parameter_values = np.zeros(self.p.shape[0])
 
         # Export trained NN model
         self.l4c_model = export_torch_model(config)
@@ -353,28 +361,22 @@ class NNManipulatorMPCController(ManipulatorMPCController, NNMPCController):
         ocp.solver_options.model_external_shared_lib_name = self.l4c_model.name
     
     def set_yref(self, yref_now):
-        p_full = np.array(self.config["yref"]["yref_end"])                                  # Modify this in future to change obstacle/goal pose
-        p = p_full[:self.nx//2]
-
         # Stage
         for stage in range(self.N):
             self.ocp_solver.cost_set(stage, "yref", yref_now["stage"][stage], api='new')
-            self.ocp_solver.set(stage, "p", p)                                             # Modify Goal/obstacle position
+            self.ocp_solver.set(stage, "p", self.p)                                             # Modify Goal/obstacle position
 
         # Terminal
         if self.terminal_cost:
             self.ocp_solver.cost_set(self.N, "yref", np.zeros((1,)), api='new')  # Terminal reference (only x)
 
-        self.ocp_solver.set(self.N, "p", p)                                             # Modify Goal/obstacle position
+        self.ocp_solver.set(self.N, "p", self.p)                                             # Modify Goal/obstacle position
 
     def compute_terminal_cost(self, X, terminal_ref):
         # Terminal state (nx,)
         xN = X[self.N]
 
-        p_full = np.array(self.config["yref"]["yref_end"])                                  # Modify this in future to change obstacle/goal pose
-        p = p_full[:self.nx//2]
-
-        xN_p = np.concatenate([xN, p])
+        xN_p = np.concatenate([xN, self.p])
 
         # Evaluate NN numerically
         yN = np.asarray(self.l4c_model(xN_p)).squeeze()

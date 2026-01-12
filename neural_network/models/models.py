@@ -129,8 +129,8 @@ class TwoDofArmModel(nn.Module):                                            # Wi
     def __init__(self, train_config):
         super().__init__()
 
-        self.fc0 = ScaleLayer(6)
-        self.fc1 = nn.Linear(6, 64)
+        self.fc0 = ScaleLayer(7)
+        self.fc1 = nn.Linear(7, 64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, 64)
         self.fc4 = nn.Linear(64, 1)
@@ -150,8 +150,8 @@ class TwoDofArmModelAcados(nn.Module):                                          
     def __init__(self, train_config):
         super().__init__()
 
-        self.fc0 = ScaleLayer(6)
-        self.fc1 = nn.Linear(6, 64)
+        self.fc0 = ScaleLayer(7)
+        self.fc1 = nn.Linear(7, 64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, 64)
         self.fc4 = nn.Linear(64, 1)

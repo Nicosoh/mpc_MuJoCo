@@ -10,10 +10,11 @@ from controller import CONTROLLER_REGISTRY
 from IK import InverseKinematicsSolver
 from data_collection.data_utils import save_npz
 
-def main(model_name, data_collection=False, output_dir=None, timestamp=None, data_config=None):
+def main(model_name, data_collection=False, output_dir=None, timestamp=None, data_config=None, config=None):
     # Load configuration
-    with open(f"configs/{model_name}config.yaml", "r") as f:
-        config = yaml.safe_load(f)
+    if config is None:
+        with open(f"configs/{model_name}config.yaml", "r") as f:
+            config = yaml.safe_load(f)
 
     # Base output directory
     output_dir = output_dir or "data"

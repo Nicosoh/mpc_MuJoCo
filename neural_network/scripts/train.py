@@ -1,6 +1,11 @@
 import os
 import ast
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import torch
+torch.set_num_threads(1)
 import random
 import numpy as np
 
@@ -13,7 +18,7 @@ from neural_network.losses import StationaryLoss
 from neural_network.models import MODEL_REGISTRY
 from neural_network.datasets import DATASET_REGISTRY
 
-def train_model(config, run_dir, seed=42):
+def train_model(config, run_dir, data_path=None, seed=42):
     # === Set random seed ===
     random.seed(seed)
     np.random.seed(seed)
@@ -30,6 +35,10 @@ def train_model(config, run_dir, seed=42):
     num_epochs    = config.getint("TRAINING", "num_epochs")
     patience      = config.getint("TRAINING", "patience")
     min_lr        = config.getfloat("TRAINING", "min_lr")
+
+    # Overwrite data path if provided
+    if data_path is not None:
+        config.set("DATA", "data_path", data_path)
 
     # Data
     dataset_class = config.get("DATA", "dataset_class")
@@ -193,5 +202,11 @@ def train_model(config, run_dir, seed=42):
                     )
 
                 vals_since_improvement = 0
+                
+    # === Plot loss curves ===
+    if data_path is not None:
+        show_plot = False
+    else:
+        show_plot = True
 
-    plot_loss(train_losses, val_losses, run_dir=run_dir)
+    plot_loss(train_losses, val_losses, run_dir=run_dir, show_plot=show_plot)

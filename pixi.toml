@@ -39,6 +39,7 @@ scikit-build = ">=0.17"
 [pypi-dependencies]
 tqdm = "*"
 torch = ">=2.2.2, <3"
+torchinfo = ">=1.8.0, <2"
 
 [activation.env]
 # Path to acados source (needed by acados_template)
@@ -122,3 +123,6 @@ evaluate_model = "python -m neural_network.main evaluate_model"
 
 # Replay from saved data
 replay = "mjpython replay.py"
+
+# Run value iteration
+VI = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY_PATH\" && python -m value_iteration.value_iteration"

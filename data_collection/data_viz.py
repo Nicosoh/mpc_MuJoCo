@@ -7,6 +7,8 @@ import random
 import matplotlib as mpl
 import os
 import mplcursors
+from pinocchio.robot_wrapper import RobotWrapper
+import pinocchio as pin
 
 def main(model_name, log_dir, run, samples):
     # Load config for the model
@@ -19,10 +21,78 @@ def main(model_name, log_dir, run, samples):
 
     # Load data
     all_logs = load_npz(log_file)
-    
+    if config["IK"]["IK_required"]:
+        plot_traj_xyz(all_logs, config=config, frame_name="attachment_site", save_dir=plots_dir)
+
     # Run plotting functions
     plot_traj(all_logs, save_dir=plots_dir, samples=samples, config=config, run_filter=run)
     plot_dist(all_logs, save_dir=plots_dir,  config=config)
+
+def plot_traj_xyz(all_logs, config, frame_name, save_dir=None):
+    base_dir = "models_xml"
+    model_name = config["model"]["name"].lower()
+    filename = os.path.join(base_dir, f"{model_name}.xml")
+
+    robot = RobotWrapper.BuildFromMJCF(filename=filename)
+    frame_id = robot.model.getFrameId(frame_name)
+
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111, projection="3d")
+
+    for run_key, run_data in all_logs.items():
+        qpos_traj = run_data["qpos"]  # shape (T, nq)
+
+        xyz = np.zeros((qpos_traj.shape[0], 3))
+
+        for t, qpos in enumerate(qpos_traj):
+            pin.forwardKinematics(robot.model, robot.data, qpos)
+            pin.updateFramePlacements(robot.model, robot.data)
+            xyz[t] = robot.data.oMf[frame_id].translation
+
+        ax.plot(
+            xyz[:, 0],
+            xyz[:, 1],
+            xyz[:, 2],
+            alpha=0.6,
+            linewidth=1.5,
+        )
+
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    ax.set_title(f"3D Trajectories of frame '{frame_name}'")
+
+    ax.view_init(elev=30, azim=45)
+    ax.grid(True)
+    set_axes_equal(ax)
+
+    if save_dir is not None:
+        os.makedirs(save_dir, exist_ok=True)
+        plt.savefig(os.path.join(save_dir, f"{frame_name}_traj_3d.png"), dpi=200)
+
+    plt.show()
+
+def set_axes_equal(ax):
+    """
+    Make a 3D plot have equal scale on all axes.
+    """
+    x_limits = ax.get_xlim3d()
+    y_limits = ax.get_ylim3d()
+    z_limits = ax.get_zlim3d()
+
+    x_range = abs(x_limits[1] - x_limits[0])
+    y_range = abs(y_limits[1] - y_limits[0])
+    z_range = abs(z_limits[1] - z_limits[0])
+
+    x_middle = np.mean(x_limits)
+    y_middle = np.mean(y_limits)
+    z_middle = np.mean(z_limits)
+
+    plot_radius = 0.5 * max(x_range, y_range, z_range)
+
+    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
 def plot_traj(
     all_logs,

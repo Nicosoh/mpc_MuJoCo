@@ -96,8 +96,10 @@ class MuJoCoSimulator:
 
         # Extract parameters from config for MPC
         self.mpc_timestep = mpc_config["mpc_timestep"]
-        early_termination = mpc_config["early_termination"]
-        termination_cost = np.array(mpc_config["termination_cost"])
+        early_termination_cost = mpc_config["early_termination_cost"]
+        termination_thresh_cost = np.array(mpc_config["termination_cost"])
+        early_termination_state = mpc_config["early_termination_state"]
+        termination_thresh_state = np.array(mpc_config["termination_state"])
         solve_ocp = mpc_config["solve_ocp"]
 
         # Extract parameters for IK
@@ -161,14 +163,14 @@ class MuJoCoSimulator:
                 self.logs["qvel_traj"].append(qvel_traj)
                 self.logs["u_traj"].append(u_traj)
 
-            if verbose:
-                print(
-                    f"t = {self.data.time:.3f}s | "
-                    f"qpos = {np.round(self.data.qpos, 2)} | "
-                    f"qvel = {np.round(self.data.qvel, 2)} | "
-                    f"ctrl = {np.round(self.data.ctrl, 2)} | "
-                    f"cost = {np.round(total_cost, 2)}"
-                )
+                if verbose:
+                    print(
+                        f"t = {self.data.time:.3f}s | "
+                        f"qpos = {np.round(self.data.qpos, 3)} | "
+                        f"qvel = {np.round(self.data.qvel, 3)} | "
+                        f"ctrl = {np.round(self.data.ctrl, 3)} | "
+                        f"cost = {np.round(total_cost, 5)}"
+                    )
             
             # Render if enabled
             if render and len(self.frames) < self.data.time * sim_framerate:
@@ -189,9 +191,15 @@ class MuJoCoSimulator:
                 break
 
             # Check for early termination condition
-            if total_cost is not None and total_cost < termination_cost and early_termination:
-                pbar.write(f"Terminating early at t = {self.data.time:.2f}s with cost = {total_cost:.2f}")
-                break
+            if total_cost is not None:
+                if total_cost < termination_thresh_cost and early_termination_cost:
+                    pbar.write(f"Terminating early at t = {self.data.time:.2f}s with cost = {total_cost:.5f}")
+                    break
+                elif early_termination_state:
+                    state_err = np.concatenate([self.data.qpos, self.data.qvel]) - self.yref[-1][:self.model.nq+self.model.nv]
+                    if np.linalg.norm(state_err) < termination_thresh_state:
+                        pbar.write(f"Terminating early at t = {self.data.time:.2f}s with state error = {np.linalg.norm(state_err):.5f}")
+                        break
 
             # Update progress bar
             pbar.update(1)

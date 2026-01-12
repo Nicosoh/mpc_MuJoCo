@@ -14,7 +14,7 @@ from main import main
 from utils import save_yaml
 from data_collection import save_npz
 
-def run_data_collector(model_name, data_config_path="data_collection/data_config.yaml"):
+def run_data_collector(model_name, data_config_path="data_collection/data_config.yaml", run_dir=None, config=None):
     # Load data collection config
     with open(data_config_path, "r") as f:
         data_config = yaml.safe_load(f)["data_collector"]
@@ -22,11 +22,15 @@ def run_data_collector(model_name, data_config_path="data_collection/data_config
     runs = data_config["runs"]
     # total_elapsed = 0.0
     all_logs = {}
-    base_dir = "data"
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     # Create output and log paths
-    output_dir = os.path.join(base_dir, f"{timestamp}_{model_name}_data_collection")
+    if run_dir is None:
+        base_dir = "data"
+        output_dir = os.path.join(base_dir, f"{timestamp}_{model_name}_data_collection")
+    else:
+        output_dir = run_dir
+
     os.makedirs(output_dir, exist_ok=True)
     output_log_path = os.path.join(output_dir, "output.log")
 
@@ -48,12 +52,12 @@ def run_data_collector(model_name, data_config_path="data_collection/data_config
     # Run main simulation loop and collect data
     while success_count < runs:
         attempt_count += 1
-        run_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        run_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
         print(f"\n--- Starting data collection run {success_count+1}/{runs} ---")
 
         try:
             # Simulate one OCP, get state, control, cost
-            logs = main(model_name, data_collection=True, output_dir=output_dir, timestamp=run_timestamp, data_config=data_config)
+            logs = main(model_name, data_collection=True, output_dir=output_dir, timestamp=run_timestamp, data_config=data_config, config=config)
             all_logs[run_timestamp] = logs
             success_count += 1
 
