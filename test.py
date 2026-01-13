@@ -1,25 +1,25 @@
-# import mujoco
-# import mujoco.viewer  # this is the built-in viewer (as of MuJoCo 2.3+)
+import mujoco
+import mujoco.viewer  # this is the built-in viewer (as of MuJoCo 2.3+)
 
-# # Load the model using robot_descriptions
-# from robot_descriptions import iiwa14_mj_description
-# model = mujoco.MjModel.from_xml_path(iiwa14_mj_description.MJCF_PATH)
+# Load the model using robot_descriptions
+from robot_descriptions import iiwa14_mj_description
+model = mujoco.MjModel.from_xml_path("models_xml/two_dof_arm.xml")
 
-# # Alternatively, load via utility (commented out if using above)
-# # from robot_descriptions.loaders.mujoco import load_robot_description
-# # model = load_robot_description("panda_mj_description")
+# Alternatively, load via utility (commented out if using above)
+# from robot_descriptions.loaders.mujoco import load_robot_description
+# model = load_robot_description("panda_mj_description")
 
-# # Create MjData (state container)
-# data = mujoco.MjData(model)
+# Create MjData (state container)
+data = mujoco.MjData(model)
 
-# # Open the viewer
-# with mujoco.viewer.launch_passive(model, data) as viewer:
-#     print("Viewer is running. Close the window to exit.")
+# Open the viewer
+with mujoco.viewer.launch_passive(model, data) as viewer:
+    print("Viewer is running. Close the window to exit.")
     
-#     # Keep rendering until the viewer is closed
-#     while viewer.is_running():
-#         mujoco.mj_step(model, data)
-#         viewer.sync()
+    # Keep rendering until the viewer is closed
+    while viewer.is_running():
+        mujoco.mj_step(model, data)
+        viewer.sync()
 
 # import os
 # from pathlib import Path
@@ -441,129 +441,246 @@
 # Note: this feature requires Meshcat to be installed, this can be done using
 # pip install --user meshcat
  
-import sys
-from pathlib import Path
+# import sys
+# from pathlib import Path
  
-import numpy as np
-import pinocchio as pin
-from pinocchio.visualize import MeshcatVisualizer
+# import numpy as np
+# import pinocchio as pin
+# from pinocchio.visualize import MeshcatVisualizer
  
-# Load the URDF model.
-# Conversion with str seems to be necessary when executing this file with ipython
-pinocchio_model_dir = "pin_models"
+# # Load the URDF model.
+# # Conversion with str seems to be necessary when executing this file with ipython
+# pinocchio_model_dir = "pin_models"
  
-model_path = pinocchio_model_dir
-mesh_dir = pinocchio_model_dir
-# urdf_filename = "talos_reduced.urdf"
-# urdf_model_path = join(join(model_path,"talos_data/robots"),urdf_filename)
-urdf_filename = "solo.urdf"
-urdf_model_path = model_path / "solo_description/robots" / urdf_filename
+# model_path = pinocchio_model_dir
+# mesh_dir = pinocchio_model_dir
+# # urdf_filename = "talos_reduced.urdf"
+# # urdf_model_path = join(join(model_path,"talos_data/robots"),urdf_filename)
+# urdf_filename = "solo.urdf"
+# urdf_model_path = model_path / "solo_description/robots" / urdf_filename
  
-model, collision_model, visual_model = pin.buildModelsFromUrdf(
-    urdf_model_path, mesh_dir, pin.JointModelFreeFlyer()
-)
+# model, collision_model, visual_model = pin.buildModelsFromUrdf(
+#     urdf_model_path, mesh_dir, pin.JointModelFreeFlyer()
+# )
 
-# Start a new MeshCat server and client.
-# Note: the server can also be started separately using the "meshcat-server" command in
-# a terminal:
-# this enables the server to remain active after the current script ends.
-#
-# Option open=True pens the visualizer.
-# Note: the visualizer can also be opened seperately by visiting the provided URL.
-try:
-    viz = MeshcatVisualizer(model, collision_model, visual_model)
-    viz.initViewer(open=True)
-except ImportError as err:
-    print(
-        "Error while initializing the viewer. "
-        "It seems you should install Python meshcat"
-    )
-    print(err)
-    sys.exit(0)
+# # Start a new MeshCat server and client.
+# # Note: the server can also be started separately using the "meshcat-server" command in
+# # a terminal:
+# # this enables the server to remain active after the current script ends.
+# #
+# # Option open=True pens the visualizer.
+# # Note: the visualizer can also be opened seperately by visiting the provided URL.
+# try:
+#     viz = MeshcatVisualizer(model, collision_model, visual_model)
+#     viz.initViewer(open=True)
+# except ImportError as err:
+#     print(
+#         "Error while initializing the viewer. "
+#         "It seems you should install Python meshcat"
+#     )
+#     print(err)
+#     sys.exit(0)
  
-# Load the robot in the viewer.
-viz.loadViewerModel()
+# # Load the robot in the viewer.
+# viz.loadViewerModel()
  
-# Display a robot configuration.
-q0 = pin.neutral(model)
-viz.display(q0)
-viz.displayVisuals(True)
+# # Display a robot configuration.
+# q0 = pin.neutral(model)
+# viz.display(q0)
+# viz.displayVisuals(True)
  
-# Create a convex shape from solo main body
-mesh = visual_model.geometryObjects[0].geometry
-mesh.buildConvexRepresentation(True)
-convex = mesh.convex
+# # Create a convex shape from solo main body
+# mesh = visual_model.geometryObjects[0].geometry
+# mesh.buildConvexRepresentation(True)
+# convex = mesh.convex
  
-# Place the convex object on the scene and display it
-if convex is not None:
-    placement = pin.SE3.Identity()
-    placement.translation[0] = 2.0
-    geometry = pin.GeometryObject("convex", 0, placement, convex)
-    geometry.meshColor = np.ones(4)
-    # Add a PhongMaterial to the convex object
-    geometry.overrideMaterial = True
-    geometry.meshMaterial = pin.GeometryPhongMaterial()
-    geometry.meshMaterial.meshEmissionColor = np.array([1.0, 0.1, 0.1, 1.0])
-    geometry.meshMaterial.meshSpecularColor = np.array([0.1, 1.0, 0.1, 1.0])
-    geometry.meshMaterial.meshShininess = 0.8
-    visual_model.addGeometryObject(geometry)
-    # After modifying the visual_model we must rebuild
-    # associated data inside the visualizer
-    viz.rebuildData()
+# # Place the convex object on the scene and display it
+# if convex is not None:
+#     placement = pin.SE3.Identity()
+#     placement.translation[0] = 2.0
+#     geometry = pin.GeometryObject("convex", 0, placement, convex)
+#     geometry.meshColor = np.ones(4)
+#     # Add a PhongMaterial to the convex object
+#     geometry.overrideMaterial = True
+#     geometry.meshMaterial = pin.GeometryPhongMaterial()
+#     geometry.meshMaterial.meshEmissionColor = np.array([1.0, 0.1, 0.1, 1.0])
+#     geometry.meshMaterial.meshSpecularColor = np.array([0.1, 1.0, 0.1, 1.0])
+#     geometry.meshMaterial.meshShininess = 0.8
+#     visual_model.addGeometryObject(geometry)
+#     # After modifying the visual_model we must rebuild
+#     # associated data inside the visualizer
+#     viz.rebuildData()
  
-# Display another robot.
-viz2 = MeshcatVisualizer(model, collision_model, visual_model)
-viz2.initViewer(viz.viewer)
-viz2.loadViewerModel(rootNodeName="pinocchio2")
-q = q0.copy()
-q[1] = 1.0
-viz2.display(q)
+# # Display another robot.
+# viz2 = MeshcatVisualizer(model, collision_model, visual_model)
+# viz2.initViewer(viz.viewer)
+# viz2.loadViewerModel(rootNodeName="pinocchio2")
+# q = q0.copy()
+# q[1] = 1.0
+# viz2.display(q)
  
-# standing config
-q1 = np.array(
-    [0.0, 0.0, 0.235, 0.0, 0.0, 0.0, 1.0, 0.8, -1.6, 0.8, -1.6, -0.8, 1.6, -0.8, 1.6]
-)
+# # standing config
+# q1 = np.array(
+#     [0.0, 0.0, 0.235, 0.0, 0.0, 0.0, 1.0, 0.8, -1.6, 0.8, -1.6, -0.8, 1.6, -0.8, 1.6]
+# )
  
-v0 = np.random.randn(model.nv) * 2
-data = viz.data
-pin.forwardKinematics(model, data, q1, v0)
-frame_id = model.getFrameId("HR_FOOT")
-viz.display()
-viz.drawFrameVelocities(frame_id=frame_id)
+# v0 = np.random.randn(model.nv) * 2
+# data = viz.data
+# pin.forwardKinematics(model, data, q1, v0)
+# frame_id = model.getFrameId("HR_FOOT")
+# viz.display()
+# viz.drawFrameVelocities(frame_id=frame_id)
  
-model.gravity.linear[:] = 0.0
-dt = 0.01
- 
- 
-def sim_loop():
-    tau0 = np.zeros(model.nv)
-    qs = [q1]
-    vs = [v0]
-    nsteps = 100
-    for i in range(nsteps):
-        q = qs[i]
-        v = vs[i]
-        a1 = pin.aba(model, data, q, v, tau0)
-        vnext = v + dt * a1
-        qnext = pin.integrate(model, q, dt * vnext)
-        qs.append(qnext)
-        vs.append(vnext)
-        viz.display(qnext)
-        viz.drawFrameVelocities(frame_id=frame_id)
-    return qs, vs
+# model.gravity.linear[:] = 0.0
+# dt = 0.01
  
  
-qs, vs = sim_loop()
+# def sim_loop():
+#     tau0 = np.zeros(model.nv)
+#     qs = [q1]
+#     vs = [v0]
+#     nsteps = 100
+#     for i in range(nsteps):
+#         q = qs[i]
+#         v = vs[i]
+#         a1 = pin.aba(model, data, q, v, tau0)
+#         vnext = v + dt * a1
+#         qnext = pin.integrate(model, q, dt * vnext)
+#         qs.append(qnext)
+#         vs.append(vnext)
+#         viz.display(qnext)
+#         viz.drawFrameVelocities(frame_id=frame_id)
+#     return qs, vs
  
-fid2 = model.getFrameId("FL_FOOT")
+ 
+# qs, vs = sim_loop()
+ 
+# fid2 = model.getFrameId("FL_FOOT")
  
  
-def my_callback(i, *args):
-    viz.drawFrameVelocities(frame_id)
-    viz.drawFrameVelocities(fid2)
+# def my_callback(i, *args):
+#     viz.drawFrameVelocities(frame_id)
+#     viz.drawFrameVelocities(fid2)
  
  
-with viz.create_video_ctx("../leap.mp4"):
-    viz.play(qs, dt, callback=my_callback)
+# with viz.create_video_ctx("../leap.mp4"):
+#     viz.play(qs, dt, callback=my_callback)
 
-from pinocchio.robot_wrapper import RobotWrapper
+# from pinocchio.robot_wrapper import RobotWrapper
+
+# import matplotlib.pyplot as plt
+# import numpy as np
+
+# full_traj = np.load("data/2026-01-04_20-54-06_twodofarm/full_traj.npy")
+# full_velocity = np.load("data/2026-01-04_20-54-06_twodofarm/full_velocity.npy")
+
+# # Example arrays
+# A = full_traj
+# B = full_velocity
+
+# # --- Plot first array ---
+# plt.figure(figsize=(12, 4))
+# plt.plot(A[:, 0], label='A[:, 0]')
+# plt.plot(A[:, 1], label='A[:, 1]')
+# plt.title('Q')
+# plt.xlabel('Index')
+# plt.ylabel('Value')
+
+# plt.minorticks_on()
+# plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+# plt.legend()
+
+# # --- Plot second array ---
+# plt.figure(figsize=(12, 4))
+# plt.plot(B[:, 0], label='B[:, 0]')
+# plt.plot(B[:, 1], label='B[:, 1]')
+# plt.title('velocity')
+# plt.xlabel('Index')
+# plt.ylabel('Value')
+
+# plt.minorticks_on()
+# plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+# plt.legend()
+# plt.show()
+
+# import torch
+# import numpy as np
+# import matplotlib
+# import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+# from neural_network.models import MODEL_REGISTRY
+# matplotlib.use("TkAgg")
+# # =========================
+# # USER SETTINGS
+# # =========================
+
+# MODEL_PATH = "mneural_network/output/2025-12-11_15-40-48_train_model_3/model_epoch_900.pt"   # path to saved model
+
+# # Input ranges
+# ANGLE_MIN, ANGLE_MAX = -np.pi, np.pi          # radians
+# ANGVEL_MIN, ANGVEL_MAX = -10.0, 10.0           # rad/s
+
+# NUM_POINTS = 100  # resolution of the grid
+
+
+# # =========================
+# # LOAD MODEL
+# # =========================
+
+# model = MODEL_REGISTRY["PendulumModel"](None)
+# model.load_state_dict(torch.load("neural_network/output/2025-12-11_15-40-48_train_model_3/model_epoch_900.pt", map_location="cpu"))
+# model.eval()
+
+
+# # =========================
+# # CREATE INPUT GRID
+# # =========================
+
+# angles = np.linspace(ANGLE_MIN, ANGLE_MAX, NUM_POINTS)
+# ang_vels = np.linspace(ANGVEL_MIN, ANGVEL_MAX, NUM_POINTS)
+
+# A, W = np.meshgrid(angles, ang_vels)
+
+# # Flatten grid for batch inference
+# inputs = np.stack([A.ravel(), W.ravel()], axis=1)
+# inputs_torch = torch.tensor(inputs, dtype=torch.float32)
+
+
+# # =========================
+# # RUN MODEL
+# # =========================
+
+# with torch.no_grad():
+#     costs = model(inputs_torch).cpu().numpy()
+
+# # Reshape back to grid
+# C = costs.reshape(NUM_POINTS, NUM_POINTS)
+
+
+# # =========================
+# # 3D PLOT
+# # =========================
+
+# fig = plt.figure(figsize=(10, 7))
+# ax = fig.add_subplot(111, projection="3d")
+
+# # NOTE: cost is on the Y axis (as requested)
+# ax.plot_surface(
+#     A,            # X → angle
+#     W,            # Y → angular velocity
+#     C,            # Z → cost
+#     cmap="viridis",
+#     edgecolor="none",
+#     alpha=0.9
+# )
+
+# ax.set_xlabel("Angle (rad)")
+# ax.set_ylabel("Angular Velocity (rad/s)")
+# ax.set_zlabel("Cost")
+
+# ax.set_title("Neural Network Cost Landscape")
+
+# plt.tight_layout()
+# plt.show()

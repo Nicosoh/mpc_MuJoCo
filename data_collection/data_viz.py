@@ -6,21 +6,32 @@ import numpy as np
 import random
 import matplotlib as mpl
 import os
+import glob
 import mplcursors
 from pinocchio.robot_wrapper import RobotWrapper
 import pinocchio as pin
 
-def main(model_name, log_dir, run, samples):
+def main(model_name, data_path, run, samples):
     # Load config for the model
     with open(f"configs/{model_name}config.yaml", "r") as f: # 
         config = yaml.safe_load(f)
 
-    log_file= log_dir[:-16]
-    log_file = os.path.join("data", log_dir, f"{log_file}_logs.npz")
-    plots_dir = os.path.join("data", log_dir, "plots")
+    # Find the .npz file in the data_path
+    npz_files = glob.glob(os.path.join(data_path, "*.npz"))
+
+    if len(npz_files) != 1:
+        raise RuntimeError(
+            f"Expected exactly one .npz file in {data_path}, "
+            f"found {len(npz_files)}"
+        )
+
+    npz_file = npz_files[0]
+
+    # Directory to save plots
+    plots_dir = os.path.join("data", data_path, "plots")
 
     # Load data
-    all_logs = load_npz(log_file)
+    all_logs = load_npz(npz_file)
     if config["IK"]["IK_required"]:
         plot_traj_xyz(all_logs, config=config, frame_name="attachment_site", save_dir=plots_dir)
 
@@ -392,10 +403,10 @@ def plot_dist(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Visualize data for a model")
     parser.add_argument("model", type=str, help="Model name to load from config.yaml")
-    parser.add_argument("log_file", type=str, help="Base name of the logs npz file (without extension)")
+    parser.add_argument("data_path", type=str, help="Path to the collected data directory")
     parser.add_argument("--run", type=str, default=None, help="Optional: specific run key (e.g., run_001)")
     parser.add_argument("--samples", type=int, default=None, help="Optional: number of samples to plot")
     args = parser.parse_args()
 
     # Call main with all args
-    main(args.model, args.log_file, args.run, args.samples)
+    main(args.model, args.data_path, args.run, args.samples)
