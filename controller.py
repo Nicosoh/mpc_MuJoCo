@@ -17,6 +17,9 @@ def register_controller(cls):
 
 @register_controller
 class BaseMPCController:
+    '''
+    Class for a basic MPC Controller, also a base class for other MPC controllers.
+    '''
     def __init__(self, config, collision_config=None):
         # Extract parameters from config
         self.config = config
@@ -274,6 +277,9 @@ class BaseMPCController:
 
 @register_controller
 class NNMPCController(BaseMPCController):
+    '''
+    Class for testing trained terminal value approximation with single endpoint reference. Can be used with or without terminal cost component.
+    '''
     def __init__(self, config, collision_config=None):
         super().__init__(config, collision_config)
 
@@ -312,6 +318,10 @@ class NNMPCController(BaseMPCController):
 
 @register_controller
 class ManipulatorMPCController(BaseMPCController):
+    '''
+    Class for a basic MPC Controller with trajectory tracking and IK used for trajectory generation. Can be used with or without terminal cost component.
+    Specifically for manipulator models or models which require IK.
+    '''
     def __init__(self, config, collision_config=None):        
         super().__init__(config, collision_config)
         
@@ -338,6 +348,11 @@ class ManipulatorMPCController(BaseMPCController):
 
 @register_controller
 class NNManipulatorMPCController(ManipulatorMPCController, NNMPCController):
+    '''
+    Class for testing trained terminal value approximation with trajectory tracking and IK used for trajectory generation.
+    Specifically for manipulator models or models which require IK.
+    '''
+
     def __init__(self, config, collision_config=None):
         super().__init__(config, collision_config)
     
@@ -384,3 +399,31 @@ class NNManipulatorMPCController(ManipulatorMPCController, NNMPCController):
         # NONLINEAR_LS terminal cost
         terminal_cost = 0.5 * yN**2
         return terminal_cost
+
+@register_controller
+class NNManipulatorMPCController_Test(NNManipulatorMPCController):
+    '''
+    Class for testing trained terminal value approximation with stationary endpoint reference. No IK involved.
+    
+    Settings:
+    - controller_name: "NNManipulatorMPCController_Test"
+    - terminal_cost: true
+    - model_name: "TwoDofArmModelAcados"
+    - checkpoint_path: (set to trained model path)
+    - IK_required: false
+
+    '''
+    def __init__(self, config, collision_config=None):
+        super().__init__(config, collision_config)
+    
+    def set_yref(self, yref_now):
+        # Stage 
+        import pdb; pdb.set_trace()
+        for stage in range(self.N):
+            self.ocp_solver.cost_set(stage, "yref", yref_now, api='new')
+            self.ocp_solver.set(stage, "p", self.p)                                             # Modify Goal/obstacle position
+
+        # Terminal
+        if self.terminal_cost:
+            self.ocp_solver.cost_set(self.N, "yref", yref_now[:self.nx], api='new')             # Terminal reference (only x)
+            self.ocp_solver.set(self.N, "p", self.p)                                             # Modify Goal/obstacle position

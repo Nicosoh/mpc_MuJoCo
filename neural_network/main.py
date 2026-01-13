@@ -20,13 +20,13 @@ if __name__ == '__main__':
     # TRAIN_MODEL
     parser_train_model = subparsers.add_parser("train_model", help="Train the model")
     parser_train_model.add_argument(
-        '--config_path', type=str, required=True, help='Path to .ini config file for training'
+        'config_path', type=str, help='Path to .ini config file for training'
     )
 
     # EVALUATE_MODEL
     parser_evaluate_model = subparsers.add_parser("evaluate_model", help="Evaluate model")
     parser_evaluate_model.add_argument(
-        '--config_path', type=str, required=True, help='Path to .ini config file for testing'
+        'config_path', type=str, help='Path to .ini config file for testing'
     )
 
     args = parser.parse_args()

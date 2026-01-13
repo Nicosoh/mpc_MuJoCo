@@ -28,7 +28,7 @@ def main(model_name, data_path, run, samples):
     npz_file = npz_files[0]
 
     # Directory to save plots
-    plots_dir = os.path.join("data", data_path, "plots")
+    plots_dir = os.path.join(data_path, "plots")
 
     # Load data
     all_logs = load_npz(npz_file)

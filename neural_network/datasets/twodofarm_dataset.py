@@ -25,8 +25,8 @@ class TwoDofArmDataset(Dataset):
         # =============================================================
         if mode == "train":
             # Load stationary point config 
-            self.Xs_config = torch.tensor(get_num_config("LOSS", "x_s", config), dtype=torch.float32)
-            self.ys_config = torch.tensor(get_num_config("LOSS", "y_s", config), dtype=torch.float32)
+            # self.Xs_config = torch.tensor(get_num_config("LOSS", "x_s", config), dtype=torch.float32)
+            # self.ys_config = torch.tensor(get_num_config("LOSS", "y_s", config), dtype=torch.float32)
 
             # Load train data
             data_path = config.get("DATA", "data_path")
@@ -41,8 +41,8 @@ class TwoDofArmDataset(Dataset):
         # =============================================================
         elif mode == "test":
             # Load stationary point config 
-            self.Xs_config = torch.tensor(get_num_config("LOSS", "x_s", config), dtype=torch.float32)
-            self.ys_config = torch.tensor(get_num_config("LOSS", "y_s", config), dtype=torch.float32)
+            # self.Xs_config = torch.tensor(get_num_config("LOSS", "x_s", config), dtype=torch.float32)
+            # self.ys_config = torch.tensor(get_num_config("LOSS", "y_s", config), dtype=torch.float32)
 
             if test_config is None:
                 raise ValueError("test_config must be provided for test mode")
@@ -76,11 +76,17 @@ class TwoDofArmDataset(Dataset):
                 y_run = cost
             y_list.append(y_run)
 
+            # Stationary point arrays
+            Xs_q = run_data["yref_full"][-1][:qpos.shape[1]]
+            Xs_v = np.zeros_like(Xs_q)
+            Xs = np.concatenate([Xs_q, Xs_v])
+            ys = np.zeros((1,))
             # Form duplicated array that follows stationary point/end objective
-            Xs_run = np.concatenate([np.tile(self.Xs_config, (qpos.shape[0], 1)), yref_q], axis=1)
+            Xs_run = np.concatenate([np.tile(Xs, (qpos.shape[0], 1)), yref_q], axis=1)
+            ys_run = np.tile(ys, (qpos.shape[0], 1))
 
             Xs_list.append(Xs_run)
-            ys_list.append(np.tile(self.ys_config, (qpos.shape[0], 1)))
+            ys_list.append(ys_run)
 
         # Stack all runs together
         self.X = torch.from_numpy(np.vstack(X_list)).float()

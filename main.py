@@ -50,7 +50,7 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
             x0 = load_x0(config)                                                                            # Load x0 (Starting position)
             config["mpc"]["x0"] = x0.tolist()                                                               # Save x0 to config
             yref = load_yref(config)                                                                        # Load yref
-            config["yref"]["yref"] = yref.tolist()                                                          # Save yref to config
+            config["mpc"]["yref"] = yref.tolist()                                                          # Save yref to config
 
         else:                                                                                               # If dealing with manipulators
             IK = InverseKinematicsSolver(config, collision_config)

@@ -207,7 +207,6 @@ class MuJoCoSimulator:
         pbar.close()
         
         # Convert logs to arrays
-        # for key in ["qpos", "qvel", "u_applied", "stage_cost", "terminal_cost" ,"total_cost", "qpos_traj", "qvel_traj", "u_traj", "time", "yref", "yref_full", "x0"]:
         for key in self.logs.keys():
             self.logs[key] = np.array(self.logs[key])
 
