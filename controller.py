@@ -50,26 +50,20 @@ class BaseMPCController:
         Fmax = mpc_config["Fmax"]
         N_horizon = mpc_config["N_horizon"]
         Tf = N_horizon * mpc_config["mpc_timestep"]  # Time horizon
-        Q_mat = np.diag(mpc_config["Q_mat"]) # State cost weight matrix
-        R_mat = np.diag(mpc_config["R_mat"]) # Input cost weight matrix
         
         # Create ocp object to formulate the OCP
         ocp = AcadosOcp()
 
         # Call model creation function
-        model, robot_sys = export_ode_model(config)
+        model, self.robot_sys = export_ode_model(config)
         ocp.model = model
 
         # Extract state and input dimensions
         nx = model.x.rows()
         nu = model.u.rows()
-        ny = nx + nu
 
         # Set stage cost module
-        ocp.cost.cost_type = 'NONLINEAR_LS'                 # Stage cost
-        ocp.cost.W = scipy.linalg.block_diag(Q_mat, R_mat)  # Stage cost includes both states and input
-        ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
-        ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references to match first entry of yref for all states and inputs
+        self.define_stage_cost(ocp, model, config)
 
         # Set terminal cost module
         if self.terminal_cost:
@@ -77,7 +71,7 @@ class BaseMPCController:
             
         # Generate collision constraints
         if collision_config is not None and config["collision"]["collision_avoidance"]:
-            self.add_hard_constraints(ocp, model, robot_sys, collision_config)
+            self.add_hard_constraints(ocp, model, collision_config)
 
         # Set input constraints
         ocp.constraints.lbu = -np.array(Fmax)
@@ -115,24 +109,36 @@ class BaseMPCController:
         # Create solver based on settings above
         solver_json = 'acados_ocp_' + model.name + '.json'
         self.ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json, verbose=False)
-        
+
+    def define_stage_cost(self, ocp, model, config):
+        nx = model.x.rows()
+        nu = model.u.rows()
+        ny = nx + nu
+        Q_mat = np.diag(self.config["mpc"]["Q_mat"])
+        R_mat = np.diag(self.config["mpc"]["R_mat"])
+
+        ocp.cost.cost_type = 'NONLINEAR_LS'                 # Stage cost
+        ocp.cost.W = scipy.linalg.block_diag(Q_mat, R_mat)  # Stage cost includes both states and input
+        ocp.model.cost_y_expr = vertcat(model.x, model.u)   # Stage cost includes both states and input
+        ocp.cost.yref  = np.zeros((ny, ))                   # Set stage references to match first entry of yref for all states and inputs
+
     def define_terminal_cost(self, ocp, model, config):
         Q_mat = np.diag(self.config["mpc"]["Q_mat"])
-        ny_e = model.x.rows()
+        self.ny_e = model.x.rows()
     
         ocp.cost.cost_type_e = 'NONLINEAR_LS'               # Terminal cost
         ocp.cost.W_e = Q_mat                                # Terminal cost only inlcudes states
         ocp.model.cost_y_expr_e = model.x                   # Terminal cost only inlcudes states
-        ocp.cost.yref_e = np.zeros((ny_e, ))                # Set terminal reference to match first entry of yref for states only
-    
-    def add_hard_constraints(self, ocp, model, robot_sys, collision_config):
+        ocp.cost.yref_e = np.zeros((self.ny_e, ))                # Set terminal reference to match first entry of yref for states only
+
+    def add_hard_constraints(self, ocp, model, collision_config):
         raise NotImplementedError("add_hard_constraints method not implemented in BaseMPCController.")
 
     def set_yref(self, yref_now):
         for stage in range(self.N):
             self.ocp_solver.cost_set(stage, "yref", yref_now, api='new')
         if self.terminal_cost:
-            self.ocp_solver.cost_set(self.N, "yref", yref_now[:self.nx], api='new')  # Terminal reference (only x)
+            self.ocp_solver.cost_set(self.N, "yref", yref_now[:self.ny_e], api='new')  # Terminal reference (only x)
     
     def collect_traj(self, full_traj):
         qpos_traj = []
@@ -169,7 +175,11 @@ class BaseMPCController:
         stage_ref, terminal_ref = self.build_references(X, U, yref_now)
 
         stage_cost = self.compute_stage_cost(X, U, stage_ref)
-        terminal_cost = self.compute_terminal_cost(X, terminal_ref)
+
+        if self.terminal_cost:
+            terminal_cost = self.compute_terminal_cost(X, terminal_ref)
+        else:
+            terminal_cost = 0.0
 
         total_cost = stage_cost + terminal_cost
 
@@ -182,10 +192,16 @@ class BaseMPCController:
 
         if isinstance(yref_now, dict):
             stage_ref = yref_now["stage"]
-            terminal_ref = yref_now["terminal"][:nx]
+            if self.terminal_cost:
+                terminal_ref = yref_now["terminal"][:self.ny_e]
+            else:
+                terminal_ref = None
         else:
             stage_ref = np.tile(yref_now, (self.N, 1))
-            terminal_ref = yref_now[:nx]
+            if self.terminal_cost:
+                terminal_ref = yref_now[:self.ny_e]
+            else:
+                terminal_ref = None
 
         return stage_ref, terminal_ref
     
@@ -250,11 +266,6 @@ class BaseMPCController:
 
             # Get first control input
             u = self.ocp_solver.get(0, "u")
-
-        # else: # Without RTI
-            # Solve ocp and get next control input
-            # u = self.ocp_solver.solve_for_x0(x0_bar=x, fail_on_nonzero_status=False, print_stats_on_failure=False)
-            u = self.ocp_solver.solve_for_x0(x0_bar=x, fail_on_nonzero_status=False)
         
         else: # Without RTI (modofied solve_for_x0 to avoid min_step issue)
             self.ocp_solver.set(0, "lbx", x)
@@ -291,7 +302,7 @@ class NNMPCController(BaseMPCController):
             self.ocp_solver.cost_set(stage, "yref", yref_now, api='new')
         if self.terminal_cost:
             self.ocp_solver.cost_set(self.N, "yref", np.zeros((1,)), api='new')  # Terminal reference (only x)
-    
+
     def define_terminal_cost(self, ocp, model, config):
         ocp.cost.cost_type_e = 'NONLINEAR_LS'               # Terminal cost
         ocp.cost.W_e = np.ones((1, 1))                      # Weights set to 1, meaning no scaling for the NN output
@@ -320,14 +331,14 @@ class NNMPCController(BaseMPCController):
 class ManipulatorMPCController(BaseMPCController):
     '''
     Class for a basic MPC Controller with trajectory tracking and IK used for trajectory generation. Can be used with or without terminal cost component.
-    Specifically for manipulator models or models which require IK.
+    Specifically for manipulator models or models which require IK. Tracking in joint space.
     '''
     def __init__(self, config, collision_config=None):        
         super().__init__(config, collision_config)
-        
-    def add_hard_constraints(self, ocp, model, robot_sys, collision_config):
+
+    def add_hard_constraints(self, ocp, model, collision_config):
         # Generate collision constraints
-        constraints = build_capsule_collision_constraints(robot_sys, 
+        constraints = build_capsule_collision_constraints(self.robot_sys, 
                                                               collision_config["links"], 
                                                               collision_config["obstacles"], 
                                                               collision_config["collision_pairs"])
@@ -344,10 +355,10 @@ class ManipulatorMPCController(BaseMPCController):
         for stage in range(self.N):
             self.ocp_solver.cost_set(stage, "yref", yref_now["stage"][stage], api='new')
         if self.terminal_cost:
-            self.ocp_solver.cost_set(self.N, "yref", yref_now["terminal"][:self.nx], api='new')  # Terminal reference (only x)
+            self.ocp_solver.cost_set(self.N, "yref", yref_now["terminal"][:self.ny_e], api='new')  # Terminal reference (only x)
 
 @register_controller
-class NNManipulatorMPCController(ManipulatorMPCController, NNMPCController):
+class NNManipulatorMPCController(ManipulatorMPCController):
     '''
     Class for testing trained terminal value approximation with trajectory tracking and IK used for trajectory generation.
     Specifically for manipulator models or models which require IK.
@@ -355,7 +366,10 @@ class NNManipulatorMPCController(ManipulatorMPCController, NNMPCController):
 
     def __init__(self, config, collision_config=None):
         super().__init__(config, collision_config)
-    
+
+        if not config["mpc"]["terminal_cost"]:
+            raise ValueError("NNMPCController requires terminal cost to be True.")
+
     def define_terminal_cost(self, ocp, model, config):
         ocp.cost.cost_type_e = 'NONLINEAR_LS'               # Terminal cost
         ocp.cost.W_e = np.ones((1, 1))                      # Weights set to 1, meaning no scaling for the NN output
@@ -384,8 +398,7 @@ class NNManipulatorMPCController(ManipulatorMPCController, NNMPCController):
         # Terminal
         if self.terminal_cost:
             self.ocp_solver.cost_set(self.N, "yref", np.zeros((1,)), api='new')  # Terminal reference (only x)
-
-        self.ocp_solver.set(self.N, "p", self.p)                                             # Modify Goal/obstacle position
+            self.ocp_solver.set(self.N, "p", self.p)                                             # Modify Goal/obstacle position
 
     def compute_terminal_cost(self, X, terminal_ref):
         # Terminal state (nx,)
@@ -401,29 +414,203 @@ class NNManipulatorMPCController(ManipulatorMPCController, NNMPCController):
         return terminal_cost
 
 @register_controller
-class NNManipulatorMPCController_Test(NNManipulatorMPCController):
+class ManipulatorMPCController_eeTracker(ManipulatorMPCController):
+    '''
+    Same as ManipulatorMPCController but cost formulation is a hybrid of end-effector space tracking and joint velocities, input regularisation.
+    to do: modify stage cost, modify set_yref??, modify terminal cost as well, modify compute stage cost and terminal cost.
+    '''
+    def __init__(self, config, collision_config=None):        
+        super().__init__(config, collision_config)
+
+        if not config["IK"]["output_xyz"]:
+            raise ValueError("NNMPCController_eeTracker requires IK output to be in xyz format.")
+
+    def define_stage_cost(self, ocp, model, config):
+        self.build_FK_function()
+
+        nx = model.x.rows()
+        nu = model.u.rows()
+        ny = self.ee_expr.shape[0]+ nx//2 + nu
+
+        Q_mat = np.diag(self.config["mpc"]["Q_mat"])
+        Q_dot_mat = np.diag(self.config["mpc"]["Q_dot_mat"])
+        R_mat = np.diag(self.config["mpc"]["R_mat"])
+
+        q_dot = model.x[nx//2:]  # Joint velocities
+
+        ocp.cost.cost_type = 'NONLINEAR_LS'                             # Stage cost
+        ocp.cost.W = scipy.linalg.block_diag(Q_mat, Q_dot_mat, R_mat)   # Stage cost includes both states and input
+        ocp.model.cost_y_expr = vertcat(self.ee_expr, q_dot, model.u)             # Stage cost includes both states and input
+        ocp.cost.yref  = np.zeros((ny, ))                               # Set stage references to match first entry of yref for all states and inputs
+
+    def define_terminal_cost(self, ocp, model, config):
+        Q_mat = np.diag(self.config["mpc"]["Q_mat"])
+        Q_dot_mat = np.diag(self.config["mpc"]["Q_dot_mat"])
+
+        nx = model.x.rows()
+        self.ny_e = self.ee_expr.shape[0]+ nx//2
+
+        q_dot = model.x[nx//2:]  # Joint velocities
+
+        ocp.cost.cost_type_e = 'NONLINEAR_LS'                           # Terminal cost
+        ocp.cost.W_e = scipy.linalg.block_diag(Q_mat, Q_dot_mat)        # Terminal cost only inlcudes states
+        ocp.model.cost_y_expr_e = vertcat(self.ee_expr, q_dot)                    # Terminal cost only inlcudes states
+        ocp.cost.yref_e = np.zeros((self.ny_e, ))                            # Set terminal reference to match first entry of yref for states only
+    
+    def build_FK_function(self):
+        # Create FK function from attachment_site SX
+        self.ee_expr = getattr(self.robot_sys, "attachment_site")           # To feed to acados
+        q_syms_list = ca.symvar(self.ee_expr)        # list of symbolic joints
+        q_syms = ca.vertcat(*q_syms_list)      # stack into SX vector
+        self.ee_fun = ca.Function("ee_fun", [q_syms], [self.ee_expr])  # FK function, To evaluate numerically
+
+    def compute_stage_cost(self, X, U, stage_ref):
+        # --- Step 1: Prepare cost weights ---
+        Q     = np.diag(self.config["mpc"]["Q_mat"])       # EE position weights
+        Q_dot = np.diag(self.config["mpc"]["Q_dot_mat"])   # Joint velocity weights
+        R     = np.diag(self.config["mpc"]["R_mat"])       # Control weights
+
+        nx = X.shape[1]
+        nq = nx // 2
+
+        stage_cost = 0.0
+
+        # --- Step 2: Loop through horizon ---
+        for k in range(self.N):
+            q     = X[k, :nq]
+            qdot  = X[k, nq:]
+            u     = U[k]
+
+            # --- Evaluate FK using CasADi function ---
+            ee_val = np.array(self.ee_fun(q)).squeeze()  # end-effector position
+
+            # --- Stack stage output ---
+            y = np.concatenate([ee_val, qdot, u])
+
+            # --- Compute error to stage reference ---
+            e = y - stage_ref[k]   # stage_ref should be (self.N, len(y)) array
+
+            # --- Full stage weight ---
+            W = scipy.linalg.block_diag(Q, Q_dot, R)
+
+            # --- Accumulate cost ---
+            stage_cost += 0.5 * self.mpc_timestep * e @ W @ e
+
+        return stage_cost
+    
+    def compute_terminal_cost(self, X, terminal_ref):
+            if not self.terminal_cost:
+                return 0.0
+
+            nx = X.shape[1]
+            nq = nx // 2
+
+            # --- Step 2: Extract final stage ---
+            q_final = X[self.N, :nq]
+            qdot_final = X[self.N, nq:]
+
+            # --- Step 3: Evaluate end-effector FK ---
+            ee_val = np.array(self.ee_fun(q_final)).squeeze()
+
+            # --- Step 4: Stack terminal state for cost ---
+            y_e = np.concatenate([ee_val, qdot_final])
+
+            # --- Step 5: Compute terminal cost weights ---
+            Q_mat = np.diag(self.config["mpc"]["Q_mat"])
+            Q_dot_mat = np.diag(self.config["mpc"]["Q_dot_mat"])
+            W_e = scipy.linalg.block_diag(Q_mat, Q_dot_mat)
+
+            # --- Step 6: Compute error to terminal reference ---
+            e = y_e - terminal_ref  # terminal_ref must match shape of y_e
+
+            # --- Step 7: Return scalar terminal cost ---
+            return 0.5 * e @ W_e @ e
+
+@register_controller
+class ManipulatorMPCController_eeTracker_point(ManipulatorMPCController_eeTracker):
+    def __init__(self, config, collision_config=None):
+        super().__init__(config, collision_config)
+
+        if not config["IK"]["point_reference"]:
+            raise ValueError("ManipulatorMPCController_eeTracker_point requires point_reference to be True.")
+
+    def set_yref(self, yref_now):
+        for stage in range(self.N):
+            self.ocp_solver.cost_set(stage, "yref", yref_now, api='new')
+        if self.terminal_cost:
+            self.ocp_solver.cost_set(self.N, "yref", yref_now[:self.ny_e], api='new')  # Terminal reference (only x)    
+
+@register_controller
+class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, NNManipulatorMPCController):
     '''
     Class for testing trained terminal value approximation with stationary endpoint reference. No IK involved.
     
     Settings:
-    - controller_name: "NNManipulatorMPCController_Test"
     - terminal_cost: true
     - model_name: "TwoDofArmModelAcados"
     - checkpoint_path: (set to trained model path)
-    - IK_required: false
+    - IK_required: false during tesing, true during data generation
 
     '''
     def __init__(self, config, collision_config=None):
         super().__init__(config, collision_config)
     
+    def define_terminal_cost(self, ocp, model, config):
+        ocp.cost.cost_type_e = 'NONLINEAR_LS'               # Terminal cost
+        ocp.cost.W_e = np.ones((1, 1))                      # Weights set to 1, meaning no scaling for the NN output
+        ocp.cost.yref_e = np.zeros((1, ))                   # Set terminal reference to zero for NN output
+
+        # Extract joint velocities
+        nx = model.x.rows()
+        self.ny_e = self.ee_expr.shape[0]+ nx//2
+
+        q_dot = model.x[nx//2:]
+
+        # Create parameters for goal, obstacle
+        self.p = np.array(self.config["mpc"]["yref"])
+        ocp.model.p = SX.sym('p', self.p.shape[0])  # Full yref as parameter
+        ocp.parameter_values = np.zeros(self.p.shape[0])
+
+        # Export trained NN model
+        self.l4c_model = export_torch_model(config)
+        # Evaluate NN symbolically
+        y_sym = self.l4c_model(ca.transpose(vertcat(self.ee_expr, q_dot, ocp.model.p)))
+        ocp.model.cost_y_expr_e = y_sym
+        # Link shared library
+        ocp.solver_options.model_external_shared_lib_dir = self.l4c_model.shared_lib_dir
+        ocp.solver_options.model_external_shared_lib_name = self.l4c_model.name
+
+    def compute_terminal_cost(self, X, terminal_ref):
+        # Terminal state (nx,)
+        xN_q_dot = X[self.N][self.nx//2:]                       # Extract joint velocities only
+
+        q_final = X[self.N][:self.nx//2]                        # Extract joint positions only
+        ee_val = np.array(self.ee_fun(q_final)).squeeze()       # Evaluate FK to get end-effector position
+
+        xN_p = np.concatenate([ee_val, xN_q_dot, self.p])       # Combine ee position, joint velocities, and parameters shape: (7,)
+
+        # Evaluate NN numerically
+        yN = np.asarray(self.l4c_model(xN_p)).squeeze()
+
+        # NONLINEAR_LS terminal cost
+        terminal_cost = 0.5 * yN**2
+        return terminal_cost
+
+@register_controller
+class NNManipulatorMPCController_eeTracker_point(NNManipulatorMPCController_eeTracker):
+    def __init__(self, config, collision_config=None):
+        super().__init__(config, collision_config)
+
+        if not config["IK"]["point_reference"]:
+            raise ValueError("ManipulatorMPCController_eeTracker_point requires point_reference to be True.")
+        
     def set_yref(self, yref_now):
-        # Stage 
-        import pdb; pdb.set_trace()
+        # Stage
         for stage in range(self.N):
             self.ocp_solver.cost_set(stage, "yref", yref_now, api='new')
             self.ocp_solver.set(stage, "p", self.p)                                             # Modify Goal/obstacle position
 
         # Terminal
         if self.terminal_cost:
-            self.ocp_solver.cost_set(self.N, "yref", yref_now[:self.nx], api='new')             # Terminal reference (only x)
+            self.ocp_solver.cost_set(self.N, "yref", np.zeros((1,)), api='new')                  # Terminal reference (only x)
             self.ocp_solver.set(self.N, "p", self.p)                                             # Modify Goal/obstacle position

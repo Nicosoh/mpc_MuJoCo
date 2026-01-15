@@ -108,3 +108,57 @@ class TwoDofArmDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.X[idx], self.Xs[idx], self.y[idx], self.ys[idx]
+
+class TwoDofArmDataset_eeTracker(TwoDofArmDataset):
+    """
+    Dataset for TwoDofArm:
+    Inputs X = [X_ee, Y_ee, X_ee, qvel1, qvel2, X_yref, Y_yref, Z_yref]
+    Targets y = cost
+    Handles multiple runs inside the data dictionary.
+
+    Optional train/test split using `split_ratio`.
+    """
+    def __init__(self, config, run_dir, mode, test_config=None):
+        super().__init__(config, run_dir, mode, test_config)
+    
+    def preprocess_data(self, data):
+        X_list = []
+        Xs_list = []
+        y_list = []
+        ys_list = []
+
+        for run_key in data.keys():  # iterate over each run
+            run_data = data[run_key]
+            pos = run_data["xyzpos"]
+            qvel = run_data["qvel"]
+            cost = run_data["total_cost"]
+            yref_pos = np.tile(run_data["yref_xyz"], (pos.shape[0], 1))
+
+            # Concatenate qpos and qvel
+            X_run = np.concatenate([pos, qvel, yref_pos], axis=1)
+            X_list.append(X_run)
+
+            # Ensure cost is 2D
+            if len(cost.shape) == 1:
+                y_run = cost[:, None]
+            else:
+                y_run = cost
+            y_list.append(y_run)
+
+            # Stationary point arrays
+            Xs_pos = yref_pos
+            # (ee pos, zero vel, yref pos) 
+            # While ee_pos is at yref and with zero velocity cost should be zero.
+            Xs_run = np.concatenate([Xs_pos, np.zeros_like(qvel), Xs_pos], axis=1)
+
+            ys = np.zeros((1,))
+            ys_run = np.tile(ys, (pos.shape[0], 1))
+
+            Xs_list.append(Xs_run)
+            ys_list.append(ys_run)
+
+        # Stack all runs together
+        self.X = torch.from_numpy(np.vstack(X_list)).float()
+        self.Xs = torch.from_numpy(np.vstack(Xs_list)).float()
+        self.y = torch.from_numpy(np.vstack(y_list)).float()
+        self.ys = torch.from_numpy(np.vstack(ys_list)).float()

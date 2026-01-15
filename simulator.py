@@ -1,3 +1,4 @@
+from pyexpat import model
 import mujoco
 import numpy as np
 from tqdm import tqdm
@@ -16,6 +17,7 @@ class MuJoCoSimulator:
         self.N_horizon = self.config["mpc"]["N_horizon"]
         self.mpc_timestep = self.config["mpc"]["mpc_timestep"]
         self.IK_required = self.config["IK"]["IK_required"]
+        self.point_reference = self.config["IK"]["point_reference"]
 
         self.model, self.data = load_model(self.config)                     # Create MuJoCo simulator object with loaded model
         # self.sanity_check()                                                 # Sanity check between model, controller, yref, x0
@@ -101,6 +103,7 @@ class MuJoCoSimulator:
         early_termination_state = mpc_config["early_termination_state"]
         termination_thresh_state = np.array(mpc_config["termination_state"])
         solve_ocp = mpc_config["solve_ocp"]
+        output_xyz = self.config["IK"]["output_xyz"]
 
         # Extract parameters for IK
         IK_required = self.config["IK"]["IK_required"]
@@ -121,8 +124,8 @@ class MuJoCoSimulator:
             "qpos": [],
             "qvel": [],
             "yref": [],
-            "yref_full": self.yref,
-            "yref_xyz": self.config["mpc"]["yref"],
+            "yref_full": self.yref,                 # Full reference trajectory could be in cartesian or joint space
+            "yref_xyz": self.config["mpc"]["yref"], # Final end-effector position in XYZ
             "u_applied": [],
             "stage_cost": [],
             "terminal_cost": [],
@@ -131,6 +134,9 @@ class MuJoCoSimulator:
             "qvel_traj": [],
             "u_traj": [],
         }
+        if output_xyz:
+            self.logs["xyzpos"] = []                                                                # Empty list for End-effector positions in XYZ
+            site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE,"attachment_site")          # End-effector site id
 
         # Set initial position and velocity from x0
         self.data.qpos[:] = x0[:self.model.nq]
@@ -162,6 +168,9 @@ class MuJoCoSimulator:
                 self.logs["qpos_traj"].append(qpos_traj)
                 self.logs["qvel_traj"].append(qvel_traj)
                 self.logs["u_traj"].append(u_traj)
+
+                if output_xyz:
+                    self.logs["xyzpos"].append(np.copy(self.data.site_xpos[site_id]))
 
                 if verbose:
                     print(
@@ -195,7 +204,8 @@ class MuJoCoSimulator:
                 if total_cost < termination_thresh_cost and early_termination_cost:
                     pbar.write(f"Terminating early at t = {self.data.time:.2f}s with cost = {total_cost:.5f}")
                     break
-                elif early_termination_state:
+                elif early_termination_state: #need to rethink about this part....
+                    import pdb; pdb.set_trace()
                     state_err = np.concatenate([self.data.qpos, self.data.qvel]) - self.yref[-1][:self.model.nq+self.model.nv]
                     if np.linalg.norm(state_err) < termination_thresh_state:
                         pbar.write(f"Terminating early at t = {self.data.time:.2f}s with state error = {np.linalg.norm(state_err):.5f}")
@@ -222,9 +232,7 @@ class MuJoCoSimulator:
         # Only update MPC if needed
         if self.data.time >= self.next_mpc_time:
             try:
-                if not self.IK_required:
-                    # Get reference state at the current time
-                    # yref_now = get_yref_at_time(self.data.time, self.yref)
+                if not self.IK_required or self.point_reference:
                     yref_now = self.yref
                     self.logs["yref"].append(yref_now)  # Keep track of the reference
                 else:

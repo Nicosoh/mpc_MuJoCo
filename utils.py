@@ -11,100 +11,303 @@ from casadi import vertcat
 from robot_descriptions.loaders.mujoco import load_robot_description
 
 # ========== PLOTTING ==========
+# def plot_signals(time, logs, model, config, output_dir, file_name="plot"):
+#     """
+#     Processes signals based on plots_config and plots them over time.
+#     Now plots stage, terminal, and total costs on the same graph.
+#     """
+#     plots_config = config["plots"]
+#     IK_required = config["IK"]["IK_required"]
+#     output_xyz = config["IK"]["output_xyz"]
+
+#     signals = {}
+#     ylabel_units = {}
+
+#     # Ensure numeric lists in logs are converted to numpy arrays
+#     for key, val in logs.items():
+#         if isinstance(val, list):
+#             if len(val) == 0 or not isinstance(val[0], dict):
+#                 logs[key] = np.array(val)
+
+#     # Process yref
+#     yref_full = logs.get("yref", None)
+#     if yref_full is not None and IK_required:
+#         # Convert list of dicts into array if necessary
+#         yref_full = np.array([step["stage"][0] for step in yref_full])
+
+#     # Offsets to access yref by type
+#     source_offsets = {
+#         "qpos": 0,
+#         "qvel": model.nq,
+#         "ctrl": model.nq + model.nv,
+#         "u_applied": model.nq + model.nv,
+#     }
+
+#     # Separate cost keys to plot together
+#     cost_keys = ["stage_cost", "terminal_cost", "total_cost"]
+
+#     for name, (source, idx, unit) in plots_config.items():
+#         if source == "xyzpos":
+#             assert idx < 3
+#             signals[name] = logs["xyzpos"][:, idx]
+
+#         elif source == "qpos":
+#             assert idx < model.nq
+#             signals[name] = logs["qpos"][:, idx]
+
+#         elif source == "qvel":
+#             assert idx < model.nv
+#             signals[name] = logs["qvel"][:, idx]
+
+#         elif source in ["ctrl", "u_applied"]:
+#             assert idx < model.nu
+#             signals[name] = logs["u_applied"][:, idx]
+
+#         elif source in cost_keys:
+#             pass
+
+#         else:
+#             raise ValueError(f"Invalid signal source '{source}'")
+
+#         ylabel_units[name] = unit
+
+#     # --- Now do plotting ---
+#     os.makedirs(output_dir, exist_ok=True)
+#     full_path = os.path.join(output_dir, f"{file_name}.jpg")
+
+#     # Prepare subplots
+#     n = len(signals)
+#     # Add 1 extra subplot for cost if any cost keys exist
+#     if any(k in logs for k in cost_keys):
+#         n += 1
+
+#     dpi = 120
+#     width, height = 800, 200 * n
+#     figsize = (width / dpi, height / dpi)
+
+#     fig, ax = plt.subplots(n, 1, figsize=figsize, dpi=dpi, sharex=True)
+#     if n == 1:
+#         ax = [ax]
+
+#     # Plot normal signals
+#     for i, (name, values) in enumerate(signals.items()):
+#         ax[i].plot(time, values, label="Actual")
+#         source, idx, _ = plots_config[name]
+#         if yref_full is not None and source in source_offsets:
+#             yref_idx = source_offsets[source] + idx
+#             if yref_idx < yref_full.shape[1]:
+#                 ax[i].plot(time, yref_full[:, yref_idx], "--", label="Ref")
+#         ax[i].set_title(name)
+#         ax[i].set_ylabel(ylabel_units.get(name, ""))
+#         ax[i].legend(loc="best")
+
+#     # Plot cost on last subplot
+#     if any(k in logs for k in cost_keys):
+#         cost_ax = ax[-1]
+#         for key in cost_keys:
+#             if key in logs:
+#                 cost_ax.plot(time, logs[key], label=key.replace("_", " ").capitalize())
+#         cost_ax.set_title("MPC Cost")
+#         cost_ax.set_ylabel("Cost")
+#         cost_ax.legend(loc="best")
+
+#     ax[-1].set_xlabel("Time (s)")
+#     plt.tight_layout()
+#     plt.savefig(full_path)
+#     print(f"Plot saved to: {os.path.abspath(full_path)}")
+#     plt.show()
+
 def plot_signals(time, logs, model, config, output_dir, file_name="plot"):
     """
-    Processes signals based on plots_config and plots them over time.
-    Now plots stage, terminal, and total costs on the same graph.
+    Plot logged signals over time.
+
+    Supports:
+    - Joint-space plots (qpos, qvel, ctrl)
+    - Task-space EE plots (xyzpos)
+    - Selective reference plotting based on output_xyz flag
+    - Multi-column subplot layout
     """
+
     plots_config = config["plots"]
     IK_required = config["IK"]["IK_required"]
+    output_xyz = config["IK"]["output_xyz"]
 
     signals = {}
     ylabel_units = {}
 
-    # Ensure numeric lists in logs are converted to numpy arrays
+    # -----------------------------
+    # Convert list logs to numpy
+    # -----------------------------
     for key, val in logs.items():
         if isinstance(val, list):
             if len(val) == 0 or not isinstance(val[0], dict):
                 logs[key] = np.array(val)
 
-    # Process yref
+    # -----------------------------
+    # Process yref (time-varying ref)
+    # -----------------------------
+    import pdb; pdb.set_trace()
     yref_full = logs.get("yref", None)
     if yref_full is not None and IK_required:
-        # Convert list of dicts into array if necessary
-        yref_full = np.array([step["stage"][0] for step in yref_full])
-
-    # Offsets to access yref by type
-    source_offsets = {
-        "qpos": 0,
-        "qvel": model.nq,
-        "ctrl": model.nq + model.nv,
-        "u_applied": model.nq + model.nv,
-    }
-
-    # Separate cost keys to plot together
-    cost_keys = ["stage_cost", "terminal_cost", "total_cost"]
-
-    for name, (source, idx, unit) in plots_config.items():
-        if source in ["qpos", "qvel", "ctrl", "u_applied"]:
-            if source == "qpos":
-                assert idx < model.nq
-                signals[name] = logs["qpos"][:, idx]
-            elif source == "qvel":
-                assert idx < model.nv
-                signals[name] = logs["qvel"][:, idx]
-            else:
-                assert idx < model.nu
-                signals[name] = logs["u_applied"][:, idx]
-        elif source in cost_keys:
-            # We'll handle these specially later
-            pass
+        if not config["IK"]["point_reference"]:
+            yref_full = np.array([step["stage"][0] for step in yref_full])
         else:
-            raise ValueError(f"Invalid signal source '{source}' in plots config for '{name}'")
+            yref_full = np.array(yref_full)
+
+    # -----------------------------
+    # Reference layout offsets
+    # -----------------------------
+    if output_xyz:
+        source_offsets = {
+            "xyzpos": 0,
+            "qvel": 3,
+            "ctrl": 3 + model.nv,
+            "u_applied": 3 + model.nv,
+        }
+    else:
+        source_offsets = {
+            "qpos": 0,
+            "qvel": model.nq,
+            "ctrl": model.nq + model.nv,
+            "u_applied": model.nq + model.nv,
+        }
+
+    # -----------------------------
+    # Safety check (recommended)
+    # -----------------------------
+    if yref_full is not None:
+        expected_dim = (
+            3 + model.nv + model.nu if output_xyz
+            else model.nq + model.nv + model.nu
+        )
+        assert yref_full.shape[1] == expected_dim, (
+            f"yref_full has wrong dimension: "
+            f"{yref_full.shape[1]} != {expected_dim}"
+        )
+
+    # -----------------------------
+    # Cost keys
+    # -----------------------------
+    cost_keys = ["stage_cost", "terminal_cost", "total_cost"]
+    has_cost = any(k in logs for k in cost_keys)
+
+    # -----------------------------
+    # Helper: reference gating
+    # -----------------------------
+    def should_plot_ref(source):
+        if not output_xyz:
+            return True
+        return source != "qpos"
+
+    # -----------------------------
+    # Extract signals
+    # -----------------------------
+    for name, (source, idx, unit) in plots_config.items():
+
+        if source == "xyzpos":
+            assert idx < 3
+            signals[name] = logs["xyzpos"][:, idx]
+
+        elif source == "qpos":
+            assert idx < model.nq
+            signals[name] = logs["qpos"][:, idx]
+
+        elif source == "qvel":
+            assert idx < model.nv
+            signals[name] = logs["qvel"][:, idx]
+
+        elif source in ["ctrl", "u_applied"]:
+            assert idx < model.nu
+            signals[name] = logs["u_applied"][:, idx]
+
+        elif source in cost_keys:
+            continue
+
+        else:
+            raise ValueError(f"Invalid signal source '{source}'")
+
         ylabel_units[name] = unit
 
-    # --- Now do plotting ---
-    os.makedirs(output_dir, exist_ok=True)
-    full_path = os.path.join(output_dir, f"{file_name}.jpg")
+    # -----------------------------
+    # Plot layout (3 columns)
+    # -----------------------------
+    n_plots = len(signals) + (1 if has_cost else 0)
+    n_cols = 2
+    n_rows = int(np.ceil(n_plots / n_cols))
 
-    # Prepare subplots
-    n = len(signals)
-    # Add 1 extra subplot for cost if any cost keys exist
-    if any(k in logs for k in cost_keys):
-        n += 1
+    dpi = 60
+    fig_width = 1200 / dpi
+    fig_height = (250 * n_rows) / dpi
 
-    dpi = 120
-    width, height = 800, 200 * n
-    figsize = (width / dpi, height / dpi)
+    fig, ax = plt.subplots(
+        n_rows,
+        n_cols,
+        figsize=(fig_width, fig_height),
+        dpi=dpi,
+        sharex=True,
+    )
 
-    fig, ax = plt.subplots(n, 1, figsize=figsize, dpi=dpi, sharex=True)
-    if n == 1:
-        ax = [ax]
+    ax = np.array(ax).reshape(-1)
 
-    # Plot normal signals
-    for i, (name, values) in enumerate(signals.items()):
-        ax[i].plot(time, values, label="Actual")
+    # -----------------------------
+    # Plot signals
+    # -----------------------------
+    plot_idx = 0
+
+    for name, values in signals.items():
+        a = ax[plot_idx]
+        a.plot(time, values, label="Actual")
+
         source, idx, _ = plots_config[name]
-        if yref_full is not None and source in source_offsets:
-            yref_idx = source_offsets[source] + idx
-            if yref_idx < yref_full.shape[1]:
-                ax[i].plot(time, yref_full[:, yref_idx], "--", label="Ref")
-        ax[i].set_title(name)
-        ax[i].set_ylabel(ylabel_units.get(name, ""))
-        ax[i].legend(loc="best")
 
-    # Plot cost on last subplot
-    if any(k in logs for k in cost_keys):
-        cost_ax = ax[-1]
+        if should_plot_ref(source) and yref_full is not None:
+
+            # Task-space XYZ reference
+            if source == "xyzpos" and output_xyz:
+                yref_idx = source_offsets["xyzpos"] + idx
+                a.plot(time, yref_full[:, yref_idx], "--", label="Ref")
+
+            # Joint / velocity / control reference
+            elif source in source_offsets:
+                yref_idx = source_offsets[source] + idx
+                if yref_idx < yref_full.shape[1]:
+                    a.plot(time, yref_full[:, yref_idx], "--", label="Ref")
+
+        a.set_title(name)
+        a.set_ylabel(ylabel_units.get(name, ""))
+        a.legend(loc="best")
+
+        plot_idx += 1
+
+    # -----------------------------
+    # Plot costs
+    # -----------------------------
+    if has_cost:
+        cost_ax = ax[plot_idx]
         for key in cost_keys:
             if key in logs:
-                cost_ax.plot(time, logs[key], label=key.replace("_", " ").capitalize())
+                cost_ax.plot(time, logs[key], label=key.replace("_", " ").title())
+
         cost_ax.set_title("MPC Cost")
         cost_ax.set_ylabel("Cost")
         cost_ax.legend(loc="best")
+        plot_idx += 1
 
-    ax[-1].set_xlabel("Time (s)")
-    plt.tight_layout()
+    # -----------------------------
+    # Hide unused subplots
+    # -----------------------------
+    for i in range(plot_idx, len(ax)):
+        ax[i].axis("off")
+
+    ax[0].figure.text(0.5, 0.04, "Time (s)", ha="center")
+
+    # -----------------------------
+    # Save
+    # -----------------------------
+    os.makedirs(output_dir, exist_ok=True)
+    full_path = os.path.join(output_dir, f"{file_name}.jpg")
+
+    plt.tight_layout(rect=[0, 0.05, 1, 1])
     plt.savefig(full_path)
     print(f"Plot saved to: {os.path.abspath(full_path)}")
     plt.show()

@@ -29,27 +29,36 @@ class InverseKinematicsSolver:
         self.velocity_thres = self.config["IK"]["velocity_threshold"]
         self.limit_accel = self.config["IK"]["limit_acceleration"]
         self.d_min = self.config["IK"]["safety_distance"]
+        self.output_xyz = self.config["IK"]["output_xyz"]
+        self.attachment_site = "attachment_site"
 
-        self.traj_q = []
+        if self.output_xyz:
+            self.traj_q = []
+        self.traj = []      # Can be in joint space or Cartesian space
 
-        self.setup()
-
-    def setup(self):
-        # =========== Load model ===========
         self.load_model()
 
+    def load_x0(self):
         # =========== Load x0 ===========
         self.x0_q = self.get_valid_q("x0_q", "x0_q_range")
-        self.config["mpc"]["x0_q"] = self.x0_q.tolist()       # Save x0 in joint space to config for summary saving purpose
-        self.traj_q.append(self.x0_q)                       # Record starting position
-        
+        x0_q_save = np.hstack((self.x0_q, np.zeros((self.config["pin"]["nu"]))))
+        self.config["mpc"]["x0_q"] = x0_q_save.tolist()       # Save x0 in joint space to config for summary saving purpose
+        self.config["mpc"]["x0"] = self.joint_to_xyz(self.x0_q, self.attachment_site).tolist()  # Save x0 in Cartesian space to config for summary saving purpose]
+
+        if self.output_xyz:
+            self.traj.append(self.joint_to_xyz(self.x0_q, self.attachment_site))  # Record starting position
+            self.traj_q.append(self.x0_q)
+        else:
+            self.traj.append(self.x0_q)                       # Record starting position
+
+    def setup_tasks(self):
         # =========== Define configuration ===========
         self.configuration = pink.Configuration(model=self.robot.model, data=self.robot.data, q=self.x0_q, collision_model=self.robot.collision_model, collision_data=self.robot.collision_data)
 
         # =========== Define tasks ===========
         self.tasks = {
             "ee": FrameTask(
-                "attachment_site",
+                self.attachment_site,
                 position_cost=1.0, # Translation position
                 orientation_cost=1e-3 # Pose of the end-effector
             ),
@@ -84,7 +93,7 @@ class InverseKinematicsSolver:
             min_dist = self.distance_check(q)
 
             if (not self.collision_check(q)
-                and self.frame_within_bbox(q, "attachment_site", q_range)
+                and self.frame_within_bbox(q, self.attachment_site, q_range)
                 and min_dist > self.d_min
             ):
                 print(
@@ -106,24 +115,43 @@ class InverseKinematicsSolver:
             return np.random.uniform(low=self.robot.model.lowerPositionLimit,
                                         high=self.robot.model.upperPositionLimit)
         else:
-            return np.array(self.config["mpc"][f"{q_name}"])
-    
+            q = np.array(self.config["mpc"][f"{q_name}"])
+            if q.shape[0] != self.robot.model.nq:
+                q = q[:self.robot.model.nq]
+                print(f"Warning: Loaded {q_name} has length {q.shape[0]}, but model has {self.robot.model.nq} joints. Truncating to first {self.robot.model.nq} values.")
+            return q
+
     def frame_within_bbox(self, q, frame_name, bbox):
         """
         Check if a frame is within a world-axis-aligned bounding box.
         """
-        frame_id = self.robot.model.getFrameId(frame_name)
-
-        pin.forwardKinematics(self.robot.model, self.robot.data, q)
-        pin.updateFramePlacements(self.robot.model, self.robot.data)
-
-        pos = self.robot.data.oMf[frame_id].translation
+        pos = self.joint_to_xyz(q, frame_name)
 
         if np.all(pos >= bbox[0]) and np.all(pos <= bbox[1]):
             self.config["mpc"]["x0"] = pos.tolist()  # Save x0 in Cartesian space to config for summary saving purpose
             return True
         else:
             return False
+    
+    def joint_to_xyz(self, q, frame_name):
+        """
+        Convert joint positions to end-effector XYZ using Pinocchio FK.
+
+        Args:
+            q (np.array): Joint positions, shape (nq,)
+
+        Returns:
+            np.array: XYZ position of the 'self.attachment_site', shape (3,)
+        """
+        # 1. Forward kinematics
+        pin.forwardKinematics(self.robot.model, self.robot.data, q)
+        pin.updateFramePlacements(self.robot.model, self.robot.data)
+
+        # 2. Get the frame ID of the attachment site
+        frame_id = self.robot.model.getFrameId(frame_name)
+
+        # 3. Return translation
+        return self.robot.data.oMf[frame_id].translation.copy()
     
     def collision_check(self, q):
         pin.forwardKinematics(self.robot.model, self.robot.data, q)
@@ -254,15 +282,60 @@ class InverseKinematicsSolver:
     def update_robot_viz(self, q):
         self.viz.display(q)
 
-    def pad_yref(self):
-        """Pad yref to match target_dim by adding zeros."""
-        yref_vel = np.zeros_like(self.traj_q)
-        yref_u = np.zeros((self.traj_q.shape[0], self.config["pin"]["nu"]))
+    # def pad_yref(self, yref=None):
+    #     """Pad yref to match target_dim by adding zeros."""
+    #     if type(self.traj) is list:
+    #         self.traj = np.array(self.traj)
 
-        self.yref_pos_vel = np.hstack([self.traj_q, yref_vel])
-        self.yref_full = np.hstack([self.traj_q, yref_vel, yref_u])
+    #     if yref is None:
+    #         yref = self.traj
+
+    #      # Create zero arrays for velocities and control inputs
+    #     yref_vel = np.zeros((yref.shape[0], self.config["pin"]["nu"]))
+    #     yref_u = np.zeros((yref.shape[0], self.config["pin"]["nu"]))
+    #     import pdb; pdb.set_trace()
+    #     return np.hstack([yref, yref_vel, yref_u])
+    def pad_yref(self, yref=None):
+        """
+        Pad yref with zero velocity and control terms.
+
+        Supports:
+        - yref shape (ny,)       -> returns (ny + nv + nu,)
+        - yref shape (T, ny)     -> returns (T, ny + nv + nu)
+        """
+
+        if yref is None:
+            yref = self.traj
+
+        yref = np.asarray(yref)
+
+        # Track whether input was a single vector
+        is_vector = (yref.ndim == 1)
+
+        # Normalize to 2D: (T, ny)
+        if is_vector:
+            yref = yref.reshape(1, -1)
+
+        T, ny = yref.shape
+
+        nv = self.config["pin"]["nu"]   # your velocity dim
+        nu = self.config["pin"]["nu"]   # your control dim
+
+        yref_vel = np.zeros((T, nv))
+        yref_u   = np.zeros((T, nu))
+
+        yref_padded = np.hstack([yref, yref_vel, yref_u])
+
+        # Return to original dimensionality
+        if is_vector:
+            return yref_padded.squeeze(axis=0)  # (7,)
+        else:
+            return yref_padded                  # (T, 7)
 
     def IK_to_XYZ(self, yref):
+        # Setup task
+        self.setup_tasks()
+
         # Now set actual end goal
         self.T_target.translation = yref
 
@@ -273,15 +346,17 @@ class InverseKinematicsSolver:
         # IK to goal
         self.IK_loop(record = True)
         
-        self.traj_q = np.array(self.traj_q) # Convert to np.array (only positions without velocity)
+        self.traj = np.array(self.traj) # Convert to np.array (only positions without velocity)
 
-        sys.stdout.write("Trajectory of length: " + str(self.traj_q.shape) + "\n")
+        if self.output_xyz:
+            self.traj_q = np.array(self.traj_q)
+            sys.stdout.write("Joint trajectory of length: " + str(self.traj_q.shape) + "\n")
 
-        self.pad_yref()
+        sys.stdout.write("Trajectory of length: " + str(self.traj.shape) + "\n")
+
+        yref_full = self.pad_yref()
         
-        self.config["mpc"]["x0_q"] = self.yref_pos_vel[0].tolist()
-        
-        return self.yref_full, self.config
+        return yref_full, self.config # maybe return it as a dict of yref instead.
     
     def IK_loop(self, record: bool):
         iterations = 0
@@ -310,7 +385,12 @@ class InverseKinematicsSolver:
                 self.update_robot_viz(self.configuration.q)
 
             if record:
-                self.traj_q.append(self.configuration.q)
+                if self.output_xyz:
+                    self.traj.append(self.joint_to_xyz(self.configuration.q, self.attachment_site))  # Record starting position
+                    self.traj_q.append(self.configuration.q)
+                else:
+                    self.traj.append(self.configuration.q)                       # Record starting position
+
 
             iterations += 1
             if iterations > self.max_iterations:

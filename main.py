@@ -50,18 +50,24 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
             x0 = load_x0(config)                                                                            # Load x0 (Starting position)
             config["mpc"]["x0"] = x0.tolist()                                                               # Save x0 to config
             yref = load_yref(config)                                                                        # Load yref
-            config["mpc"]["yref"] = yref.tolist()                                                          # Save yref to config
+            config["mpc"]["yref"] = yref.tolist()                                                           # Save yref to config
 
         else:                                                                                               # If dealing with manipulators
             IK = InverseKinematicsSolver(config, collision_config)
+            IK.load_x0()                                                                                    # Load valid x0 in IK solver
             config = IK.config
             save_yaml(config=config, save_path=config_save_path)
 
             yref = load_yref(config)                                                                        # Load yref
             config["mpc"]["yref"] = yref.tolist()
-            yref, config = IK.IK_to_XYZ(yref)                                                                 # Add to config for summary saving purpose
 
-        save_yaml(config=config, save_path=config_save_path)                                            # Save summary with IK inputs
+            if config["IK"]["point_reference"]:                                                         # If not point reference, convert to trajectory reference
+                yref = IK.pad_yref(yref)                                                                 # Pad yref to match joint space dimension
+            else:
+                yref, config = IK.IK_to_XYZ(yref)                                                               # Add to config for summary saving purpose
+                
+
+        save_yaml(config=config, save_path=config_save_path)                                                # Save summary with IK inputs
 
         controller = CONTROLLER_REGISTRY[config["mpc"]["controller_name"]](config, collision_config)        # Create MPCController 
 
@@ -78,7 +84,7 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         end_time = time.time()
         elapsed = end_time - start_time
         print(f"\nTotal execution time: {elapsed:.2f} seconds")
-        
+
         if data_collection: #quit here if data collection
             return simulator.logs
         elif config["mpc"]["solve_ocp"]: #quit here if only solving for single OCP
