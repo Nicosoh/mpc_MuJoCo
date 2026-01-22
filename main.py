@@ -54,7 +54,7 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
 
         else:                                                                                               # If dealing with manipulators
             IK = InverseKinematicsSolver(config, collision_config)
-            IK.load_x0()                                                                                    # Load valid x0 in IK solver
+            x0_q = IK.load_x0()                                                                                    # Load valid x0 in IK solver
             config = IK.config
             save_yaml(config=config, save_path=config_save_path)
 

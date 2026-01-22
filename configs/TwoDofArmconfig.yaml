@@ -25,27 +25,27 @@ pin:
   actuated_joints: [0, 1] # First and second joints
 
 mpc:
-  controller_name: "ManipulatorMPCController_eeTracker_point"
-  # controller_name: "NNManipulatorMPCController_eeTracker_point"
+  # controller_name: "ManipulatorMPCController_eeTracker_point"
+  controller_name: "NNManipulatorMPCController_eeTracker_point"
   # controller_name: "ManipulatorMPCController_eeTracker"
   Fmax: [10, 10] # Maximum force
   N_horizon: 20 # Prediction horizon
   use_RTI: false # Use Real-Time Iteration
   mpc_timestep: 0.01 # seconds
-  x0_q: [0.8498006733578596, -1.138150953904392]    # Initial joint position
-  x0_q_random: true # If true, x0 above will not be used
+  x0_q: [0.7, -0.6]    # Initial joint position
+  x0_q_random: false # If true, x0 above will not be used
   x0_range: [[-0.5, 0.0, 1.0], [0.5, 0.0, 1.5]] # Range for random x0 [[min_xyz], [max_xyz]]
   x0_q_sampling: uniform # Only uniform for now
-  yref_q: [1.2755688739441815, -1.8045279908945475]
-  yref_q_random: true
+  yref_q: [-0.7, 0.6]
+  yref_q_random: false
   yref_range: [[-0.5, 0.0, 1.0], [0.5, 0.0, 1.5]] # [[min_xyz], [max_xyz]]
   yref_q_sampling: uniform
   # Q_mat: [150, 120, 0.02, 0.02] # State cost weights
   Q_mat: [50, 50, 50] # State cost weights for ee tracking
   Q_dot_mat: [0.02, 0.02] # Velocity state cost weights for joints
   R_mat: [0.01, 0.01] # Input cost weights
-  terminal_cost: false
-  early_termination_cost: true # Enable early termination based on cost
+  terminal_cost: true
+  early_termination_cost: false # Enable early termination based on cost
   termination_cost: 0.005 # Tolerance for early termination cost
   early_termination_state: false # Enable early termination based on state
   termination_state: 0.01 # Tolerance for early termination state
@@ -104,7 +104,7 @@ collision:
 
 NN:
   model_name: "TwoDofArmModelAcados"
-  checkpoint_path: ""
+  checkpoint_path: "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_50/training/model_epoch_99.pt"
 
 plots:
   EndEffector X Position: ["xyzpos", 0, "m"]

@@ -51,6 +51,8 @@ class InverseKinematicsSolver:
             self.traj_q.append(self.x0_q)
         else:
             self.traj.append(self.x0_q)                                                                 # Record starting position
+
+        return x0_q_save
     
     def randomise_vel(self):
         velocity_limit = np.array(self.config["IK"]["velocitylimit"])
