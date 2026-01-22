@@ -41,7 +41,7 @@ class InverseKinematicsSolver:
     def load_x0(self):
         # =========== Load x0 ===========
         self.x0_q = self.get_valid_q("x0_q", "x0_q_range")
-        x0_q_save = np.hstack((self.x0_q, np.zeros((self.config["pin"]["nu"]))))
+        x0_q_save = np.hstack((self.x0_q, np.zeros((self.config["pin"]["nu"]))))            # I need to include velocity sampling for this as well.
         self.config["mpc"]["x0_q"] = x0_q_save.tolist()       # Save x0 in joint space to config for summary saving purpose
         self.config["mpc"]["x0"] = self.joint_to_xyz(self.x0_q, self.attachment_site).tolist()  # Save x0 in Cartesian space to config for summary saving purpose]
 
@@ -85,7 +85,7 @@ class InverseKinematicsSolver:
             self.update_target_viz(self.T_target.np)  # currently only updating translation, if 6DOF then update
             self.update_robot_viz(self.configuration.q)
     
-    def get_valid_q(self, q_name: str, q_range: str, max_attempts=100):
+    def get_valid_q(self, q_name: str, q_range: str, max_attempts=1000):
         q_range = np.array(self.config["mpc"][q_range])
 
         for attempt in range(max_attempts):
@@ -282,19 +282,6 @@ class InverseKinematicsSolver:
     def update_robot_viz(self, q):
         self.viz.display(q)
 
-    # def pad_yref(self, yref=None):
-    #     """Pad yref to match target_dim by adding zeros."""
-    #     if type(self.traj) is list:
-    #         self.traj = np.array(self.traj)
-
-    #     if yref is None:
-    #         yref = self.traj
-
-    #      # Create zero arrays for velocities and control inputs
-    #     yref_vel = np.zeros((yref.shape[0], self.config["pin"]["nu"]))
-    #     yref_u = np.zeros((yref.shape[0], self.config["pin"]["nu"]))
-    #     import pdb; pdb.set_trace()
-    #     return np.hstack([yref, yref_vel, yref_u])
     def pad_yref(self, yref=None):
         """
         Pad yref with zero velocity and control terms.

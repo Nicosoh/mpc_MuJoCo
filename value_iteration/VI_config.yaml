@@ -1,6 +1,6 @@
 model_name: twodofarm
 data_config_path: data_collection/data_config.yaml
 train_config_path: neural_network/configs/TwoDofArmModelTrainConfig.ini
-VI_loops: 5
-model: "ManipulatorMPCController_eeTracker"
-run_model: "NNManipulatorMPCController_eeTracker"
+VI_loops: 100
+controller_name: "ManipulatorMPCController_eeTracker_point"
+NN_controller_name: "NNManipulatorMPCController_eeTracker_point"

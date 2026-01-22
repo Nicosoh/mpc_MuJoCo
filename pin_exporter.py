@@ -19,7 +19,7 @@ def export_ode_model(config) -> AcadosModel:
     except FileNotFoundError:
         raise FileNotFoundError(f"Model file '{filename}' does not exist. Check your models_xml folder.")
 
-    model_name = "robot_sys_ode"
+    model_name = config["model"]["name"]
     
     # Use already-created Casadi symbolic variables
     q = robot_sys.q_node

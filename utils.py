@@ -146,7 +146,6 @@ def plot_signals(time, logs, model, config, output_dir, file_name="plot"):
     # -----------------------------
     # Process yref (time-varying ref)
     # -----------------------------
-    import pdb; pdb.set_trace()
     yref_full = logs.get("yref", None)
     if yref_full is not None and IK_required:
         if not config["IK"]["point_reference"]:
@@ -323,9 +322,18 @@ def ocp_plot(simulator, output_dir, config,file_name="OCP_plot"):
     qvel_traj = logs["qvel_traj"][0]
     u_traj = logs["u_traj"][0]
     yref = logs["yref"]
-    
+
+    stage_cost = logs["stage_cost"]
+    terminal_cost = logs["terminal_cost"]
+    total_cost = logs["total_cost"]
+
+    print(f"Total stage cost: {stage_cost}")
+    print(f"Total terminal cost: {terminal_cost}")
+    print(f"Total cost: {total_cost}")
+
     if config["IK"]["IK_required"]:
-        yref = np.vstack([yref[0]["stage"], yref[0]["terminal"]])
+        if not config["IK"]["point_reference"]:
+            yref = np.vstack([yref[0]["stage"], yref[0]["terminal"]])
 
     nq = simulator.model.nq
     
@@ -335,7 +343,7 @@ def ocp_plot(simulator, output_dir, config,file_name="OCP_plot"):
 
     time_u = np.arange(u_traj.shape[0]) * dt  # Time axis for control inputs
 
-    if config["IK"]["IK_required"]:
+    if config["IK"]["IK_required"] and not config["IK"]["point_reference"]:
         yref_qpos = yref[:, :nq]
         yref_qvel = yref[:, nq:2*nq]
         yref_u = yref[:-1, 2*nq:]
@@ -723,6 +731,7 @@ def capsule_squared_distance_function():
 
 def build_capsule_collision_constraints(robot_sys, links, obstacles, collision_pairs):
     constraints = []
+    distances = []
 
     for link_name, obs_name in collision_pairs:
 
@@ -767,7 +776,12 @@ def build_capsule_collision_constraints(robot_sys, links, obstacles, collision_p
         # -------------------------
         #  HARD CONSTRAINT: d² ≥ (r1+r2)²
         # -------------------------
+        min_dist = r1 + r2
         min_dist_sq = (r1 + r2)**2
         constraints.append(d2 - min_dist_sq)
 
-    return vertcat(*constraints)
+        # smooth distance for cost (signed)
+        dist = ca.sqrt(d2 + 1e-8) - min_dist
+        distances.append(dist)
+
+    return vertcat(*constraints), ca.vertcat(*distances)

@@ -184,7 +184,10 @@ class MuJoCoSimulator:
             # Render if enabled
             if render and len(self.frames) < self.data.time * sim_framerate:
                 self.renderer.update_scene(self.data, scene_option=self.scene_option, camera=0)
-
+                
+                # if output_xyz:
+                #     add_visual_sphere(self.renderer.scene, self.config["mpc"]["yref"], 0.5, rgba=(0.0, 1.0, 0.0, 1.0))  # For the end goal (green)
+                #     add_visual_sphere(self.renderer.scene, self.config["mpc"]["x0"], 0.5, rgba=(1.0, 1.0, 0.0, 1.0))  # For the start goal (yellow)
                 if self.collision_config is not None:
                     # Add obstacle capsules to the scene (for now ignoring that over time it can shift aka static obstacles)
                     obstacles = self.collision_config["obstacles"]
@@ -284,6 +287,27 @@ def add_visual_capsule(scene, p1, p2, radius, rgba):
         radius,
         np.array(p1, dtype=np.float32),
         np.array(p2, dtype=np.float32),
+    )
+
+def add_visual_sphere(scene, position, radius, rgba):
+    """Adds a visual-only sphere to an mjvScene (no physics)."""
+    if scene.ngeom >= scene.maxgeom:
+        print("error adding sphere")
+        return  # can't add more
+
+    idx = scene.ngeom
+    scene.ngeom += 1
+
+    rgba = np.asarray(rgba, dtype=np.float32)
+    position = np.asarray(position, dtype=np.float32)
+
+    mujoco.mjv_initGeom(
+        scene.geoms[idx],
+        mujoco.mjtGeom.mjGEOM_SPHERE,
+        np.array(radius, dtype=np.float32),  # size: radius in x
+        position,                                    # position
+        np.zeros(9, dtype=np.float32),               # rotation (unused)
+        rgba                                         # color
     )
 
 def get_reference_for_horizon(traj, t, N, mpc_dt):

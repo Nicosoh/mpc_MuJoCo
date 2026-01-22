@@ -43,7 +43,14 @@ class BaseMPCController:
         # Warm start
         for _ in range(5):
             self.ocp_solver.solve_for_x0(x0_bar=self.x0, fail_on_nonzero_status=False, print_stats_on_failure=False) # It is ok to fail during the warmup phase
-       
+    
+    def check_for_existing_json(self, solver_json):
+        if os.path.isfile(solver_json):
+            print("Solver JSON exists, loading and reset solver")
+            return True
+        else:
+            print("Solver JSON does not exist, building solver...")
+
     def setup(self, config, collision_config):
         mpc_config = config["mpc"]
 
@@ -62,16 +69,16 @@ class BaseMPCController:
         nx = model.x.rows()
         nu = model.u.rows()
 
+        # Generate collision constraints
+        if collision_config is not None and config["collision"]["collision_avoidance"]:
+            self.add_hard_constraints(ocp, model, collision_config)
+
         # Set stage cost module
         self.define_stage_cost(ocp, model, config)
 
         # Set terminal cost module
         if self.terminal_cost:
             self.define_terminal_cost(ocp, model, config)
-            
-        # Generate collision constraints
-        if collision_config is not None and config["collision"]["collision_avoidance"]:
-            self.add_hard_constraints(ocp, model, collision_config)
 
         # Set input constraints
         ocp.constraints.lbu = -np.array(Fmax)
@@ -102,14 +109,21 @@ class BaseMPCController:
         else:
             ocp.solver_options.nlp_solver_type = 'SQP'
             ocp.solver_options.globalization = 'MERIT_BACKTRACKING' # turns on globalization
-            ocp.solver_options.nlp_solver_max_iter = 100
+            ocp.solver_options.nlp_solver_max_iter = 50
         
         ocp.solver_options.qp_solver_cond_N = N_horizon
-        ocp.solver_options.nlp_solver_tol_stat = 1e-3
-        # Create solver based on settings above
-        solver_json = 'acados_ocp_' + model.name + '.json'
-        self.ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json, verbose=False)
+        ocp.solver_options.nlp_solver_tol_stat = 1e-4
+        # ocp.solver_options.qp_solver_iter_max
 
+        # Create solver based on settings above
+        solver_json = 'acados_ocp_' + self.config["model"]["name"] + '.json'
+
+        if self.check_for_existing_json(solver_json):
+            self.ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json, verbose=False, build=False, generate=False)
+            self.ocp_solver.reset()
+        else:
+            self.ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json, verbose=False)
+        
     def define_stage_cost(self, ocp, model, config):
         nx = model.x.rows()
         nu = model.u.rows()
@@ -338,7 +352,7 @@ class ManipulatorMPCController(BaseMPCController):
 
     def add_hard_constraints(self, ocp, model, collision_config):
         # Generate collision constraints
-        constraints = build_capsule_collision_constraints(self.robot_sys, 
+        constraints, self.distances = build_capsule_collision_constraints(self.robot_sys, 
                                                               collision_config["links"], 
                                                               collision_config["obstacles"], 
                                                               collision_config["collision_pairs"])
@@ -469,7 +483,7 @@ class ManipulatorMPCController_eeTracker(ManipulatorMPCController):
         Q     = np.diag(self.config["mpc"]["Q_mat"])       # EE position weights
         Q_dot = np.diag(self.config["mpc"]["Q_dot_mat"])   # Joint velocity weights
         R     = np.diag(self.config["mpc"]["R_mat"])       # Control weights
-
+        
         nx = X.shape[1]
         nq = nx // 2
 
@@ -531,14 +545,13 @@ class ManipulatorMPCController_eeTracker_point(ManipulatorMPCController_eeTracke
     def __init__(self, config, collision_config=None):
         super().__init__(config, collision_config)
 
-        if not config["IK"]["point_reference"]:
-            raise ValueError("ManipulatorMPCController_eeTracker_point requires point_reference to be True.")
-
     def set_yref(self, yref_now):
         for stage in range(self.N):
             self.ocp_solver.cost_set(stage, "yref", yref_now, api='new')
+
         if self.terminal_cost:
-            self.ocp_solver.cost_set(self.N, "yref", yref_now[:self.ny_e], api='new')  # Terminal reference (only x)    
+            import pdb; pdb.set_trace()
+            self.ocp_solver.cost_set(self.N, "yref", yref_now[:self.ny_e], api='new')  # Terminal reference (only x)
 
 @register_controller
 class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, NNManipulatorMPCController):
@@ -593,16 +606,16 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
         yN = np.asarray(self.l4c_model(xN_p)).squeeze()
 
         # NONLINEAR_LS terminal cost
-        terminal_cost = 0.5 * yN**2
+        terminal_cost = 0.5 * yN**2 
         return terminal_cost
-
+#10000000000000 * 
 @register_controller
 class NNManipulatorMPCController_eeTracker_point(NNManipulatorMPCController_eeTracker):
     def __init__(self, config, collision_config=None):
         super().__init__(config, collision_config)
 
         if not config["IK"]["point_reference"]:
-            raise ValueError("ManipulatorMPCController_eeTracker_point requires point_reference to be True.")
+            raise ValueError("NNManipulatorMPCController_eeTracker_point requires point_reference to be True.")
         
     def set_yref(self, yref_now):
         # Stage

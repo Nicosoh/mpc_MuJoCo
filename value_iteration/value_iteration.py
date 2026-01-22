@@ -71,9 +71,17 @@ def main():
             os.makedirs(data_collection_dir, exist_ok=True)
             os.makedirs(training_dir, exist_ok=True)
 
+            # Clear existing JSON file each loop
+            solver_json = 'acados_ocp_' + model_config["model"]["name"] + '.json'
+
+            if os.path.isfile(solver_json):
+                os.remove(solver_json)
+
             if loop == 0:
-                model_config["mpc"]["controller_name"] = VI_config["model"]
-                model_config["mpc"]["terminal_cost"] = "false"
+                model_config["mpc"]["controller_name"] = VI_config["controller_name"]
+                model_config["mpc"]["terminal_cost"] = False
+                train_config.set("MODEL", "load_checkpoint", "False")
+
             else:
                 # Load from previous loop's best model
                 prev_training_dir = os.path.join(main_output_dir, f"loop_{loop}", "training")
@@ -89,8 +97,8 @@ def main():
 
                 train_config.set("MODEL", "load_checkpoint", "True")
                 train_config.set("MODEL", "checkpoint_path", best_model_path)
-                model_config["mpc"]["controller_name"] = VI_config["run_model"]
-                model_config["mpc"]["terminal_cost"] = "true"
+                model_config["mpc"]["controller_name"] = VI_config["NN_controller_name"]
+                model_config["mpc"]["terminal_cost"] = True
                 model_config["NN"]["checkpoint_path"] = best_model_path
 
             # -----------------

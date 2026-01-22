@@ -25,27 +25,28 @@ pin:
   actuated_joints: [0, 1] # First and second joints
 
 mpc:
-  # controller_name: "ManipulatorMPCController_eeTracker"
   controller_name: "ManipulatorMPCController_eeTracker_point"
+  # controller_name: "NNManipulatorMPCController_eeTracker_point"
+  # controller_name: "ManipulatorMPCController_eeTracker"
   Fmax: [10, 10] # Maximum force
   N_horizon: 20 # Prediction horizon
   use_RTI: false # Use Real-Time Iteration
   mpc_timestep: 0.01 # seconds
-  x0_q: [0.6912470760828862, -0.9482540389093028]    # Initial joint position
-  x0_q_random: false # If true, x0 above will not be used
+  x0_q: [ 0.48298965, -1.64683636]    # Initial joint position
+  x0_q_random: true # If true, x0 above will not be used
   x0_q_range: [[-0.5, 0.0, 1.0], [0.5, 0.0, 1.5]] # Range for random x0 [[min_xyz], [max_xyz]]
   x0_q_sampling: "uniform" # Only uniform for now
-  yref: [-0.43119928791326245, 0.0, 1.0746789872851643]
-  yref_random: false
+  yref: [-0.03061931,  0.,          1.48815259]
+  yref_random: true
   yref_range: [[-0.5, 0.0, 1.0], [0.5, 0.0, 1.5]] # [[min_xyz], [max_xyz]]
   yref_sampling: uniform
   # Q_mat: [150, 120, 0.02, 0.02] # State cost weights
-  Q_mat: [900, 900, 900] # State cost weights for ee tracking
+  Q_mat: [10, 10, 10] # State cost weights for ee tracking
   Q_dot_mat: [0.02, 0.02] # Velocity state cost weights for joints
   R_mat: [0.01, 0.01] # Input cost weights
   terminal_cost: false
-  early_termination_cost: false # Enable early termination based on cost
-  termination_cost: 0.001 # Tolerance for early termination cost
+  early_termination_cost: true # Enable early termination based on cost
+  termination_cost: 0.0001 # Tolerance for early termination cost
   early_termination_state: false # Enable early termination based on state
   termination_state: 0.01 # Tolerance for early termination state
   solve_ocp: false # Enable if only a single step is required
