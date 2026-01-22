@@ -208,7 +208,6 @@ class MuJoCoSimulator:
                     pbar.write(f"Terminating early at t = {self.data.time:.2f}s with cost = {total_cost:.5f}")
                     break
                 elif early_termination_state: #need to rethink about this part....
-                    import pdb; pdb.set_trace()
                     state_err = np.concatenate([self.data.qpos, self.data.qvel]) - self.yref[-1][:self.model.nq+self.model.nv]
                     if np.linalg.norm(state_err) < termination_thresh_state:
                         pbar.write(f"Terminating early at t = {self.data.time:.2f}s with state error = {np.linalg.norm(state_err):.5f}")

@@ -54,17 +54,20 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
 
         else:                                                                                               # If dealing with manipulators
             IK = InverseKinematicsSolver(config, collision_config)
-            IK.load_x0()                                                                                    # Load valid x0 in IK solver
+            x0_q = IK.load_x0()                                                                                    # Load valid x0 in IK solver
             config = IK.config
             save_yaml(config=config, save_path=config_save_path)
 
-            yref = load_yref(config)                                                                        # Load yref
-            config["mpc"]["yref"] = yref.tolist()
+            # yref = load_yref(config)                                                                        # Load yref
+            # config["mpc"]["yref"] = yref.tolist()
 
-            if config["IK"]["point_reference"]:                                                         # If not point reference, convert to trajectory reference
-                yref = IK.pad_yref(yref)                                                                 # Pad yref to match joint space dimension
+            if config["IK"]["point_reference"]:                                                             # If not point reference, convert to trajectory reference
+                # yref = IK.pad_yref(yref)                                                                    # Pad yref to match joint space dimension
+                yref = IK.load_yref()
+                config = IK.config
+                save_yaml(config=config, save_path=config_save_path)
             else:
-                yref, config = IK.IK_to_XYZ(yref)                                                               # Add to config for summary saving purpose
+                yref, config = IK.IK_to_XYZ(yref)                                                           # Add to config for summary saving purpose
                 
 
         save_yaml(config=config, save_path=config_save_path)                                                # Save summary with IK inputs

@@ -81,6 +81,7 @@ def plot_traj_xyz(all_logs, config, frame_name, save_dir=None):
         os.makedirs(save_dir, exist_ok=True)
         plt.savefig(os.path.join(save_dir, f"{frame_name}_traj_3d.png"), dpi=200)
 
+    plt.tight_layout()
     plt.show()
 
 def set_axes_equal(ax):
