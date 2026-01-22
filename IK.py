@@ -40,17 +40,34 @@ class InverseKinematicsSolver:
 
     def load_x0(self):
         # =========== Load x0 ===========
-        self.x0_q = self.get_valid_q("x0_q", "x0_q_range")
-        x0_q_save = np.hstack((self.x0_q, np.zeros((self.config["pin"]["nu"]))))            # I need to include velocity sampling for this as well.
-        self.config["mpc"]["x0_q"] = x0_q_save.tolist()       # Save x0 in joint space to config for summary saving purpose
-        self.config["mpc"]["x0"] = self.joint_to_xyz(self.x0_q, self.attachment_site).tolist()  # Save x0 in Cartesian space to config for summary saving purpose]
+        self.x0_q = self.get_valid_q("x0_q", "x0_range")
+        x0_v = self.randomise_vel()
+        x0_q_save = np.hstack((self.x0_q, x0_v))                                                        # I need to include velocity sampling for this as well.
+        self.config["mpc"]["x0_q"] = x0_q_save.tolist()                                                 # Save x0 in joint space to config for summary saving purpose
+        self.config["mpc"]["x0"] = self.joint_to_xyz(self.x0_q, self.attachment_site).tolist()          # Save x0 in Cartesian space to config for summary saving purpose]
 
         if self.output_xyz:
-            self.traj.append(self.joint_to_xyz(self.x0_q, self.attachment_site))  # Record starting position
+            self.traj.append(self.joint_to_xyz(self.x0_q, self.attachment_site))                        # Record starting position
             self.traj_q.append(self.x0_q)
         else:
-            self.traj.append(self.x0_q)                       # Record starting position
+            self.traj.append(self.x0_q)                                                                 # Record starting position
+    
+    def randomise_vel(self):
+        velocity_limit = np.array(self.config["IK"]["velocitylimit"])
+        return np.random.uniform(low=-velocity_limit,
+                                        high=velocity_limit)
+    def load_yref(self):
+        # =========== Load x0 ===========
+        self.yref_q = self.get_valid_q("yref_q", "yref_range")
+        yref_q_save = np.hstack((self.yref_q, np.zeros((self.config["pin"]["nu"]))))                    # Velocity set as zero (For it to come to a stop)
+        self.config["mpc"]["yref_q"] = yref_q_save.tolist()                                             # Save yref in joint space to config for summary saving purpose
 
+        yref_save = self.joint_to_xyz(self.yref_q, self.attachment_site).tolist()                       # Convert to cartesian
+        self.config["mpc"]["yref"] = yref_save                                                          # Save yref in Cartesian space to config for summary saving purpose
+        yref = self.pad_yref(yref_save)                                                                 # Pad to the format of (x,y,z, q_dots ,x_goal,y_goal,z_goal)
+
+        return yref
+    
     def setup_tasks(self):
         # =========== Define configuration ===========
         self.configuration = pink.Configuration(model=self.robot.model, data=self.robot.data, q=self.x0_q, collision_model=self.robot.collision_model, collision_data=self.robot.collision_data)

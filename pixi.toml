@@ -108,7 +108,7 @@ main_iiwa14 = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY
 viz_iiwa14 = "python pin_visualizer.py iiwa14"
 
 # For two_dof_arm
-main_twodofarm = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY_PATH\" && python main.py twodofarm"
+main_twodofarm = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY_PATH\" && python main.py TwoDofArm"
 viz_twodofarm = "python pin_visualizer.py twodofarm"
 
 # For all models

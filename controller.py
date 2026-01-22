@@ -109,7 +109,7 @@ class BaseMPCController:
         else:
             ocp.solver_options.nlp_solver_type = 'SQP'
             ocp.solver_options.globalization = 'MERIT_BACKTRACKING' # turns on globalization
-            ocp.solver_options.nlp_solver_max_iter = 50
+            ocp.solver_options.nlp_solver_max_iter = 6
         
         ocp.solver_options.qp_solver_cond_N = N_horizon
         ocp.solver_options.nlp_solver_tol_stat = 1e-4
@@ -550,7 +550,6 @@ class ManipulatorMPCController_eeTracker_point(ManipulatorMPCController_eeTracke
             self.ocp_solver.cost_set(stage, "yref", yref_now, api='new')
 
         if self.terminal_cost:
-            import pdb; pdb.set_trace()
             self.ocp_solver.cost_set(self.N, "yref", yref_now[:self.ny_e], api='new')  # Terminal reference (only x)
 
 @register_controller
@@ -608,7 +607,7 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
         # NONLINEAR_LS terminal cost
         terminal_cost = 0.5 * yN**2 
         return terminal_cost
-#10000000000000 * 
+
 @register_controller
 class NNManipulatorMPCController_eeTracker_point(NNManipulatorMPCController_eeTracker):
     def __init__(self, config, collision_config=None):

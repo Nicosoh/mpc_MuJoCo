@@ -1,4 +1,4 @@
-model_name: twodofarm
+model_name: TwoDofArm
 data_config_path: data_collection/data_config.yaml
 train_config_path: neural_network/configs/TwoDofArmModelTrainConfig.ini
 VI_loops: 100
