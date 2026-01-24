@@ -55,6 +55,7 @@ class BaseMPCController:
         mpc_config = config["mpc"]
 
         Fmax = mpc_config["Fmax"]
+        xmax = mpc_config["xmax"]
         N_horizon = mpc_config["N_horizon"]
         Tf = N_horizon * mpc_config["mpc_timestep"]  # Time horizon
         
@@ -87,6 +88,13 @@ class BaseMPCController:
         # Apply above to all inputs
         ocp.constraints.idxbu = np.arange(nu)
 
+        # Set state constraints
+        ocp.constraints.lbx = -np.array(xmax)
+        ocp.constraints.ubx = np.array(xmax)
+
+        # Apply above to all stage 
+        ocp.constraints.idxbx = np.arange(nx)
+        
         # Set initial constraint
         ocp.constraints.x0 = self.x0
 

@@ -29,16 +29,17 @@ mpc:
   # controller_name: "NNManipulatorMPCController_eeTracker_point"
   # controller_name: "ManipulatorMPCController_eeTracker"
   Fmax: [10, 10] # Maximum force
+  xmax: [3.142, 3.142, 1.0, 1.0]
   N_horizon: 20 # Prediction horizon
   use_RTI: false # Use Real-Time Iteration
   mpc_timestep: 0.01 # seconds
   x0_q: [0.7, -1.0]    # Initial joint position
-  x0_q_random: false # If true, x0 above will not be used
-  x0_range: [[-0.5, 0.0, 1.0], [0.5, 0.0, 1.5]] # Range for random x0 [[min_xyz], [max_xyz]]
+  x0_q_random: true # If true, x0 above will not be used
+  x0_range: [[-0.5, 0.0, 0.8], [0.5, 0.0, 1.5]] # Range for random x0 [[min_xyz], [max_xyz]]
   x0_q_sampling: uniform # Only uniform for now
   yref_q: [-0.7, 1.0]
-  yref_q_random: false
-  yref_range: [[-0.5, 0.0, 1.0], [0.5, 0.0, 1.5]] # [[min_xyz], [max_xyz]]
+  yref_q_random: true
+  yref_range: [[-0.5, 0.0, 0.8], [0.5, 0.0, 1.5]] # [[min_xyz], [max_xyz]]
   yref_q_sampling: uniform
   # Q_mat: [150, 120, 0.02, 0.02] # State cost weights
   Q_mat: [50, 50, 50] # State cost weights for ee tracking
@@ -95,7 +96,7 @@ collision:
 
   obstacles: # Only if obstacles_random: true and will be replaced
     obs1:
-      from: [0.0, 0.0, 1.0]
+      from: [0.0, 0.0, 1.2]
       to:   [0.0, 0.0, 1.8]
       radius: 0.1
 
