@@ -192,17 +192,20 @@ class InverseKinematicsSolver:
         )
     
     def distance_check(self, q):
-        pin.forwardKinematics(self.robot.model, self.robot.data, q)
-        pin.updateGeometryPlacements(
-            self.robot.model,
-            self.robot.data,
-            self.robot.collision_model,
-            self.robot.collision_data,
-            q
-        )
-        idx = pin.computeDistances(self.robot.collision_model,self.robot.collision_data)
+        if self.collision_config is not None:
+            pin.forwardKinematics(self.robot.model, self.robot.data, q)
+            pin.updateGeometryPlacements(
+                self.robot.model,
+                self.robot.data,
+                self.robot.collision_model,
+                self.robot.collision_data,
+                q
+            )
+            idx = pin.computeDistances(self.robot.collision_model,self.robot.collision_data)
 
-        return self.robot.collision_data.distanceResults[idx].min_distance
+            return self.robot.collision_data.distanceResults[idx].min_distance
+        else:
+            return 1e6
 
     def load_model(self):
         # Load model from XML

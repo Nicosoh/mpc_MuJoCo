@@ -43,13 +43,6 @@ class BaseMPCController:
         # Warm start
         for _ in range(5):
             self.ocp_solver.solve_for_x0(x0_bar=self.x0, fail_on_nonzero_status=False, print_stats_on_failure=False) # It is ok to fail during the warmup phase
-    
-    def check_for_existing_json(self, solver_json):
-        if os.path.isfile(solver_json):
-            print("Solver JSON exists, loading and reset solver")
-            return True
-        else:
-            print("Solver JSON does not exist, building solver...")
 
     def setup(self, config, collision_config):
         mpc_config = config["mpc"]
@@ -94,9 +87,10 @@ class BaseMPCController:
 
         # Apply above to all stage 
         ocp.constraints.idxbx = np.arange(nx)
-        
+
         # Set initial constraint
-        ocp.constraints.x0 = self.x0
+        # ocp.constraints.x0 = self.x0
+        ocp.constraints.x0 = np.array([1.5, 0.0, 0.0, 0.0])         # Arbitary setpoint so that acados will think that it can reuse the solver(x0 will be set below)
 
         # set prediction horizon
         ocp.solver_options.N_horizon = N_horizon
@@ -125,12 +119,11 @@ class BaseMPCController:
 
         # Create solver based on settings above
         solver_json = 'acados_ocp_' + self.config["model"]["name"] + '.json'
+        self.ocp_solver = AcadosOcpSolver(acados_ocp = ocp, json_file = solver_json, verbose=True, build=False, generate=False)
 
-        if self.check_for_existing_json(solver_json):
-            self.ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json, verbose=False, build=False, generate=False)
-            self.ocp_solver.reset()
-        else:
-            self.ocp_solver = AcadosOcpSolver(ocp, json_file = solver_json, verbose=False)
+        # Set x0 to actual values for warmup.
+        self.ocp_solver.constraints_set(0, "lbx", self.x0)
+        self.ocp_solver.constraints_set(0, "ubx", self.x0)
         
     def define_stage_cost(self, ocp, model, config):
         nx = model.x.rows()

@@ -46,7 +46,7 @@ mpc:
   Q_dot_mat: [0.02, 0.02] # Velocity state cost weights for joints
   R_mat: [0.01, 0.01] # Input cost weights
   terminal_cost: false
-  early_termination_cost: false # Enable early termination based on cost
+  early_termination_cost: true # Enable early termination based on cost
   termination_cost: 0.005 # Tolerance for early termination cost
   early_termination_state: false # Enable early termination based on state
   termination_state: 0.01 # Tolerance for early termination state
