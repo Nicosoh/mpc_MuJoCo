@@ -56,8 +56,12 @@ class InverseKinematicsSolver:
     
     def randomise_vel(self):
         velocity_limit = np.array(self.config["IK"]["velocitylimit"])
-        return np.random.uniform(low=-velocity_limit,
+        if self.config["mpc"]["x0_q_random"]:
+            return np.random.uniform(low=-velocity_limit,
                                         high=velocity_limit)
+        else:
+            return np.zeros_like(velocity_limit)
+        
     def load_yref(self):
         # =========== Load x0 ===========
         self.yref_q = self.get_valid_q("yref_q", "yref_range")

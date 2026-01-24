@@ -825,210 +825,399 @@
 # plt.tight_layout()
 # plt.show()
 
-import torch
-import torch.nn as nn
-import numpy as np
+# import torch
+# import torch.nn as nn
+# import numpy as np
+# import matplotlib.pyplot as plt
+# from matplotlib.patches import Rectangle, Circle
+# from mpl_toolkits.mplot3d import Axes3D
+# from neural_network.models import TwoDofArmModel
+
+# # ============================================================
+# # 1. Capsule definition (x–z slice)
+# # ============================================================
+
+# capsule_x = 0.0
+# capsule_z_start = 1.2
+# capsule_z_end = 1.8
+# capsule_radius = 0.1
+
+# # ============================================================
+# # 2. Load model and trained weights
+# # ============================================================
+
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# model = TwoDofArmModel(None).to(device)
+
+# weights_path = (
+#     # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_1/training/model_epoch_199.pt"
+#     # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_5/training/model_epoch_125.pt"
+#     # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_10/training/model_epoch_38.pt"
+#     # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_15/training/model_epoch_37.pt"
+#     # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_20/training/model_epoch_27.pt"
+#     # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_25/training/model_epoch_52.pt"
+#     # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_40/training/model_epoch_42.pt"
+#     # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_1/training/model_epoch_296.pt"
+#     # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_10/training/model_epoch_128.pt"
+#     # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_20/training/model_epoch_42.pt"
+#     # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_30/training/model_epoch_42.pt"
+#     # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_40/training/model_epoch_178.pt"
+#     # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_50/training/model_epoch_99.pt"
+#     # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_70/training/model_epoch_150.pt"
+#     "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_100/training/model_epoch_142.pt"
+# )
+
+# model.load_state_dict(torch.load(weights_path, map_location=device))
+# model.eval()
+
+# print("Model loaded successfully.")
+
+# # ============================================================
+# # 3. Define grid over x and z
+# # ============================================================
+
+# x_vals = np.linspace(-0.6, 0.6, 100)
+# z_vals = np.linspace(0.8, 1.9, 100)
+
+# X, Z = np.meshgrid(x_vals, z_vals)
+
+# # ============================================================
+# # 4. Fixed values for remaining inputs
+# # ============================================================
+
+# y_set = 0.0
+# q1_dot = 0.0
+# q2_dot = 0.0
+
+# x_goal = 0.4
+# y_goal = 0.0
+# z_goal = 1.4
+
+# # ============================================================
+# # 5. Evaluate cost over grid
+# # ============================================================
+
+# Cost = np.zeros_like(X)
+
+# with torch.no_grad():
+#     for i in range(X.shape[0]):
+#         for j in range(X.shape[1]):
+#             nn_input = torch.tensor(
+#                 [
+#                     X[i, j],
+#                     y_set,
+#                     Z[i, j],
+#                     q1_dot,
+#                     q2_dot,
+#                     x_goal,
+#                     y_goal,
+#                     z_goal,
+#                 ],
+#                 dtype=torch.float32,
+#                 device=device,
+#             )
+
+#             Cost[i, j] = model(nn_input).item()
+
+# # ============================================================
+# # 6. Compute cost at the goal
+# # ============================================================
+
+# with torch.no_grad():
+#     goal_input = torch.tensor(
+#         [
+#             x_goal,
+#             y_set,
+#             z_goal,
+#             q1_dot,
+#             q2_dot,
+#             x_goal,
+#             y_goal,
+#             z_goal,
+#         ],
+#         dtype=torch.float32,
+#         device=device,
+#     )
+
+#     goal_cost = model(goal_input).item()
+
+# # ============================================================
+# # 7. 3D Surface Plot
+# # ============================================================
+
+# fig = plt.figure(figsize=(9, 6))
+# ax = fig.add_subplot(111, projection="3d")
+
+# ax.plot_surface(X, Z, Cost, cmap="viridis", edgecolor="none", alpha=0.95)
+
+# ax.scatter(
+#     x_goal,
+#     z_goal,
+#     goal_cost,
+#     color="red",
+#     s=80,
+#     label="Goal",
+# )
+
+# ax.set_xlabel("x")
+# ax.set_ylabel("z")
+# ax.set_zlabel("Cost")
+# ax.set_title("3D Cost Map (x–z slice)")
+# ax.legend()
+
+# plt.tight_layout()
+# plt.show()
+
+# # ============================================================
+# # 8. 2D Contour Plot + Capsule + Goal (IMPROVED)
+# # ============================================================
+
+# fig, ax = plt.subplots(figsize=(6, 5), dpi=120)
+
+# # ------------------------------------------------------------
+# # Filled contours (smooth background)
+# # ------------------------------------------------------------
+
+# filled_levels = 60
+# line_levels = 20
+
+# contourf = ax.contourf(
+#     X,
+#     Z,
+#     Cost,
+#     levels=filled_levels,
+#     cmap="viridis"
+# )
+
+# cbar = plt.colorbar(contourf, ax=ax)
+# cbar.set_label("Cost")
+
+# # ------------------------------------------------------------
+# # CONTOUR LINES (this is the key improvement)
+# # ------------------------------------------------------------
+
+# contour_lines = ax.contour(
+#     X,
+#     Z,
+#     Cost,
+#     levels=line_levels,
+#     colors="black",
+#     linewidths=0.6,
+#     alpha=0.7
+# )
+
+# # Optional: label contour lines
+# ax.clabel(
+#     contour_lines,
+#     inline=True,
+#     fontsize=8,
+#     fmt="%.1f"
+# )
+
+# # ------------------------------------------------------------
+# # Capsule body (rectangle)
+# # ------------------------------------------------------------
+
+# capsule_height = capsule_z_end - capsule_z_start
+
+# rect = Rectangle(
+#     (capsule_x - capsule_radius, capsule_z_start),
+#     2 * capsule_radius,
+#     capsule_height,
+#     linewidth=2,
+#     edgecolor="white",
+#     facecolor="none",
+# )
+
+# ax.add_patch(rect)
+
+# # ------------------------------------------------------------
+# # Capsule end caps (circles)
+# # ------------------------------------------------------------
+
+# cap_bottom = Circle(
+#     (capsule_x, capsule_z_start),
+#     capsule_radius,
+#     linewidth=2,
+#     edgecolor="white",
+#     facecolor="none",
+# )
+
+# cap_top = Circle(
+#     (capsule_x, capsule_z_end),
+#     capsule_radius,
+#     linewidth=2,
+#     edgecolor="white",
+#     facecolor="none",
+# )
+
+# ax.add_patch(cap_bottom)
+# ax.add_patch(cap_top)
+
+# # ------------------------------------------------------------
+# # Goal marker
+# # ------------------------------------------------------------
+
+# ax.scatter(
+#     x_goal,
+#     z_goal,
+#     color="red",
+#     s=120,
+#     edgecolors="black",
+#     linewidths=1.5,
+#     label="Goal",
+# )
+
+# ax.set_xlabel("x")
+# ax.set_ylabel("z")
+# ax.set_title("Cost Map (x–z slice) with Capsule Obstacle")
+# ax.legend()
+
+# plt.tight_layout()
+# plt.show()
+
+import casadi as ca
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Circle
-from mpl_toolkits.mplot3d import Axes3D
-from neural_network.models import TwoDofArmModel
+import numpy as np
 
-# ============================================================
-# 1. Capsule definition (x–z slice)
-# ============================================================
+def clamp(x, lo=0.0, hi=1.0):
+    return ca.fmin(ca.fmax(x, lo), hi)
 
-capsule_x = 0.0
-capsule_z_start = 1.2
-capsule_z_end = 1.8
-capsule_radius = 0.1
+def closest_pt_segment_segment():
+    # Inputs
+    p1 = ca.SX.sym("p1", 3)                 # Point 1 of segment 1
+    q1 = ca.SX.sym("q1", 3)                 # Point 2 of segment 1
+    p2 = ca.SX.sym("p2", 3)                 # Point 1 of segment 2
+    q2 = ca.SX.sym("q2", 3)                 # Point 2 of segment 2
 
-# ============================================================
-# 2. Load model and trained weights
-# ============================================================
+    eps = 1e-8
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    d1 = q1 - p1                            # Direction vector of segment 1
+    d2 = q2 - p2                            # Direction vector of segment 2
+    r  = p1 - p2
 
-model = TwoDofArmModel(None).to(device)
+    a = ca.dot(d1, d1)                      # Squared length of segment 1
+    e = ca.dot(d2, d2)                      # Squared length of segment 2
+    f = ca.dot(d2, r)
+    c = ca.dot(d1, r)
+    b = ca.dot(d1, d2)
 
-weights_path = (
-    # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_1/training/model_epoch_199.pt"
-    # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_5/training/model_epoch_125.pt"
-    # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_10/training/model_epoch_38.pt"
-    # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_15/training/model_epoch_37.pt"
-    # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_20/training/model_epoch_27.pt"
-    # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_25/training/model_epoch_52.pt"
-    "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_40/training/model_epoch_42.pt"
-)
+    denom = a * e - b * b
 
-model.load_state_dict(torch.load(weights_path, map_location=device))
-model.eval()
+    # Initialize
+    s = ca.SX(0)                            # Position along segment 1
+    t = ca.SX(0)                            # Position along segment 2
 
-print("Model loaded successfully.")
+    # --- Both segments degenerate into points ---
+    both_degenerate = ca.logic_and(a <= eps, e <= eps)
 
-# ============================================================
-# 3. Define grid over x and z
-# ============================================================
+    s = ca.if_else(both_degenerate, 0.0, s)             # Set s = 0 if true
+    t = ca.if_else(both_degenerate, 0.0, t)             # Set t = 0 if true
 
-x_vals = np.linspace(-0.6, 0.6, 100)
-z_vals = np.linspace(0.8, 1.9, 100)
+    # --- First segment degenerate into a point only ---
+    first_degenerate = ca.logic_and(a <= eps, e > eps)
+    t_fd = clamp(f / e)
+    s = ca.if_else(first_degenerate, 0.0, s)            # Set s = 0 if true
+    t = ca.if_else(first_degenerate, t_fd, t)           # Set t as the clamped point
 
-X, Z = np.meshgrid(x_vals, z_vals)
+    # --- Second segment degenerate into a point only ---
+    second_degenerate = ca.logic_and(a > eps, e <= eps)
+    s_sd = clamp(-c / a)
+    s = ca.if_else(second_degenerate, s_sd, s)          # Set s as the clamped point
+    t = ca.if_else(second_degenerate, 0.0, t)           # Set t = 0 if true
 
-# ============================================================
-# 4. Fixed values for remaining inputs
-# ============================================================
+    # --- General case ---
+    general = ca.logic_and(a > eps, e > eps)            # True is both is not a point
 
-y_set = 0.0
-q1_dot = 0.0
-q2_dot = 0.0
-
-x_goal = 0.4
-y_goal = 0.0
-z_goal = 1.4
-
-# ============================================================
-# 5. Evaluate cost over grid
-# ============================================================
-
-Cost = np.zeros_like(X)
-
-with torch.no_grad():
-    for i in range(X.shape[0]):
-        for j in range(X.shape[1]):
-            nn_input = torch.tensor(
-                [
-                    X[i, j],
-                    y_set,
-                    Z[i, j],
-                    q1_dot,
-                    q2_dot,
-                    x_goal,
-                    y_goal,
-                    z_goal,
-                ],
-                dtype=torch.float32,
-                device=device,
-            )
-
-            Cost[i, j] = model(nn_input).item()
-
-# ============================================================
-# 6. Compute cost at the goal
-# ============================================================
-
-with torch.no_grad():
-    goal_input = torch.tensor(
-        [
-            x_goal,
-            y_set,
-            z_goal,
-            q1_dot,
-            q2_dot,
-            x_goal,
-            y_goal,
-            z_goal,
-        ],
-        dtype=torch.float32,
-        device=device,
+    s_gc = ca.if_else(                                  # If lines are not parallel (denom > 0)
+        denom > eps,                                    # Then clamp segment 1
+        clamp((b * f - c * e) / denom),                 # If not set s to zero.
+        0.0
     )
 
-    goal_cost = model(goal_input).item()
+    t_gc = (b * s_gc + f) / e                           # Compute closest point on segment 2 w.r.t s_gc.
 
-# ============================================================
-# 7. 3D Surface Plot
-# ============================================================
+    # Clamp t and recompute s if needed
+    t_gc_clamped = clamp(t_gc)                          # Premptive clamping, does not matter if it already within [0,1]
 
-fig = plt.figure(figsize=(9, 6))
-ax = fig.add_subplot(111, projection="3d")
+    s_gc = ca.if_else(                                  
+        t_gc < 0.0,                                     # If t is less than 0.0, outside of the segment.
+        clamp(-c / a),                                  # Clamp t to 0.0 and recalculate s
+        ca.if_else(                                     
+            t_gc > 1.0,                                 # If t is more than 1.0, outside of segment
+            clamp((b - c) / a),                         # Clamp t to 1.0 and recalculate s
+            s_gc                                        # If both not true, then s_gc remains and done.
+        )
+    )
 
-ax.plot_surface(X, Z, Cost, cmap="viridis", edgecolor="none", alpha=0.95)
+    s = ca.if_else(general, s_gc, s)
+    t = ca.if_else(general, t_gc_clamped, t)
 
-ax.scatter(
-    x_goal,
-    z_goal,
-    goal_cost,
-    color="red",
-    s=80,
-    label="Goal",
+    # Closest points
+    c1 = p1 + d1 * s
+    c2 = p2 + d2 * t
+
+    dist2 = ca.dot(c1 - c2, c1 - c2)
+
+    return ca.Function(
+        "closest_seg_seg",
+        [p1, q1, p2, q2],
+        [dist2, s, t, c1, c2],
+        ["p1", "q1", "p2", "q2"],
+        ["dist2", "s", "t", "c1", "c2"]
+    )
+
+# Evaluate CasADi function
+f = closest_pt_segment_segment()
+
+p1 = np.array([0.0, 0.0, 1.0])
+q1 = np.array([0.0, 0.0, 1.5])
+p2 = np.array([0.0, 0.0, 0.0])
+q2 = np.array([0.8, 0.0, 0.2])
+
+dist2, s, t, c1, c2 = f(p1, q1, p2, q2)
+
+# Convert CasADi -> NumPy
+c1 = np.array(c1).astype(float).flatten()
+c2 = np.array(c2).astype(float).flatten()
+
+# -------------------------------
+# 2D Plot (X-Z plane)
+# -------------------------------
+plt.figure(figsize=(6, 6))
+
+# Segment 1
+plt.plot(
+    [p1[0], q1[0]],
+    [p1[2], q1[2]],
+    "b-", linewidth=2, label="Segment 1"
 )
 
-ax.set_xlabel("x")
-ax.set_ylabel("z")
-ax.set_zlabel("Cost")
-ax.set_title("3D Cost Map (x–z slice)")
-ax.legend()
-
-plt.tight_layout()
-plt.show()
-
-# ============================================================
-# 8. 2D Contour Plot + Capsule + Goal
-# ============================================================
-
-fig, ax = plt.subplots(figsize=(6, 5))
-
-# Cost map
-contour = ax.contourf(X, Z, Cost, levels=50, cmap="viridis")
-plt.colorbar(contour, ax=ax, label="Cost")
-
-# ------------------------------------------------------------
-# Capsule body (rectangle)
-# ------------------------------------------------------------
-
-capsule_height = capsule_z_end - capsule_z_start
-
-rect = Rectangle(
-    (capsule_x - capsule_radius, capsule_z_start),
-    2 * capsule_radius,
-    capsule_height,
-    linewidth=2,
-    edgecolor="white",
-    facecolor="none",
+# Segment 2
+plt.plot(
+    [p2[0], q2[0]],
+    [p2[2], q2[2]],
+    "r-", linewidth=2, label="Segment 2"
 )
 
-ax.add_patch(rect)
+# Closest points
+plt.scatter(c1[0], c1[2], color="blue", s=60)
+plt.scatter(c2[0], c2[2], color="red", s=60)
 
-# ------------------------------------------------------------
-# Capsule end caps (circles)
-# ------------------------------------------------------------
-
-cap_bottom = Circle(
-    (capsule_x, capsule_z_start),
-    capsule_radius,
-    linewidth=2,
-    edgecolor="white",
-    facecolor="none",
+# Shortest distance line
+plt.plot(
+    [c1[0], c2[0]],
+    [c1[2], c2[2]],
+    "k--", linewidth=1.5, label="Closest distance"
 )
 
-cap_top = Circle(
-    (capsule_x, capsule_z_end),
-    capsule_radius,
-    linewidth=2,
-    edgecolor="white",
-    facecolor="none",
-)
+# Formatting
+plt.xlabel("X")
+plt.ylabel("Z")
+plt.title(f"Closest distance (squared) = {float(dist2):.4f}")
+plt.legend()
+plt.axis("equal")
+plt.grid(True)
 
-ax.add_patch(cap_bottom)
-ax.add_patch(cap_top)
-
-# ------------------------------------------------------------
-# Goal marker
-# ------------------------------------------------------------
-
-ax.scatter(
-    x_goal,
-    z_goal,
-    color="red",
-    s=120,
-    edgecolors="black",
-    linewidths=1.5,
-    label="Goal",
-)
-
-ax.set_xlabel("x")
-ax.set_ylabel("z")
-ax.set_title("Cost Map (x–z slice) with Capsule Obstacle")
-ax.legend()
-
-plt.tight_layout()
 plt.show()

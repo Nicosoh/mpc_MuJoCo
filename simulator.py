@@ -133,7 +133,9 @@ class MuJoCoSimulator:
             "qpos_traj": [],
             "qvel_traj": [],
             "u_traj": [],
+            "sq_dist": [],
         }
+        
         if output_xyz:
             self.logs["xyzpos"] = []                                                                # Empty list for End-effector positions in XYZ
             site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE,"attachment_site")          # End-effector site id
@@ -154,7 +156,7 @@ class MuJoCoSimulator:
         # Main simulation loop
         while self.data.time < sim_duration:
             # Step simulation
-            stage_cost, terminal_cost, total_cost ,qpos_traj, qvel_traj, u_traj = self.step_sim()
+            stage_cost, terminal_cost, total_cost ,qpos_traj, qvel_traj, u_traj, sq_dist = self.step_sim()
 
             # Only log data if MPC actually produced new control
             if total_cost is not None and qpos_traj is not None and qvel_traj is not None and u_traj is not None:
@@ -168,6 +170,7 @@ class MuJoCoSimulator:
                 self.logs["qpos_traj"].append(qpos_traj)
                 self.logs["qvel_traj"].append(qvel_traj)
                 self.logs["u_traj"].append(u_traj)
+                self.logs["sq_dist"].append(sq_dist)
 
                 if output_xyz:
                     self.logs["xyzpos"].append(np.copy(self.data.site_xpos[site_id]))
@@ -230,6 +233,7 @@ class MuJoCoSimulator:
         qpos_traj = None
         qvel_traj = None
         u_traj = None
+        sq_dist = None
 
         # Only update MPC if needed
         if self.data.time >= self.next_mpc_time:
@@ -242,7 +246,7 @@ class MuJoCoSimulator:
                     self.logs["yref"].append(yref_now)
 
                 # Run MPC to compute control input, cost, and trajectory
-                self.last_u, stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
+                self.last_u, stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj, sq_dist = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
 
                 # += to next mpc time step
                 self.next_mpc_time += self.mpc_timestep
@@ -258,7 +262,7 @@ class MuJoCoSimulator:
         # Step simulation
         mujoco.mj_step(self.model, self.data)
 
-        return stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj
+        return stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj, sq_dist
 
 def add_visual_capsule(scene, p1, p2, radius, rgba):
     """Adds a visual-only capsule to an mjvScene (no physics)."""

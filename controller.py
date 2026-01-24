@@ -147,6 +147,9 @@ class BaseMPCController:
 
     def add_hard_constraints(self, ocp, model, collision_config):
         raise NotImplementedError("add_hard_constraints method not implemented in BaseMPCController.")
+    
+    def create_constraints_func(self, ocp, constraints):
+        raise NotImplementedError("create_constraints_func method not implemented in BaseMPCController.")
 
     def set_yref(self, yref_now):
         for stage in range(self.N):
@@ -298,7 +301,13 @@ class BaseMPCController:
         # Collect cost components
         stage_cost, terminal_cost, total_cost = self.collect_cost(qpos_traj, qvel_traj, u_traj, yref_now)
 
-        return u, stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj
+        # Collect distances between capsules
+        if self.config["collision"]["collision_avoidance"]:
+            sq_dist = self.evaluate_distances(qpos_traj, qvel_traj)
+        else:
+            sq_dist = 0
+
+        return u, stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj, sq_dist
 
 @register_controller
 class NNMPCController(BaseMPCController):
@@ -352,7 +361,7 @@ class ManipulatorMPCController(BaseMPCController):
 
     def add_hard_constraints(self, ocp, model, collision_config):
         # Generate collision constraints
-        constraints, self.distances = build_capsule_collision_constraints(self.robot_sys, 
+        constraints = build_capsule_collision_constraints(self.robot_sys, 
                                                               collision_config["links"], 
                                                               collision_config["obstacles"], 
                                                               collision_config["collision_pairs"])
@@ -365,6 +374,27 @@ class ManipulatorMPCController(BaseMPCController):
         ocp.constraints.lh_e = np.zeros(constraints.shape[0])
         ocp.constraints.uh_e = 1e10 * np.ones(constraints.shape[0])
 
+        self.create_constraints_func(ocp, constraints)
+    
+    def create_constraints_func(self, ocp, constraints):
+        self.collision_constraint_fun = ca.Function(
+            "collision_constraint_fun",
+            [ocp.model.x],
+            [constraints],
+            ["x"],
+            ["h"]
+            )
+    
+    def evaluate_distances(self, qpos_traj, qvel_traj):
+        qpos = qpos_traj[0]
+        qvel = qvel_traj[0]
+
+        x = np.concatenate([qpos, qvel])
+
+        sq_dist = np.array(self.collision_constraint_fun(x)).squeeze()
+
+        return sq_dist
+    
     def set_yref(self, yref_now):
         for stage in range(self.N):
             self.ocp_solver.cost_set(stage, "yref", yref_now["stage"][stage], api='new')

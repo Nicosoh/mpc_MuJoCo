@@ -32,11 +32,11 @@ mpc:
   N_horizon: 20 # Prediction horizon
   use_RTI: false # Use Real-Time Iteration
   mpc_timestep: 0.01 # seconds
-  x0_q: [0.7, -0.6]    # Initial joint position
+  x0_q: [0.7, -1.0]    # Initial joint position
   x0_q_random: false # If true, x0 above will not be used
   x0_range: [[-0.5, 0.0, 1.0], [0.5, 0.0, 1.5]] # Range for random x0 [[min_xyz], [max_xyz]]
   x0_q_sampling: uniform # Only uniform for now
-  yref_q: [-0.7, 0.6]
+  yref_q: [-0.7, 1.0]
   yref_q_random: false
   yref_range: [[-0.5, 0.0, 1.0], [0.5, 0.0, 1.5]] # [[min_xyz], [max_xyz]]
   yref_q_sampling: uniform
@@ -119,3 +119,5 @@ plots:
   # Total MPC Cost: ["total_cost", 0, "Total Cost"]
   Control Input 1: ["ctrl", 0, "Nm"]
   Control Input 2: ["ctrl", 1, "Nm"]
+  Squared Distance 1: ["sq_dist", 0, "m^2"]
+  Squared Distance 2: ["sq_dist", 1, "m^2"]

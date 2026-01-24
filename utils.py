@@ -218,6 +218,11 @@ def plot_signals(time, logs, model, config, output_dir, file_name="plot"):
         elif source in ["ctrl", "u_applied"]:
             assert idx < model.nu
             signals[name] = logs["u_applied"][:, idx]
+        
+        elif source == "sq_dist":
+            assert "sq_dist" in logs, "sq_dist not found in logs"
+            assert idx < logs["sq_dist"].shape[1]
+            signals[name] = logs["sq_dist"][:, idx]
 
         elif source in cost_keys:
             continue
@@ -671,117 +676,228 @@ def to_yaml_safe(obj):
 def clamp(x, lo=0.0, hi=1.0):
     return ca.fmin(ca.fmax(x, lo), hi)
 
-def segment_segment_squared_distance(p1, p2, q1, q2):
-    """
-    p1, p2, q1, q2 : CasADi SX or MX 3×1 vectors
-    returns squared distance between segments P and Q
-    """
+# def segment_segment_squared_distance(p1, p2, q1, q2):
+#     """
+#     p1, p2, q1, q2 : CasADi SX or MX 3×1 vectors
+#     returns squared distance between segments P and Q
+#     """
 
-    u = p2 - p1   # segment P direction
-    v = q2 - q1   # segment Q direction
-    w0 = p1 - q1
+#     u = p2 - p1   # segment P direction
+#     v = q2 - q1   # segment Q direction
+#     w0 = p1 - q1
 
-    a = ca.dot(u, u)
-    b = ca.dot(u, v)
-    c = ca.dot(v, v)
-    d = ca.dot(u, w0)
-    e = ca.dot(v, w0)
+#     a = ca.dot(u, u)
+#     b = ca.dot(u, v)
+#     c = ca.dot(v, v)
+#     d = ca.dot(u, w0)
+#     e = ca.dot(v, w0)
 
-    # Compute the denominator or safe eps
-    denom = a*c - b*b
+#     # Compute the denominator or safe eps
+#     denom = a*c - b*b
+#     eps = 1e-8
+#     denom_safe = ca.fmax(denom, eps)
+
+#     # Compute s & t
+#     s = clamp((b*e - c*d) / denom_safe)
+#     t = clamp((a*e - b*d) / denom_safe)
+
+#     # Compute closest points
+#     Ps = p1 + u * s
+#     Qt = q1 + v * t
+
+#     return ca.dot(Ps - Qt, Ps - Qt), Ps, Qt
+
+# def capsule_squared_distance_function():
+#     """
+#     Returns a CasADi function:
+#        f(p1,p2,q1,q2,r1,r2) = squared distance between two capsules
+#     """
+
+#     p1 = ca.SX.sym("p1", 3)
+#     p2 = ca.SX.sym("p2", 3)
+#     q1 = ca.SX.sym("q1", 3)
+#     q2 = ca.SX.sym("q2", 3)
+
+#     r1 = ca.SX.sym("r1")   # radius of capsule 1
+#     r2 = ca.SX.sym("r2")   # radius of capsule 2
+
+#     d2_seg, Ps, Qt = segment_segment_squared_distance(p1, p2, q1, q2)
+
+#     # true capsule distance = max(0, distance - r1 - r2)
+#     dist = d2_seg - (r1 + r2)**2
+
+#     return ca.Function(
+#         "capsule_dist_sq",
+#         [p1, p2, q1, q2, r1, r2],
+#         [dist],
+#         ["p1", "p2", "q1", "q2", "r1", "r2"],
+#         ["dist_sq"]
+#     )
+
+
+
+# def build_capsule_collision_constraints(robot_sys, links, obstacles, collision_pairs):
+#     constraints = []
+#     distances = []
+
+#     for link_name, obs_name in collision_pairs:
+
+#         capsule_dist_sq = capsule_squared_distance_function()
+
+#         link = links[link_name]
+
+#         p1 = getattr(robot_sys, link["from"])   # CasADi 3-vector
+#         q1 = getattr(robot_sys, link["to"])     # CasADi 3-vector
+#         r1 = link["radius"]
+
+#         obs = obstacles[obs_name]
+#         p2 = obs["from"]
+#         q2 = obs["to"]
+#         r2 = obs["radius"]
+
+#         dist = capsule_dist_sq(p1, p2, q1, q2, r1, r2)
+
+#         # -------------------------
+#         #     LINK CAPSULE
+#         # -------------------------
+#         link = links[link_name]
+
+#         # resolve symbolic endpoints from pin_model
+#         p1 = getattr(robot_sys, link["from"])   # CasADi 3-vector
+#         p1 = getattr(robot_sys, link["to"])     # CasADi 3-vector
+#         r1 = link["radius"]
+
+#         # -------------------------
+#         #     OBSTACLE CAPSULE
+#         # -------------------------
+#         obs = obstacles[obs_name]
+#         q2 = ca.SX(obs["from"])
+#         q2 = ca.SX(obs["to"])
+#         r2 = obs["radius"]
+        
+#         # -------------------------
+#         #  SQUARED SEGMENT DISTANCE
+#         # -------------------------
+#         d2, Ps, Qt = segment_segment_squared_distance(p1, p2, q1, q2)
+#         import pdb; pdb.set_trace()
+#         # -------------------------
+#         #  HARD CONSTRAINT: d² ≥ (r1+r2)²
+#         # -------------------------
+#         min_dist = r1 + r2
+#         min_dist_sq = (r1 + r2)**2
+#         constraints.append(d2 - min_dist_sq)
+
+#         # smooth distance for cost (signed)
+#         dist = ca.sqrt(d2 + 1e-8) - min_dist
+#         distances.append(dist)
+
+#     return vertcat(*constraints), vertcat(*distances)
+
+def segment_segment_squared_distance():
+    # Inputs
+    p1 = ca.SX.sym("p1", 3)                 # Point 1 of segment 1
+    q1 = ca.SX.sym("q1", 3)                 # Point 2 of segment 1
+    p2 = ca.SX.sym("p2", 3)                 # Point 1 of segment 2
+    q2 = ca.SX.sym("q2", 3)                 # Point 2 of segment 2
+
     eps = 1e-8
-    denom_safe = ca.fmax(denom, eps)
 
-    # Compute s & t
-    s = clamp((b*e - c*d) / denom_safe)
-    t = clamp((a*e - b*d) / denom_safe)
+    d1 = q1 - p1                            # Direction vector of segment 1
+    d2 = q2 - p2                            # Direction vector of segment 2
+    r  = p1 - p2
 
-    # Compute closest points
-    Ps = p1 + u * s
-    Qt = q1 + v * t
+    a = ca.dot(d1, d1)                      # Squared length of segment 1
+    e = ca.dot(d2, d2)                      # Squared length of segment 2
+    f = ca.dot(d2, r)
+    c = ca.dot(d1, r)
+    b = ca.dot(d1, d2)
 
-    return ca.dot(Ps - Qt, Ps - Qt), Ps, Qt
+    denom = a * e - b * b
 
-def capsule_squared_distance_function():
-    """
-    Returns a CasADi function:
-       f(p1,p2,q1,q2,r1,r2) = squared distance between two capsules
-    """
+    # Initialize
+    s = ca.SX(0)                            # Position along segment 1
+    t = ca.SX(0)                            # Position along segment 2
 
-    p1 = ca.SX.sym("p1", 3)
-    p2 = ca.SX.sym("p2", 3)
-    q1 = ca.SX.sym("q1", 3)
-    q2 = ca.SX.sym("q2", 3)
+    # --- Both segments degenerate into points ---
+    both_degenerate = ca.logic_and(a <= eps, e <= eps)
 
-    r1 = ca.SX.sym("r1")   # radius of capsule 1
-    r2 = ca.SX.sym("r2")   # radius of capsule 2
+    s = ca.if_else(both_degenerate, 0.0, s)             # Set s = 0 if true
+    t = ca.if_else(both_degenerate, 0.0, t)             # Set t = 0 if true
 
-    d2_seg, Ps, Qt = segment_segment_squared_distance(p1, p2, q1, q2)
+    # --- First segment degenerate into a point only ---
+    first_degenerate = ca.logic_and(a <= eps, e > eps)
+    t_fd = clamp(f / e)
+    s = ca.if_else(first_degenerate, 0.0, s)            # Set s = 0 if true
+    t = ca.if_else(first_degenerate, t_fd, t)           # Set t as the clamped point
 
-    # true capsule distance = max(0, distance - r1 - r2)
-    dist = d2_seg - (r1 + r2)**2
+    # --- Second segment degenerate into a point only ---
+    second_degenerate = ca.logic_and(a > eps, e <= eps)
+    s_sd = clamp(-c / a)
+    s = ca.if_else(second_degenerate, s_sd, s)          # Set s as the clamped point
+    t = ca.if_else(second_degenerate, 0.0, t)           # Set t = 0 if true
+
+    # --- General case ---
+    general = ca.logic_and(a > eps, e > eps)            # True is both is not a point
+
+    s_gc = ca.if_else(                                  # If lines are not parallel (denom > 0)
+        denom > eps,                                    # Then clamp segment 1
+        clamp((b * f - c * e) / denom),                 # If not set s to zero.
+        0.0
+    )
+
+    t_gc = (b * s_gc + f) / e                           # Compute closest point on segment 2 w.r.t s_gc.
+
+    # Clamp t and recompute s if needed
+    t_gc_clamped = clamp(t_gc)                          # Premptive clamping, does not matter if it already within [0,1]
+
+    s_gc = ca.if_else(                                  
+        t_gc < 0.0,                                     # If t is less than 0.0, outside of the segment.
+        clamp(-c / a),                                  # Clamp t to 0.0 and recalculate s
+        ca.if_else(                                     
+            t_gc > 1.0,                                 # If t is more than 1.0, outside of segment
+            clamp((b - c) / a),                         # Clamp t to 1.0 and recalculate s
+            s_gc                                        # If both not true, then s_gc remains and done.
+        )
+    )
+
+    s = ca.if_else(general, s_gc, s)
+    t = ca.if_else(general, t_gc_clamped, t)
+
+    # Closest points
+    c1 = p1 + d1 * s
+    c2 = p2 + d2 * t
+
+    dist2 = ca.dot(c1 - c2, c1 - c2)
 
     return ca.Function(
-        "capsule_dist_sq",
-        [p1, p2, q1, q2, r1, r2],
-        [dist],
-        ["p1", "p2", "q1", "q2", "r1", "r2"],
-        ["dist_sq"]
+        "seg_seg_sq_dist",
+        [p1, q1, p2, q2],
+        [dist2, s, t, c1, c2],
+        ["p1", "q1", "p2", "q2"],
+        ["dist2", "s", "t", "c1", "c2"]
     )
 
 def build_capsule_collision_constraints(robot_sys, links, obstacles, collision_pairs):
     constraints = []
-    distances = []
 
     for link_name, obs_name in collision_pairs:
-
-        capsule_dist_sq = capsule_squared_distance_function()
+        seg_seg_sq_dist = segment_segment_squared_distance()    # ca function
 
         link = links[link_name]
 
         p1 = getattr(robot_sys, link["from"])   # CasADi 3-vector
-        p2 = getattr(robot_sys, link["to"])     # CasADi 3-vector
+        q1 = getattr(robot_sys, link["to"])     # CasADi 3-vector
         r1 = link["radius"]
 
         obs = obstacles[obs_name]
-        q1 = obs["from"]
+        p2 = obs["from"]
         q2 = obs["to"]
         r2 = obs["radius"]
 
-        dist = capsule_dist_sq(p1, p2, q1, q2, r1, r2)
+        dist2, s, t, c1, c2 = seg_seg_sq_dist(p1, q1, p2, q2)
 
-        # -------------------------
-        #     LINK CAPSULE
-        # -------------------------
-        link = links[link_name]
+        min_dist2 = (r1 + r2)**2
 
-        # resolve symbolic endpoints from pin_model
-        p1 = getattr(robot_sys, link["from"])   # CasADi 3-vector
-        p2 = getattr(robot_sys, link["to"])     # CasADi 3-vector
-        r1 = link["radius"]
+        constraints.append(dist2 - min_dist2)
 
-        # -------------------------
-        #     OBSTACLE CAPSULE
-        # -------------------------
-        obs = obstacles[obs_name]
-        q1 = ca.SX(obs["from"])
-        q2 = ca.SX(obs["to"])
-        r2 = obs["radius"]
-        
-        # -------------------------
-        #  SQUARED SEGMENT DISTANCE
-        # -------------------------
-        d2, Ps, Qt = segment_segment_squared_distance(p1, p2, q1, q2)
-
-        # -------------------------
-        #  HARD CONSTRAINT: d² ≥ (r1+r2)²
-        # -------------------------
-        min_dist = r1 + r2
-        min_dist_sq = (r1 + r2)**2
-        constraints.append(d2 - min_dist_sq)
-
-        # smooth distance for cost (signed)
-        dist = ca.sqrt(d2 + 1e-8) - min_dist
-        distances.append(dist)
-
-    return vertcat(*constraints), ca.vertcat(*distances)
+    return vertcat(*constraints)

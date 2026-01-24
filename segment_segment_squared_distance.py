@@ -92,10 +92,10 @@ def closest_pt_segment_segment():
 # Evaluate CasADi function
 f = closest_pt_segment_segment()
 
-p1 = np.array([0.0, 0.0, 1.0])
+p1 = np.array([0.0, 0.0, 0.0])
 q1 = np.array([0.0, 0.0, 1.5])
 p2 = np.array([0.0, 0.0, 0.0])
-q2 = np.array([0.8, 0.0, 0.2])
+q2 = np.array([0.0, 0.0, 0.2])
 
 dist2, s, t, c1, c2 = f(p1, q1, p2, q2)
 
