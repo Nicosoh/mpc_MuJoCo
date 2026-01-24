@@ -151,7 +151,6 @@ class InverseKinematicsSolver:
         pos = self.joint_to_xyz(q, frame_name)
 
         if np.all(pos >= bbox[0]) and np.all(pos <= bbox[1]):
-            self.config["mpc"]["x0"] = pos.tolist()  # Save x0 in Cartesian space to config for summary saving purpose
             return True
         else:
             return False
