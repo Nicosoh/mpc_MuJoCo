@@ -49,6 +49,6 @@ def export_ode_model(config) -> AcadosModel:
     model.x = x
     model.xdot = xdot_sym
     model.u = u
-    model.name = model_name
+    model.name = config["mpc"]["json_name"]
 
     return model, robot_sys

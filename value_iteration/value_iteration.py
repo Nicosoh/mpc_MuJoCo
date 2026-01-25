@@ -1,11 +1,15 @@
-import datetime
 import os
 import yaml
 import glob
-from utils import save_yaml
-from data_collection.data_collector import run_data_collector
-from neural_network.scripts import train_model
+import datetime
+import numpy as np
 import configparser
+import matplotlib.pyplot as plt
+
+from utils import save_yaml
+from neural_network.scripts import train_model
+from data_collection.data_utils import load_npz
+from data_collection.data_collector import run_data_collector
 
 def main():
     def log_vi(message):
@@ -16,6 +20,51 @@ def main():
 
         with open(vi_log_path, "a") as f:
             f.write(line)
+    
+    def update_plot():
+        # -----------------------------
+        # Extract Metrics 
+        # -----------------------------
+        data = load_npz(data_npz_path)
+
+        ctrl_cost = []
+        GT_cost = []
+        MSE_error = []
+
+        for run_key in data.keys():  # iterate over each run
+            run_data = data[run_key]
+
+            GT_mean = np.mean(run_data["GT_cost"])
+            ctrl_mean = np.mean(run_data["total_cost"])
+            # Append mean cost values over this run
+            GT_cost.append(GT_mean)
+            ctrl_cost.append(ctrl_mean)
+            MSE_error.append((GT_mean-ctrl_mean) ** 2)
+
+        ground_truth.append(np.mean(GT_cost))
+        controller.append(np.mean(ctrl_cost))
+        MSE.append(np.mean(MSE_error))
+        x.append(loop)
+        
+        # -----------------------------
+        # Update top subplot (ground truth vs controller)
+        # -----------------------------
+        gt_line.set_data(x, ground_truth)
+        ctrl_line.set_data(x, controller)
+        ax1.relim()
+        ax1.autoscale_view(scalex=False)
+
+        # -----------------------------
+        # Update bottom subplot (MSE)
+        # -----------------------------
+        mse_line.set_data(x, MSE)
+        ax2.relim()
+        ax2.autoscale_view(scalex=False)
+
+        # Expand x-axis as needed
+        ax2.set_xlim(0, max(1, loop + 1))
+
+        plt.pause(1.0)
 
     VI_config_path = "value_iteration/VI_config.yaml"
 
@@ -55,6 +104,35 @@ def main():
         f.write(f"Started at: {main_timestamp}\n")
         f.write(f"VI loops: {value_iteration_loops}\n")
         f.write("=" * 40 + "\n\n")
+
+    # -----------------------------
+    # Plot setup (IMPORTANT PART)
+    # -----------------------------
+    plt.ion()  # interactive mode
+
+    x = []
+    ground_truth = []
+    controller = []
+    MSE = []
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
+
+    # Top subplot: ground truth vs controller
+    gt_line, = ax1.plot([], [], label="Ground Truth", marker='o')
+    ctrl_line, = ax1.plot([], [], label="Controller", marker='x')
+    ax1.set_ylabel("Mean Cost")
+    ax1.legend()
+    ax1.grid(True)
+
+    # Bottom subplot: MSE
+    mse_line, = ax2.plot([], [], label="MSE", color='r', marker='s')
+    ax2.set_xlabel("Value Iteration Loop")
+    ax2.set_ylabel("Mean Squared Error")
+    ax2.legend()
+    ax2.grid(True)
+
+    fig.tight_layout()
+    plt.show()
 
     # -----------------------------
     # Value Iteration Loops
@@ -134,12 +212,20 @@ def main():
             )
             log_vi(f"Model training completed (saved in {training_dir})")
             prev_training_dir = training_dir
+
+            # Update plot
+            update_plot()
+
             log_vi(f"=== Finished Value Iteration Loop {loop+1} ===\n")
 
     except Exception as e:
         import traceback
         traceback.print_exc()
         log_vi(f"ERROR: {e}")
+
+    finally:
+        plt_save_path = os.path.join(main_output_dir, "VI_plot")
+        plt.savefig(plt_save_path, dpi=400, bbox_inches='tight')
 
 if __name__ == "__main__":
     main()

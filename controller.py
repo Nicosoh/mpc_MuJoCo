@@ -51,7 +51,7 @@ class BaseMPCController:
         xmax = mpc_config["xmax"]
         N_horizon = mpc_config["N_horizon"]
         Tf = N_horizon * mpc_config["mpc_timestep"]  # Time horizon
-        
+
         # Create ocp object to formulate the OCP
         ocp = AcadosOcp()
 
@@ -90,7 +90,6 @@ class BaseMPCController:
 
         # Set initial constraint
         ocp.constraints.x0 = self.x0
-        # ocp.constraints.x0 = np.array([1.5, 0.0, 0.0, 0.0])         # Arbitary setpoint so that acados will think that it can reuse the solver(x0 will be set below)
 
         # set prediction horizon
         ocp.solver_options.N_horizon = N_horizon
@@ -118,12 +117,9 @@ class BaseMPCController:
         # ocp.solver_options.qp_solver_iter_max
 
         # Create solver based on settings above
-        solver_json = 'acados_ocp_' + self.config["model"]["name"] + '.json'
-        self.ocp_solver = AcadosOcpSolver(acados_ocp = ocp, json_file = solver_json, verbose=False, build=False, generate=False)
+        solver_json = 'acados_ocp_' + self.config["mpc"]["json_name"] + '.json'
 
-        # Set x0 to actual values for warmup.
-        # self.ocp_solver.constraints_set(0, "lbx", self.x0)
-        # self.ocp_solver.constraints_set(0, "ubx", self.x0)
+        self.ocp_solver = AcadosOcpSolver(acados_ocp = ocp, json_file = solver_json, verbose=False, build=False, generate=False)
         
     def define_stage_cost(self, ocp, model, config):
         nx = model.x.rows()

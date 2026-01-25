@@ -1,5 +1,6 @@
 import os
 import time
+import copy
 import yaml
 import argparse
 
@@ -67,13 +68,29 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
 
         save_yaml(config=config, save_path=config_save_path)                                                # Save summary with IK inputs
 
-        controller = CONTROLLER_REGISTRY[config["mpc"]["controller_name"]](config, collision_config)        # Create MPCController 
+        controller = CONTROLLER_REGISTRY[config["mpc"]["controller_name"]](config, collision_config)        # Create MPCController
         
+        if config["VI"]["ground_truth_controller"]:
+            # Make a **deep copy** of config so we don't touch the original
+            GT_config = copy.deepcopy(config)
+
+            # Apply changes from VI -> this merges nested dicts
+            for key, value in config["VI"]["changes"].items():
+                if isinstance(value, dict) and key in GT_config:
+                    GT_config[key].update(value)  # merge nested dict
+                else:
+                    GT_config[key] = value
+                    
+            # Create ground truth controller
+            gt_controller = CONTROLLER_REGISTRY[GT_config["mpc"]["controller_name"]](GT_config, collision_config)
+        else:
+            gt_controller = None
+
         # Record start time
         start_time = time.time()
 
         # Create simulator object
-        simulator = MuJoCoSimulator(config, yref, controller, collision_config)
+        simulator = MuJoCoSimulator(config, yref, controller, collision_config, gt_controller)
 
         # Run simulation
         simulator.run()
