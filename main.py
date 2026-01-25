@@ -68,7 +68,7 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         save_yaml(config=config, save_path=config_save_path)                                                # Save summary with IK inputs
 
         controller = CONTROLLER_REGISTRY[config["mpc"]["controller_name"]](config, collision_config)        # Create MPCController 
-
+        
         # Record start time
         start_time = time.time()
 

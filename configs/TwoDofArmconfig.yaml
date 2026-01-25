@@ -35,11 +35,11 @@ mpc:
   mpc_timestep: 0.01 # seconds
   x0_q: [0.7, -1.0]    # Initial joint position
   x0_q_random: true # If true, x0 above will not be used
-  x0_range: [[-0.5, 0.0, 0.8], [0.5, 0.0, 1.5]] # Range for random x0 [[min_xyz], [max_xyz]]
+  x0_range: [[-0.5, 0.0, 1.1], [0.5, 0.0, 1.6]] # Range for random x0 [[min_xyz], [max_xyz]]
   x0_q_sampling: uniform # Only uniform for now
   yref_q: [-0.7, 1.0]
   yref_q_random: true
-  yref_range: [[-0.5, 0.0, 0.8], [0.5, 0.0, 1.5]] # [[min_xyz], [max_xyz]]
+  yref_range: [[-0.5, 0.0, 1.1], [0.5, 0.0, 1.6]] # [[min_xyz], [max_xyz]]
   yref_q_sampling: uniform
   # Q_mat: [150, 120, 0.02, 0.02] # State cost weights
   Q_mat: [50, 50, 50] # State cost weights for ee tracking
@@ -105,7 +105,7 @@ collision:
 
 NN:
   model_name: "TwoDofArmModelAcados"
-  checkpoint_path: "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_50/training/model_epoch_99.pt"
+  checkpoint_path: "value_iteration/output/2026-01-24_18-36-01_TwoDofArm_VI/loop_50/training/model_epoch_49.pt"
 
 plots:
   EndEffector X Position: ["xyzpos", 0, "m"]

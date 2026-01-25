@@ -89,8 +89,8 @@ class BaseMPCController:
         ocp.constraints.idxbx = np.arange(nx)
 
         # Set initial constraint
-        # ocp.constraints.x0 = self.x0
-        ocp.constraints.x0 = np.array([1.5, 0.0, 0.0, 0.0])         # Arbitary setpoint so that acados will think that it can reuse the solver(x0 will be set below)
+        ocp.constraints.x0 = self.x0
+        # ocp.constraints.x0 = np.array([1.5, 0.0, 0.0, 0.0])         # Arbitary setpoint so that acados will think that it can reuse the solver(x0 will be set below)
 
         # set prediction horizon
         ocp.solver_options.N_horizon = N_horizon
@@ -119,11 +119,11 @@ class BaseMPCController:
 
         # Create solver based on settings above
         solver_json = 'acados_ocp_' + self.config["model"]["name"] + '.json'
-        self.ocp_solver = AcadosOcpSolver(acados_ocp = ocp, json_file = solver_json, verbose=True, build=False, generate=False)
+        self.ocp_solver = AcadosOcpSolver(acados_ocp = ocp, json_file = solver_json, verbose=False, build=False, generate=False)
 
         # Set x0 to actual values for warmup.
-        self.ocp_solver.constraints_set(0, "lbx", self.x0)
-        self.ocp_solver.constraints_set(0, "ubx", self.x0)
+        # self.ocp_solver.constraints_set(0, "lbx", self.x0)
+        # self.ocp_solver.constraints_set(0, "ubx", self.x0)
         
     def define_stage_cost(self, ocp, model, config):
         nx = model.x.rows()

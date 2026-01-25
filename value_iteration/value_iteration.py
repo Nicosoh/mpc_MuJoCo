@@ -71,12 +71,6 @@ def main():
             os.makedirs(data_collection_dir, exist_ok=True)
             os.makedirs(training_dir, exist_ok=True)
 
-            # Clear existing JSON file each loop
-            solver_json = 'acados_ocp_' + model_config["model"]["name"] + '.json'
-
-            if os.path.isfile(solver_json):
-                os.remove(solver_json)
-
             if loop == 0:
                 model_config["mpc"]["controller_name"] = VI_config["controller_name"]
                 model_config["mpc"]["terminal_cost"] = False
