@@ -29,21 +29,22 @@ def main():
 
         ctrl_cost = []
         GT_cost = []
-        MSE_error = []
+        sq_errors = []
 
         for run_key in data.keys():  # iterate over each run
             run_data = data[run_key]
 
-            GT_mean = np.mean(run_data["GT_cost"])
-            ctrl_mean = np.mean(run_data["total_cost"])
-            # Append mean cost values over this run
-            GT_cost.append(GT_mean)
-            ctrl_cost.append(ctrl_mean)
-            MSE_error.append((GT_mean-ctrl_mean) ** 2)
+            GT = np.array(run_data["GT_cost"])                  # List of GT costs (N, 1)
+            CTRL = np.array(run_data["terminal_cost"])          # List of collected costs(N, 1)
+
+            GT_cost.append(np.mean(GT))                         # Mean of the GT costs (1,)
+            ctrl_cost.append(np.mean(CTRL))                     # Mean of the ctrl costs (1,)
+
+            sq_errors.extend(((GT - CTRL) ** 2).ravel())         # Mean over all the difference of the costs squared
 
         ground_truth.append(np.mean(GT_cost))
         controller.append(np.mean(ctrl_cost))
-        MSE.append(np.mean(MSE_error))
+        MSE.append(np.mean(sq_errors))
         x.append(loop)
         
         # -----------------------------
@@ -63,6 +64,11 @@ def main():
 
         # Expand x-axis as needed
         ax2.set_xlim(0, max(1, loop + 1))
+
+        # Force integer grid lines
+        max_x = max(1, loop + 1)
+        ax2.set_xticks(np.arange(0, max_x + 1, 1), minor=True)
+        ax2.set_xticks(np.arange(0, max_x + 1, 5))  # major ticks
 
         plt.pause(1.0)
 
@@ -121,14 +127,17 @@ def main():
     gt_line, = ax1.plot([], [], label="Ground Truth", marker='o')
     ctrl_line, = ax1.plot([], [], label="Controller", marker='x')
     ax1.set_ylabel("Mean Cost")
+    ax1.grid(True, which="both", linestyle=":", alpha=0.4)
     ax1.legend()
     ax1.grid(True)
 
     # Bottom subplot: MSE
     mse_line, = ax2.plot([], [], label="MSE", color='r', marker='s')
     ax2.set_xlabel("Value Iteration Loop")
+    ax2.grid(True, which="both", linestyle=":", alpha=0.4)
     ax2.set_ylabel("Mean Squared Error")
     ax2.legend()
+    ax2.set_yscale('log')
     ax2.grid(True)
 
     fig.tight_layout()

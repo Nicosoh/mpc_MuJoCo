@@ -112,10 +112,11 @@ VI:
       N_horizon: 200
       terminal_cost: false
       json_name: "GT_controller"
+      terminal_cost: false
 
 NN:
   model_name: "TwoDofArmModelAcados"
-  checkpoint_path: "value_iteration/output/2026-01-24_18-36-01_TwoDofArm_VI/loop_50/training/model_epoch_49.pt"
+  checkpoint_path: "value_iteration/output/2026-01-25_20-49-52_TwoDofArm_VI/loop_22/training/model_epoch_85.pt"
 
 plots:
   EndEffector X Position: ["xyzpos", 0, "m"]

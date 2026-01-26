@@ -253,7 +253,8 @@ class MuJoCoSimulator:
                 self.last_u, stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj, sq_dist = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
 
                 if self.config["VI"]["ground_truth_controller"]:
-                    _, _, _, GT_cost, _, _, _, _ = self.gt_controller(x, yref_now, self.config["mpc"]["full_traj"])
+                    GT_x = np.concatenate([qpos_traj[-1], qvel_traj[-1]])
+                    _, GT_cost, _, _, _, _, _, _ = self.gt_controller(GT_x, yref_now, self.config["mpc"]["full_traj"])
                 else:
                     GT_cost = 0 
 
