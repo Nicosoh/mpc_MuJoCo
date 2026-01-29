@@ -136,6 +136,8 @@ class MuJoCoSimulator:
             "u_traj": [],
             "sq_dist": [],
             "GT_cost": [],
+            "xyz_traj": [],
+            "GT_xyz_traj": [],
         }
         
         if output_xyz:
@@ -155,10 +157,13 @@ class MuJoCoSimulator:
         steps = int(sim_duration / sim_timestep)
         pbar = tqdm(total=steps, desc="Simulating")
 
+        # Set update_initial_guess = True for the first time
+        self.update_initial_guess = True
+
         # Main simulation loop
         while self.data.time < sim_duration:
             # Step simulation
-            stage_cost, terminal_cost, total_cost ,qpos_traj, qvel_traj, u_traj, sq_dist, GT_cost = self.step_sim()
+            stage_cost, terminal_cost, total_cost ,qpos_traj, qvel_traj, u_traj, sq_dist, xyz_traj, GT_cost, GT_xyz_traj = self.step_sim()
 
             # Only log data if MPC actually produced new control
             if total_cost is not None and qpos_traj is not None and qvel_traj is not None and u_traj is not None:
@@ -174,6 +179,8 @@ class MuJoCoSimulator:
                 self.logs["u_traj"].append(u_traj)
                 self.logs["sq_dist"].append(sq_dist)
                 self.logs["GT_cost"].append(GT_cost)
+                self.logs["xyz_traj"].append(xyz_traj)
+                self.logs["GT_xyz_traj"].append(GT_xyz_traj)
 
                 if output_xyz:
                     self.logs["xyzpos"].append(np.copy(self.data.site_xpos[site_id]))
@@ -238,6 +245,8 @@ class MuJoCoSimulator:
         u_traj = None
         sq_dist = None
         GT_cost = None
+        xyz_traj = None
+        GT_xyz_traj = None
 
         # Only update MPC if needed
         if self.data.time >= self.next_mpc_time:
@@ -250,13 +259,16 @@ class MuJoCoSimulator:
                     self.logs["yref"].append(yref_now)
 
                 # Run MPC to compute control input, cost, and trajectory
-                self.last_u, stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj, sq_dist = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
+                self.last_u, stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj, sq_dist, xyz_traj = self.controller(x, yref_now, self.config["mpc"]["full_traj"])
 
                 if self.config["VI"]["ground_truth_controller"]:
                     GT_x = np.concatenate([qpos_traj[-1], qvel_traj[-1]])
-                    _, GT_cost, _, _, _, _, _, _ = self.gt_controller(GT_x, yref_now, self.config["mpc"]["full_traj"])
-                else:
-                    GT_cost = 0 
+
+                    if self.update_initial_guess:
+                        self.gt_controller.update_initial_guess(GT_x)
+                        self.update_ititial_guess = False
+
+                    _, GT_cost, _, _, _, _, _, _, GT_xyz_traj = self.gt_controller(GT_x, yref_now, self.config["mpc"]["full_traj"])
 
                 # += to next mpc time step
                 self.next_mpc_time += self.mpc_timestep
@@ -272,8 +284,8 @@ class MuJoCoSimulator:
         # Step simulation
         mujoco.mj_step(self.model, self.data)
 
-        return stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj, sq_dist, GT_cost
-
+        return stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj, sq_dist, xyz_traj, GT_cost, GT_xyz_traj
+    
 def add_visual_capsule(scene, p1, p2, radius, rgba):
     """Adds a visual-only capsule to an mjvScene (no physics)."""
     if scene.ngeom >= scene.maxgeom:

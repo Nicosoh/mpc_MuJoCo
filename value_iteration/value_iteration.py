@@ -37,14 +37,14 @@ def main():
             GT = np.array(run_data["GT_cost"])                  # List of GT costs (N, 1)
             CTRL = np.array(run_data["terminal_cost"])          # List of collected costs(N, 1)
 
-            GT_cost.append(np.mean(GT))                         # Mean of the GT costs (1,)
-            ctrl_cost.append(np.mean(CTRL))                     # Mean of the ctrl costs (1,)
+            GT_cost.append(np.nanmean(GT))                         # Mean of the GT costs (1,)
+            ctrl_cost.append(np.nanmean(CTRL))                     # Mean of the ctrl costs (1,)
 
-            sq_errors.extend(((GT - CTRL) ** 2).ravel())         # Mean over all the difference of the costs squared
+            sq_errors.extend(((GT - CTRL) ** 2)[np.isfinite(GT) & np.isfinite(CTRL)].ravel())         # Mean over all the difference of the costs squared
 
-        ground_truth.append(np.mean(GT_cost))
-        controller.append(np.mean(ctrl_cost))
-        MSE.append(np.mean(sq_errors))
+        ground_truth.append(np.nanmean(GT_cost))
+        controller.append(np.nanmean(ctrl_cost))
+        MSE.append(np.nanmean(sq_errors))
         x.append(loop)
         
         # -----------------------------
@@ -71,7 +71,8 @@ def main():
         ax2.set_xticks(np.arange(0, max_x + 1, 5))  # major ticks
 
         plt.pause(1.0)
-
+        plt.savefig(plt_save_path, dpi=400, bbox_inches='tight')
+        
     VI_config_path = "value_iteration/VI_config.yaml"
 
     with open(VI_config_path, "r") as f:
@@ -103,6 +104,9 @@ def main():
 
     # Create VI log file
     vi_log_path = os.path.join(main_output_dir, "VI.log")
+
+    # Plot file path
+    plt_save_path = os.path.join(main_output_dir, "VI_plot")
 
     with open(vi_log_path, "w") as f:
         f.write("=== VALUE ITERATION LOG ===\n")
@@ -233,7 +237,6 @@ def main():
         log_vi(f"ERROR: {e}")
 
     finally:
-        plt_save_path = os.path.join(main_output_dir, "VI_plot")
         plt.savefig(plt_save_path, dpi=400, bbox_inches='tight')
 
 if __name__ == "__main__":

@@ -60,7 +60,7 @@ class InverseKinematicsSolver:
             return np.random.uniform(low=-velocity_limit,
                                         high=velocity_limit)
         else:
-            return np.zeros_like(velocity_limit)
+            return np.array(self.config["mpc"]["x0_v"])
         
     def load_yref(self):
         # =========== Load x0 ===========
@@ -113,12 +113,13 @@ class InverseKinematicsSolver:
 
         for attempt in range(max_attempts):
             q = self.load_q(q_name)
-            min_dist = self.distance_check(q)
 
-            if (not self.collision_check(q)
-                and self.frame_within_bbox(q, self.attachment_site, q_range)
-                and min_dist > self.d_min
-            ):
+            in_collision = self.collision_check(q)
+            in_bbox = self.frame_within_bbox(q, self.attachment_site, q_range)
+            min_dist = self.distance_check(q)
+            dist_ok = min_dist > self.d_min
+
+            if (not in_collision) and in_bbox and dist_ok:
                 print(
                     f"Loaded valid {q_name} configuration in {attempt+1} attempts\n"
                     f"  q:        {q}\n"
@@ -126,11 +127,32 @@ class InverseKinematicsSolver:
                     f"  min_dist: {min_dist:.4f} (d_min={self.d_min})\n"
                 )
                 return q
-            
-            elif not self.config["mpc"][f"{q_name}_random"]:
-                raise ValueError(f"Loaded {q_name} configuration is in collision or outside of {q_name}_range or has a minimum distance less than {self.d_min}. Please provide a valid {q_name} or set {q_name}_random to True.")
 
-        raise ValueError(f"Failed to load valid {q_name} configuration in {max_attempts} attempts: ")
+            # If randomness disabled → fail immediately with details
+            if not self.config["mpc"][f"{q_name}_random"]:
+                reasons = []
+                if in_collision:
+                    reasons.append("collision_check failed (q is in collision)")
+                if not in_bbox:
+                    reasons.append("frame_within_bbox failed")
+                if not dist_ok:
+                    reasons.append(
+                        f"distance_check failed (min_dist={min_dist:.4f} ≤ d_min={self.d_min})"
+                    )
+
+                reason_str = "\n  - ".join(reasons)
+
+                raise ValueError(
+                    f"Invalid {q_name} configuration:\n"
+                    f"  q: {q}\n"
+                    f"  Failed checks:\n"
+                    f"  - {reason_str}"
+                )
+
+        raise ValueError(
+            f"Failed to load valid {q_name} configuration in {max_attempts} attempts.\n"
+            f"Last sampled q: {q}"
+        )
     
     def load_q(self, q_name: str):
         if self.config["mpc"][f"{q_name}_random"]:
@@ -139,6 +161,7 @@ class InverseKinematicsSolver:
                                         high=self.robot.model.upperPositionLimit)
         else:
             q = np.array(self.config["mpc"][f"{q_name}"])
+
             if q.shape[0] != self.robot.model.nq:
                 q = q[:self.robot.model.nq]
                 print(f"Warning: Loaded {q_name} has length {q.shape[0]}, but model has {self.robot.model.nq} joints. Truncating to first {self.robot.model.nq} values.")

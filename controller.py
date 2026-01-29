@@ -84,12 +84,16 @@ class BaseMPCController:
         # Set state constraints
         ocp.constraints.lbx = -np.array(xmax)
         ocp.constraints.ubx = np.array(xmax)
+        ocp.constraints.lbx_e = -np.array(xmax)
+        ocp.constraints.ubx_e = np.array(xmax)
 
-        # Apply above to all stage 
+        # Apply above to all states
         ocp.constraints.idxbx = np.arange(nx)
+        ocp.constraints.idxbx_e = np.arange(nx)
 
         # Set initial constraint
-        ocp.constraints.x0 = self.x0
+        # ocp.constraints.x0 = self.x0
+        ocp.constraints.x0 = np.array([1.5, 0.0, 0.0, 0.0])  
 
         # set prediction horizon
         ocp.solver_options.N_horizon = N_horizon
@@ -120,7 +124,13 @@ class BaseMPCController:
         solver_json = 'acados_ocp_' + self.config["mpc"]["json_name"] + '.json'
 
         self.ocp_solver = AcadosOcpSolver(acados_ocp = ocp, json_file = solver_json, verbose=False, build=False, generate=False)
-        
+
+        self.update_initial_guess(self.x0)
+
+    def update_initial_guess(self, x):
+        x_inital_guess = np.tile(x, self.ocp_solver.acados_ocp.dims.N+1)
+        self.ocp_solver.set_flat('x', x_inital_guess)
+
     def define_stage_cost(self, ocp, model, config):
         nx = model.x.rows()
         nu = model.u.rows()
@@ -176,7 +186,13 @@ class BaseMPCController:
         qvel_traj = np.array(qvel_traj)
         u_traj = np.array(u_traj)
 
-        return qpos_traj, qvel_traj, u_traj
+        # Convert q traj into cartesian traj
+        if self.config["IK"]["output_xyz"]:
+            xyz_traj = np.array(self.ee_fun(qpos_traj.T)).squeeze().T
+        else:
+            xyz_traj = 0
+
+        return qpos_traj, qvel_traj, u_traj, xyz_traj
     
     def collect_cost(self, qpos_traj, qvel_traj, u_traj, yref_now):
         if qpos_traj.size == 0 or qvel_traj.size == 0 or u_traj.size == 0:
@@ -264,7 +280,6 @@ class BaseMPCController:
             
             status = self.ocp_solver.solve()
             if status != 0:
-                # raise RuntimeError("MPC solver returned status in RTI phase 1: ", status)
                 raise RuntimeError(f"MPC solver returned status {status} in RTI phase 1")
             
             # Set initial state
@@ -288,12 +303,15 @@ class BaseMPCController:
             status = self.ocp_solver.solve()
 
             if status != 0 and status != 2:
-                raise RuntimeError(f"MPC solver returned status {status} in SQP mode")
-
+                if not self.config["mpc"]["json_name"] == "GT_controller":
+                    raise RuntimeError(f"MPC solver returned status {status} in SQP mode")
+                else:
+                    return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.full((self.N+1, 3), np.nan)
+            
             u = self.ocp_solver.get(0, "u")
         
         # Collect traj
-        qpos_traj, qvel_traj, u_traj = self.collect_traj(full_traj)
+        qpos_traj, qvel_traj, u_traj, xyz_traj = self.collect_traj(full_traj)
 
         # Collect cost components
         stage_cost, terminal_cost, total_cost = self.collect_cost(qpos_traj, qvel_traj, u_traj, yref_now)
@@ -304,7 +322,7 @@ class BaseMPCController:
         else:
             sq_dist = 0
 
-        return u, stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj, sq_dist
+        return u, stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj, sq_dist, xyz_traj
 
 @register_controller
 class NNMPCController(BaseMPCController):
@@ -371,8 +389,30 @@ class ManipulatorMPCController(BaseMPCController):
         ocp.constraints.lh_e = np.zeros(constraints.shape[0])
         ocp.constraints.uh_e = 1e10 * np.ones(constraints.shape[0])
 
+        # Add slack only for GT controller. Reduce possibility of minstep failure
+        # if self.config["mpc"]["json_name"] == "GT_controller":
+        #     self.add_slack(ocp)
+
         self.create_constraints_func(ocp, constraints)
-    
+
+    # def add_slack(self, ocp):
+    #     # idx of non-linear constraint to add slack to (for stage)
+    #     ocp.constraints.idxsh = np.arange(ocp.model.con_h_expr.shape[0])
+    #     # idx of non-linear constraint to add slack to (for terminal)
+    #     ocp.constraints.idxsh_e = np.arange(ocp.model.con_h_expr_e.shape[0])
+
+    #     # Slack penalty z for linear penalty & Z for quadratic penalty
+    #     # Stage
+    #     ocp.cost.zl = 500*np.ones(ocp.model.con_h_expr.shape[0])
+    #     ocp.cost.Zl = 1000*np.ones(ocp.model.con_h_expr.shape[0])
+    #     ocp.cost.zu = 500*np.ones(ocp.model.con_h_expr.shape[0])
+    #     ocp.cost.Zu = 1000*np.ones(ocp.model.con_h_expr.shape[0])
+    #     # Terminal
+    #     ocp.cost.zl_e = 500*np.ones(ocp.model.con_h_expr_e.shape[0])
+    #     ocp.cost.Zl_e = 1000*np.ones(ocp.model.con_h_expr_e.shape[0])
+    #     ocp.cost.zu_e = 500*np.ones(ocp.model.con_h_expr_e.shape[0])
+    #     ocp.cost.Zu_e = 1000*np.ones(ocp.model.con_h_expr_e.shape[0])
+
     def create_constraints_func(self, ocp, constraints):
         self.collision_constraint_fun = ca.Function(
             "collision_constraint_fun",
