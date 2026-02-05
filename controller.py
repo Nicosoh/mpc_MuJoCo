@@ -20,9 +20,10 @@ class BaseMPCController:
     '''
     Class for a basic MPC Controller, also a base class for other MPC controllers.
     '''
-    def __init__(self, config, collision_config=None):
+    def __init__(self, config, collision_config=None, worker_id=0):
         # Extract parameters from config
         self.config = config
+        self.worker_id = worker_id
         self.use_RTI = config["mpc"]["use_RTI"]
         self.x0 = np.array(config["mpc"]["x0"])
         self.mpc_timestep = config["mpc"]["mpc_timestep"]
@@ -57,6 +58,7 @@ class BaseMPCController:
 
         # Call model creation function
         model, self.robot_sys = export_ode_model(config)
+        model.name = model.name + str(self.worker_id)   # reassigned based on worker id
         ocp.model = model
 
         # Extract state and input dimensions
@@ -121,7 +123,7 @@ class BaseMPCController:
         # ocp.solver_options.qp_solver_iter_max
 
         # Create solver based on settings above
-        solver_json = 'acados_ocp_' + self.config["mpc"]["json_name"] + '.json'
+        solver_json = 'acados_ocp_' + self.config["mpc"]["json_name"] + str(self.worker_id) + '.json'
 
         self.ocp_solver = AcadosOcpSolver(acados_ocp = ocp, json_file = solver_json, verbose=False, build=False, generate=False)
 
@@ -329,8 +331,8 @@ class NNMPCController(BaseMPCController):
     '''
     Class for testing trained terminal value approximation with single endpoint reference. Can be used with or without terminal cost component.
     '''
-    def __init__(self, config, collision_config=None):
-        super().__init__(config, collision_config)
+    def __init__(self, config, collision_config=None, worker_id=0):
+        super().__init__(config, collision_config, worker_id=worker_id)
 
         if not config["mpc"]["terminal_cost"]:
             raise ValueError("NNMPCController requires terminal cost to be True.")
@@ -371,8 +373,8 @@ class ManipulatorMPCController(BaseMPCController):
     Class for a basic MPC Controller with trajectory tracking and IK used for trajectory generation. Can be used with or without terminal cost component.
     Specifically for manipulator models or models which require IK. Tracking in joint space.
     '''
-    def __init__(self, config, collision_config=None):        
-        super().__init__(config, collision_config)
+    def __init__(self, config, collision_config=None, worker_id=0):        
+        super().__init__(config, collision_config, worker_id=worker_id)
 
     def add_hard_constraints(self, ocp, model, collision_config):
         # Generate collision constraints
@@ -445,8 +447,8 @@ class NNManipulatorMPCController(ManipulatorMPCController):
     Specifically for manipulator models or models which require IK.
     '''
 
-    def __init__(self, config, collision_config=None):
-        super().__init__(config, collision_config)
+    def __init__(self, config, collision_config=None, worker_id=0):
+        super().__init__(config, collision_config, worker_id=worker_id)
 
         if not config["mpc"]["terminal_cost"]:
             raise ValueError("NNMPCController requires terminal cost to be True.")
@@ -500,8 +502,8 @@ class ManipulatorMPCController_eeTracker(ManipulatorMPCController):
     Same as ManipulatorMPCController but cost formulation is a hybrid of end-effector space tracking and joint velocities, input regularisation.
     to do: modify stage cost, modify set_yref??, modify terminal cost as well, modify compute stage cost and terminal cost.
     '''
-    def __init__(self, config, collision_config=None):        
-        super().__init__(config, collision_config)
+    def __init__(self, config, collision_config=None, worker_id=0):        
+        super().__init__(config, collision_config, worker_id=worker_id)
 
         if not config["IK"]["output_xyz"]:
             raise ValueError("NNMPCController_eeTracker requires IK output to be in xyz format.")
@@ -609,8 +611,8 @@ class ManipulatorMPCController_eeTracker(ManipulatorMPCController):
 
 @register_controller
 class ManipulatorMPCController_eeTracker_point(ManipulatorMPCController_eeTracker):
-    def __init__(self, config, collision_config=None):
-        super().__init__(config, collision_config)
+    def __init__(self, config, collision_config=None, worker_id=0):
+        super().__init__(config, collision_config, worker_id=worker_id)
 
     def set_yref(self, yref_now):
         for stage in range(self.N):
@@ -631,8 +633,8 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
     - IK_required: false during tesing, true during data generation
 
     '''
-    def __init__(self, config, collision_config=None):
-        super().__init__(config, collision_config)
+    def __init__(self, config, collision_config=None, worker_id=0):
+        super().__init__(config, collision_config, worker_id=worker_id)
     
     def define_terminal_cost(self, ocp, model, config):
         ocp.cost.cost_type_e = 'NONLINEAR_LS'               # Terminal cost
@@ -677,8 +679,8 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
 
 @register_controller
 class NNManipulatorMPCController_eeTracker_point(NNManipulatorMPCController_eeTracker):
-    def __init__(self, config, collision_config=None):
-        super().__init__(config, collision_config)
+    def __init__(self, config, collision_config=None, worker_id=0):
+        super().__init__(config, collision_config, worker_id=worker_id)
 
         if not config["IK"]["point_reference"]:
             raise ValueError("NNManipulatorMPCController_eeTracker_point requires point_reference to be True.")

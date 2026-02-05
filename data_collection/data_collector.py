@@ -1,99 +1,196 @@
-# Data Collector
-# Runs simulation loop and collects data at each step untill termination condition is met
-# Save full trajectory and control at each MPC step and cost
-# Format should be something like traj = (x_0, x_1, x_2, ..., x_N), u = (u_0, u_1, ..., u_{N-1}), cost
-# ie. max steps or termination condition
-# Saves collected data to .npz file
-
-import os
 import argparse
-import yaml
-import time
+import sys
+import os
 from datetime import datetime
 from main import main
-from utils import save_yaml
-from data_collection import save_npz
+
+def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
+    import os
+    import sys
+    from datetime import datetime
+    from main import main
+
+    os.environ["OMP_NUM_THREADS"] = "1"
+
+    worker_output_dir = os.path.join(output_dir, f"worker_{worker_id}")
+    os.makedirs(worker_output_dir, exist_ok=True)
+
+    log_file_path = os.path.join(worker_output_dir, f"worker_{worker_id}.log")
+
+    orig_stdout = sys.stdout
+    orig_stderr = sys.stderr
+
+    try:
+        with open(log_file_path, "a") as log_file:
+            sys.stdout = log_file
+            sys.stderr = log_file
+
+            print(f"[Worker {worker_id}] starting with {len(run_indices)} runs")
+
+            all_logs = {}
+            for run_index in run_indices:
+                success = False
+                while not success:  # keep retrying until it succeeds
+                    run_timestamp = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')}_run{run_index}"
+                    try:
+                        logs = main(
+                            model_name,
+                            data_collection=True,
+                            output_dir=worker_output_dir,
+                            timestamp=run_timestamp,
+                            data_config=data_config,
+                            config=config,
+                            worker_id=worker_id,
+                        )
+                        all_logs[run_timestamp] = logs
+                        success = True
+                        print(f"[Worker {worker_id}] Finished run {run_index}")
+                    except Exception as e:
+                        print(f"[Worker {worker_id}] Run {run_index} failed, retrying: {e}")
+
+            print(f"[Worker {worker_id}] completed all assigned runs")
+    finally:
+        sys.stdout = orig_stdout
+        sys.stderr = orig_stderr
+
+    return all_logs
+
+# def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
+#     os.environ["OMP_NUM_THREADS"] = "1"
+
+#     worker_output_dir = os.path.join(output_dir, f"worker_{worker_id}")
+#     os.makedirs(worker_output_dir, exist_ok=True)
+
+#     log_file_path = os.path.join(worker_output_dir, f"worker_{worker_id}.log")
+
+#     # Save original stdout/stderr
+#     orig_stdout = sys.stdout
+#     orig_stderr = sys.stderr
+
+#     try:
+#         with open(log_file_path, "a") as log_file:
+#             sys.stdout = log_file
+#             sys.stderr = log_file
+
+#             print(f"[Worker {worker_id}] starting with {len(run_indices)} runs")
+
+#             all_logs = {}
+#             for run_index in run_indices:
+#                 run_timestamp = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')}_run{run_index}"
+
+#                 logs = main(
+#                     model_name,
+#                     data_collection=True,
+#                     output_dir=worker_output_dir,
+#                     timestamp=run_timestamp,
+#                     data_config=data_config,
+#                     config=config,
+#                     worker_id=worker_id,
+#                 )
+
+#                 all_logs[run_timestamp] = logs
+#                 print(f"[Worker {worker_id}] Finished run {run_index}")
+
+#             print(f"[Worker {worker_id}] completed all assigned runs")
+#     finally:
+#         # Restore stdout/stderr no matter what
+#         sys.stdout = orig_stdout
+#         sys.stderr = orig_stderr
+
+#     return all_logs
 
 def run_data_collector(model_name, data_config_path="data_collection/data_config.yaml", run_dir=None, config=None):
-    # Load data collection config
+    import multiprocessing as mp
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    import yaml
+    import time
+    import os
+    from utils import save_yaml
+    from data_collection import save_npz
+
+    # Load config
     with open(data_config_path, "r") as f:
         data_config = yaml.safe_load(f)["data_collector"]
 
-    runs = data_config["runs"]
-    # total_elapsed = 0.0
-    all_logs = {}
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    n_runs = data_config["runs"]
+    n_workers = min(mp.cpu_count(), data_config.get("workers", 8))  # number of workers
+    timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
 
-    # Create output and log paths
+    # Output dir
     if run_dir is None:
-        base_dir = "data"
-        output_dir = os.path.join(base_dir, f"{timestamp}_{model_name}_data_collection")
+        output_dir = os.path.join("data", f"{timestamp}_{model_name}_data_collection")
     else:
         output_dir = run_dir
-
     os.makedirs(output_dir, exist_ok=True)
-    output_log_path = os.path.join(output_dir, "output.log")
 
-    # Yaml save path
-    yaml_save_path = os.path.join(output_dir, "data_config.yaml")
-    save_yaml(data_config, yaml_save_path)
+    # Save config used
+    save_yaml(data_config, os.path.join(output_dir, "data_config.yaml"))
 
-    # Initialize / clear the log file
-    with open(output_log_path, "w") as f:
-        f.write(f"=== Data Collection Log for model '{model_name}' ===\n")
-        f.write(f"Started at {timestamp}\n")
+    # Split n_runs roughly evenly across workers
+    run_indices_per_worker = [[] for _ in range(n_workers)]
+    for i in range(n_runs):
+        run_indices_per_worker[i % n_workers].append(i)
 
-    # Record start time
     start_time = time.time()
+    all_logs = {}
 
-    success_count = 0
-    attempt_count = 0
-    
-    # Run main simulation loop and collect data
-    while success_count < runs:
-        attempt_count += 1
-        run_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
-        print(f"\n--- Starting data collection run {success_count+1}/{runs} ---")
+    print(f"Launching {n_workers} workers for {n_runs} runs")
 
-        try:
-            # Simulate one OCP, get state, control, cost
-            logs = main(model_name, data_collection=True, output_dir=output_dir, timestamp=run_timestamp, data_config=data_config, config=config)
-            all_logs[run_timestamp] = logs
-            success_count += 1
+    ### === PHASE 1: First iteration (1 job per worker) === ###
+    print("\n--- Phase 1: Running first iteration for each worker sequentially ---")
+    first_runs_per_worker = [runs[0] for runs in run_indices_per_worker if runs]  # take the first run
+    for worker_id, run_index in enumerate(first_runs_per_worker):
+        logs = worker(
+            worker_id=worker_id,
+            run_indices=[run_index],  # single run
+            model_name=model_name,
+            output_dir=output_dir,
+            data_config=data_config,
+            config=config,
+        )
+        all_logs.update(logs)
 
-            print(f"Completed run: {run_timestamp}, {success_count}/{runs}")
-            with open(output_log_path, "a") as f:
-                f.write(f"\n--- Run {success_count}/{runs}, {run_timestamp}, Completed ---\n")
+    ### === PHASE 2: Remaining runs asynchronously === ###
+    print("\n--- Phase 2: Running remaining jobs asynchronously ---")
+    remaining_indices_per_worker = [
+        runs[1:] if len(runs) > 1 else [] for runs in run_indices_per_worker
+    ]
 
-        except Exception as e:
-            # Catch and log the error
-            import traceback
-            tb = traceback.format_exc()
+    # Only launch workers that have remaining runs
+    workers_with_remaining = [
+        (w_id, runs) for w_id, runs in enumerate(remaining_indices_per_worker) if runs
+    ]
 
-            print(f"Attempt {attempt_count} failed: {e}")
-            with open(output_log_path, "a") as f:
-                f.write(f"\n--- Attempt {attempt_count}, FAILED, {run_timestamp} ---\n")
-                f.write(f"Error: {str(e)}\n")
-                f.write(tb)
-                f.write("\n-----------------------------\n")
+    if workers_with_remaining:
+        with ProcessPoolExecutor(max_workers=len(workers_with_remaining)) as executor:
+            futures = [
+                executor.submit(
+                    worker,
+                    worker_id=w_id,
+                    run_indices=runs,
+                    model_name=model_name,
+                    output_dir=output_dir,
+                    data_config=data_config,
+                    config=config,
+                )
+                for w_id, runs in workers_with_remaining
+            ]
 
-            # Continue with the next run instead of crashing
-            continue
-    
-    # Record end time and print elapsed time
-    end_time = time.time()
-    elapsed = end_time - start_time
+            for future in as_completed(futures):
+                try:
+                    logs = future.result()
+                    all_logs.update(logs)
+                    print(f"Collected logs. Total runs so far: {len(all_logs)}/{n_runs}")
+                except Exception as e:
+                    print("A worker failed:", e)
 
-    # Save data
+    elapsed = time.time() - start_time
+
     save_npz(f"{timestamp}_{model_name}_logs.npz", data=all_logs, output_dir=output_dir)
-    
-    # Initialize / clear the log file
-    with open(output_log_path, "a") as f:
-        f.write(f"Ended at {datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}\n")
 
     print("\n=== Data collection finished ===")
     print(f"Total elapsed time: {elapsed:.2f} seconds")
-    print(f"Log file: {output_log_path}")
+    print(f"Saved to: {output_dir}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run a model by name")

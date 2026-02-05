@@ -28,27 +28,26 @@ mpc:
   json_name: "main_controller"
   # controller_name: "ManipulatorMPCController_eeTracker_point"
   controller_name: "NNManipulatorMPCController_eeTracker_point"
-  Fmax: [10, 10] # Maximum force
+  Fmax: [5, 5] # Maximum force
   xmax: [3.142, 3.142, 1.0, 1.0]
   N_horizon: 20 # Prediction horizon
   use_RTI: false # Use Real-Time Iteration
   mpc_timestep: 0.01 # seconds  
   x0_q: [0.7, -1.0]
-  # x0_q: [1.09407810200947, -1.3698433666231395]    # Initial joint position
-  x0_v: [-0.06211860706042027, -0.554875446145376]      # Inital joint velocity if random not true
+  x0_v: [0, 0]      # Inital joint velocity if random not true
   x0_q_random: false # If true, x0 above will not be used
-  x0_range: [[-0.0, 0.0, 0.8], [0.5, 0.0, 1.6]] # Range for random x0 [[min_xyz], [max_xyz]]
+  x0_range: [[-0.8, 0.0, 1.1], [0.8, 0.0, 1.8]] # Range for random x0 [[min_xyz], [max_xyz]]
   x0_q_sampling: uniform # Only uniform for now
   yref_q: [-0.7, 1.0]
   # yref_q: [0.7469641061569476, -1.904786985473819]
   yref_q_random: false
-  yref_range: [[-0.5, 0.0, 0.8], [0.0, 0.0, 1.6]] # [[min_xyz], [max_xyz]]
+  yref_range: [[-0.8, 0.0, 1.1], [0.0, 0.0, 1.8]] # [[min_xyz], [max_xyz]]
   yref_q_sampling: uniform
   Q_mat: [50, 50, 50] # State cost weights for ee tracking
-  Q_dot_mat: [0.0002, 0.0002] # Velocity state cost weights for joints
-  R_mat: [0.0001, 0.0001] # Input cost weights
+  Q_dot_mat: [0.002, 0.002] # Velocity state cost weights for joints
+  R_mat: [0.01, 0.01] # Input cost weights
   terminal_cost: true
-  early_termination_cost: false # Enable early termination based on cost
+  early_termination_cost: true # Enable early termination based on cost
   termination_cost: 0.005 # Tolerance for early termination cost
   early_termination_state: false # Enable early termination based on state
   termination_state: 0.01 # Tolerance for early termination state
@@ -86,7 +85,7 @@ collision:
 
     link2:
       from: j_1
-      to: attachment_site
+      to: j_2
       radius: 0.1
 
   obstacles_random: false
@@ -119,7 +118,7 @@ VI:
 
 NN:
   model_name: "TwoDofArmModelAcados"
-  checkpoint_path: "value_iteration/output/2026-01-27_12-16-15_TwoDofArm_VI/loop_34/training/model_epoch_32.pt"
+  checkpoint_path: "value_iteration/output/2026-02-05_16-34-15_TwoDofArm_VI/loop_131/training/model_epoch_16.pt"
 
 plots:
   EndEffector X Position: ["xyzpos", 0, "m"]

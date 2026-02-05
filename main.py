@@ -11,7 +11,7 @@ from controller import CONTROLLER_REGISTRY
 from IK import InverseKinematicsSolver
 from data_collection.data_utils import save_npz
 
-def main(model_name, data_collection=False, output_dir=None, timestamp=None, data_config=None, config=None):
+def main(model_name, data_collection=False, output_dir=None, timestamp=None, data_config=None, config=None, worker_id=0):
     # Load configuration
     if config is None:
         with open(f"configs/{model_name}config.yaml", "r") as f:
@@ -68,7 +68,7 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
 
         save_yaml(config=config, save_path=config_save_path)                                                # Save summary with IK inputs
 
-        controller = CONTROLLER_REGISTRY[config["mpc"]["controller_name"]](config, collision_config)        # Create MPCController
+        controller = CONTROLLER_REGISTRY[config["mpc"]["controller_name"]](config, collision_config, worker_id)        # Create MPCController
         
         if config["VI"]["ground_truth_controller"]:
             # Make a **deep copy** of config so we don't touch the original
@@ -82,7 +82,7 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
                     GT_config[key] = value
                     
             # Create ground truth controller
-            gt_controller = CONTROLLER_REGISTRY[GT_config["mpc"]["controller_name"]](GT_config, collision_config)
+            gt_controller = CONTROLLER_REGISTRY[GT_config["mpc"]["controller_name"]](GT_config, collision_config, worker_id)
         else:
             gt_controller = None
 

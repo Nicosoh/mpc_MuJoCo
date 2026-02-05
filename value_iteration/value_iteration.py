@@ -24,14 +24,14 @@ def main():
         ax2.clear()
         
         # Top subplot: ground truth vs controller
-        ax1.plot(x, ground_truth, label="Ground Truth", marker='o')
-        ax1.plot(x, controller, label="Controller", marker='x')
+        ax1.plot(x, ground_truth, label="Ground Truth", linewidth = 0.8)
+        ax1.plot(x, controller, label="Controller", linewidth = 0.8)
         ax1.set_ylabel("Mean Cost")
         ax1.grid(True, which="both", linestyle=":", alpha=0.4)
         ax1.legend()
         
         # Bottom subplot: MSE
-        ax2.plot(x, MSE, label="MSE", color='r', marker='s')
+        ax2.plot(x, MSE, label="MSE", color='r', linewidth = 0.8)
         ax2.set_xlabel("Value Iteration Loop")
         ax2.set_ylabel("Mean Squared Error")
         ax2.grid(True, which="both", linestyle=":", alpha=0.4)
