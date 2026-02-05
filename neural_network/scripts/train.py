@@ -60,7 +60,7 @@ def train_model(config, run_dir, data_path=None, seed=42):
     DatasetClass = DATASET_REGISTRY[dataset_class]
     dataset = DatasetClass(config=config, run_dir=run_dir, mode="train") # create dataset object
     train_loader = DataLoader(dataset.train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(dataset.val_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(dataset.val_dataset, batch_size=batch_size, shuffle=False)
 
     # === Dataset Info ===
     num_train = len(dataset.train_dataset)
@@ -100,9 +100,10 @@ def train_model(config, run_dir, data_path=None, seed=42):
     best_model_path = None
 
     # === Global epoch progress bar ===
-    epoch_bar = tqdm(range(num_epochs), desc="Training", unit="epoch")
+    # epoch_bar = tqdm(range(num_epochs), desc="Training", unit="epoch")
+    pbar = tqdm(total=num_epochs, desc="Training")
 
-    for epoch in epoch_bar:
+    for epoch in range(num_epochs):
         model.train()
         total_loss = 0.0
 
@@ -122,7 +123,7 @@ def train_model(config, run_dir, data_path=None, seed=42):
         avg_train_loss = total_loss / len(train_loader.dataset)
         train_losses.append((epoch+1, avg_train_loss, optimizer.param_groups[0]['lr']))
         # Update the tqdm bar postfix with avg loss
-        epoch_bar.set_postfix(Epoch_loss=avg_train_loss)
+        pbar.write(f"\n[Train @ epoch {epoch+1}]  Train Loss = {avg_train_loss}\n")
 
         # === Validation every eval_interval ===
         if (epoch + 1) % eval_interval == 0:
@@ -141,7 +142,7 @@ def train_model(config, run_dir, data_path=None, seed=42):
             avg_val_loss = val_loss / len(val_loader.dataset)
             val_losses.append((epoch+1, avg_val_loss, optimizer.param_groups[0]['lr']))
 
-            tqdm.write(f"\n[Eval @ epoch {epoch+1}]  Val Loss = {avg_val_loss}\n")
+            pbar.write(f"\n[Eval @ epoch {epoch+1}]  Val Loss = {avg_val_loss}\n")
 
             # === Save only the best model ===
             epoch_str = f"{epoch + 1}"
@@ -158,13 +159,13 @@ def train_model(config, run_dir, data_path=None, seed=42):
                 best_model_path = ckpt_path
                 vals_since_improvement = 0
 
-                tqdm.write(f"New best model saved: {ckpt_path}")
+                print(f"New best model saved: {ckpt_path}")
             else:
                 vals_since_improvement += 1
             
             # # If no improvement for a certain number of epochs, restore best weights and reduce learning rate
             # if vals_since_improvement >= patience:
-            #     tqdm.write(
+            #     print(
             #         f"Validation loss did not improve for {patience} validations. Reducing learning rate and restoring best model weights.")
             #     if best_model_path is not None:
             #         model.load_state_dict(torch.load(best_model_path))
@@ -184,7 +185,7 @@ def train_model(config, run_dir, data_path=None, seed=42):
                         lr_reduced = True
 
                 if lr_reduced:
-                    tqdm.write(
+                    print(
                         f"Validation loss did not improve for {patience} validations. "
                         "Reducing learning rate and restoring best model weights."
                     )
@@ -192,17 +193,20 @@ def train_model(config, run_dir, data_path=None, seed=42):
                     if best_model_path is not None:
                         model.load_state_dict(torch.load(best_model_path))
 
-                    tqdm.write(
+                    print(
                         f"LR reduced from {old_lr:.2e} to {new_lr:.2e}"
                     )
                 else:
-                    tqdm.write(
+                    print(
                         f"Validation loss did not improve for {patience} validations, "
                         f"but LR is already at minimum ({min_lr:.2e}). No reload performed."
                     )
 
                 vals_since_improvement = 0
-                
+        pbar.update(1)
+
+    pbar.close()
+
     # === Plot loss curves ===
     if data_path is not None:
         show_plot = False
