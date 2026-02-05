@@ -78,6 +78,7 @@ class PinocchioCasadiRobotWrapper(RobotWrapper):
         # CasADi FK expressions
         self.universe = self.cdata.oMf[self.cmodel.getFrameId("universe")].translation
         self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
+        self.j_2 = self.cdata.oMf[self.cmodel.getFrameId("j_2")].translation
         self.attachment_site = self.cdata.oMf[self.cmodel.getFrameId("attachment_site")].translation
 
     def forward(self, x, u): # Current state and input  -> next state
