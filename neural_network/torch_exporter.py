@@ -6,7 +6,7 @@ from configparser import ConfigParser
 
 from neural_network.models import MODEL_REGISTRY
 
-def export_torch_model(config):
+def export_torch_model(config, worker_id):
     try:
         model_name = config["NN"]["model_name"]
         checkpoint_path = config["NN"]["checkpoint_path"]
@@ -27,6 +27,8 @@ def export_torch_model(config):
     NNmodel.eval()
 
     # Wrap for CasADi
-    l4c_model = l4c.L4CasADi(NNmodel, device=device)
+    name = "l4casadi_f" + str(worker_id)
+
+    l4c_model = l4c.L4CasADi(NNmodel, device=device, name=name)
 
     return l4c_model

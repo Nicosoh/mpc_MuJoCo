@@ -348,7 +348,7 @@ class NNMPCController(BaseMPCController):
         ocp.cost.W_e = np.ones((1, 1))                      # Weights set to 1, meaning no scaling for the NN output
         ocp.cost.yref_e = np.zeros((1, ))                   # Set terminal reference to zero for NN output
         # Export trained NN model
-        self.l4c_model = export_torch_model(config)
+        self.l4c_model = export_torch_model(config, self.worker_id)
         # Evaluate NN symbolically
         y_sym = self.l4c_model(ca.transpose(model.x))
         ocp.model.cost_y_expr_e = y_sym
@@ -464,7 +464,7 @@ class NNManipulatorMPCController(ManipulatorMPCController):
         ocp.parameter_values = np.zeros(self.p.shape[0])
 
         # Export trained NN model
-        self.l4c_model = export_torch_model(config)
+        self.l4c_model = export_torch_model(config, self.worker_id)
         # Evaluate NN symbolically
         y_sym = self.l4c_model(ca.transpose(vertcat(model.x, ocp.model.p)))
         ocp.model.cost_y_expr_e = y_sym
@@ -653,7 +653,7 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
         ocp.parameter_values = np.zeros(self.p.shape[0])
 
         # Export trained NN model
-        self.l4c_model = export_torch_model(config)
+        self.l4c_model = export_torch_model(config, self.worker_id)
         # Evaluate NN symbolically
         y_sym = self.l4c_model(ca.transpose(vertcat(self.ee_expr, q_dot, ocp.model.p)))
         ocp.model.cost_y_expr_e = y_sym

@@ -26,8 +26,8 @@ pin:
 
 mpc:
   json_name: "main_controller"
-  # controller_name: "ManipulatorMPCController_eeTracker_point"
-  controller_name: "NNManipulatorMPCController_eeTracker_point"
+  controller_name: "ManipulatorMPCController_eeTracker_point"
+  # controller_name: "NNManipulatorMPCController_eeTracker_point"
   Fmax: [5, 5] # Maximum force
   xmax: [3.142, 3.142, 1.0, 1.0]
   N_horizon: 20 # Prediction horizon
@@ -35,18 +35,18 @@ mpc:
   mpc_timestep: 0.01 # seconds  
   x0_q: [0.7, -1.0]
   x0_v: [0, 0]      # Inital joint velocity if random not true
-  x0_q_random: false # If true, x0 above will not be used
+  x0_q_random: true # If true, x0 above will not be used
   x0_range: [[-0.8, 0.0, 1.1], [0.8, 0.0, 1.8]] # Range for random x0 [[min_xyz], [max_xyz]]
   x0_q_sampling: uniform # Only uniform for now
   yref_q: [-0.7, 1.0]
   # yref_q: [0.7469641061569476, -1.904786985473819]
-  yref_q_random: false
+  yref_q_random: true
   yref_range: [[-0.8, 0.0, 1.1], [0.0, 0.0, 1.8]] # [[min_xyz], [max_xyz]]
   yref_q_sampling: uniform
   Q_mat: [50, 50, 50] # State cost weights for ee tracking
   Q_dot_mat: [0.002, 0.002] # Velocity state cost weights for joints
   R_mat: [0.01, 0.01] # Input cost weights
-  terminal_cost: true
+  terminal_cost: false
   early_termination_cost: true # Enable early termination based on cost
   termination_cost: 0.005 # Tolerance for early termination cost
   early_termination_state: false # Enable early termination based on state
@@ -106,7 +106,7 @@ collision:
 
 # Ground truth controller
 VI:
-  ground_truth_controller: false
+  ground_truth_controller: true
 
   changes:
     mpc:
