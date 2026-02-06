@@ -7,6 +7,8 @@ from main import main
 def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
     import os
     import sys
+    import gc
+    import traceback
     from datetime import datetime
     from main import main
 
@@ -16,6 +18,7 @@ def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
     os.makedirs(worker_output_dir, exist_ok=True)
 
     log_file_path = os.path.join(worker_output_dir, f"worker_{worker_id}.log")
+    error_file_path = os.path.join(worker_output_dir, f"worker_{worker_id}_error.log")
 
     orig_stdout = sys.stdout
     orig_stderr = sys.stderr
@@ -26,10 +29,13 @@ def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
             sys.stderr = log_file
 
             print(f"[Worker {worker_id}] starting with {len(run_indices)} runs")
+            print(f"[Worker {worker_id}] PID: {os.getpid()}")
+            sys.stdout.flush()
 
             all_logs = {}
             for run_index in run_indices:
                 success = False
+                retry_count = 0
                 while not success:  # keep retrying until it succeeds
                     run_timestamp = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')}_run{run_index}"
                     try:
@@ -45,59 +51,51 @@ def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
                         all_logs[run_timestamp] = logs
                         success = True
                         print(f"[Worker {worker_id}] Finished run {run_index}")
+                        sys.stdout.flush()
                     except Exception as e:
-                        print(f"[Worker {worker_id}] Run {run_index} failed, retrying: {e}")
+                        retry_count += 1
+                        error_msg = f"[Worker {worker_id}] Run {run_index} attempt {retry_count} failed: {type(e).__name__}: {e}"
+                        print(error_msg)
+                        print(traceback.format_exc())
+                        sys.stdout.flush()
+                        
+                        # Save error to error log for later inspection
+                        with open(error_file_path, "a") as ef:
+                            ef.write(f"\n=== Run {run_index} Attempt {retry_count} ===\n")
+                            ef.write(f"Timestamp: {datetime.now()}\n")
+                            ef.write(error_msg + "\n")
+                            ef.write(traceback.format_exc())
+                        
+                        if retry_count >= 3:
+                            raise RuntimeError(f"Run {run_index} failed after 3 attempts: {e}")
+                
+                # Force garbage collection after each run to prevent memory accumulation
+                gc.collect()
+                print(f"[Worker {worker_id}] Garbage collected after run {run_index}")
+                sys.stdout.flush()
 
             print(f"[Worker {worker_id}] completed all assigned runs")
+            sys.stdout.flush()
+    except Exception as e:
+        error_msg = f"[Worker {worker_id}] FATAL ERROR: {type(e).__name__}: {e}"
+        print(error_msg)
+        print(traceback.format_exc())
+        sys.stdout.flush()
+        
+        # Save fatal error to error log
+        with open(error_file_path, "a") as ef:
+            ef.write(f"\n=== FATAL ERROR ===\n")
+            ef.write(f"Timestamp: {datetime.now()}\n")
+            ef.write(error_msg + "\n")
+            ef.write(traceback.format_exc())
+        
+        raise  # Re-raise so ProcessPoolExecutor can see it
+
     finally:
         sys.stdout = orig_stdout
         sys.stderr = orig_stderr
 
     return all_logs
-
-# def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
-#     os.environ["OMP_NUM_THREADS"] = "1"
-
-#     worker_output_dir = os.path.join(output_dir, f"worker_{worker_id}")
-#     os.makedirs(worker_output_dir, exist_ok=True)
-
-#     log_file_path = os.path.join(worker_output_dir, f"worker_{worker_id}.log")
-
-#     # Save original stdout/stderr
-#     orig_stdout = sys.stdout
-#     orig_stderr = sys.stderr
-
-#     try:
-#         with open(log_file_path, "a") as log_file:
-#             sys.stdout = log_file
-#             sys.stderr = log_file
-
-#             print(f"[Worker {worker_id}] starting with {len(run_indices)} runs")
-
-#             all_logs = {}
-#             for run_index in run_indices:
-#                 run_timestamp = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')}_run{run_index}"
-
-#                 logs = main(
-#                     model_name,
-#                     data_collection=True,
-#                     output_dir=worker_output_dir,
-#                     timestamp=run_timestamp,
-#                     data_config=data_config,
-#                     config=config,
-#                     worker_id=worker_id,
-#                 )
-
-#                 all_logs[run_timestamp] = logs
-#                 print(f"[Worker {worker_id}] Finished run {run_index}")
-
-#             print(f"[Worker {worker_id}] completed all assigned runs")
-#     finally:
-#         # Restore stdout/stderr no matter what
-#         sys.stdout = orig_stdout
-#         sys.stderr = orig_stderr
-
-#     return all_logs
 
 def run_data_collector(model_name, data_config_path="data_collection/data_config.yaml", run_dir=None, config=None):
     import multiprocessing as mp
@@ -178,11 +176,16 @@ def run_data_collector(model_name, data_config_path="data_collection/data_config
 
             for future in as_completed(futures):
                 try:
-                    logs = future.result()
+                    logs = future.result()  # No timeout
                     all_logs.update(logs)
                     print(f"Collected logs. Total runs so far: {len(all_logs)}/{n_runs}")
                 except Exception as e:
-                    print("A worker failed:", e)
+                    error_msg = f"ERROR: A worker failed with {type(e).__name__}: {e}"
+                    print(error_msg)
+                    print(f"Full traceback:")
+                    import traceback
+                    traceback.print_exc()
+                    print(f"Continuing to collect results from other workers...")
 
     elapsed = time.time() - start_time
 

@@ -12,22 +12,6 @@ import yaml
 import configparser
 from datetime import datetime
 
-# -----------------------------
-# Tee class for stdout/stderr
-# -----------------------------
-# class Tee:
-#     def __init__(self, *files):
-#         self.files = files
-
-#     def write(self, data):
-#         for f in self.files:
-#             f.write(data)
-#             f.flush()
-
-#     def flush(self):
-#         for f in self.files:
-#             f.flush()
-
 # Ensure project root is in path for imports
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
