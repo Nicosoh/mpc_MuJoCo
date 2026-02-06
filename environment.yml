@@ -1,4 +1,4 @@
-name: default
+name: mpc_mujoco
 channels:
 - conda-forge
 - nodefaults
