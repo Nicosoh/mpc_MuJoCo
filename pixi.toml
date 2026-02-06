@@ -35,7 +35,6 @@ mplcursors = ">=0.7,<0.8"
 meshcat-shapes = ">=1.0.0,<2"
 loop-rate-limiters = ">=1.2.0,<2"
 scikit-build = ">=0.17"
-ipykernel = ">=7.1.0,<8"
 
 [pypi-dependencies]
 tqdm = "*"
