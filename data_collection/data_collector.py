@@ -9,6 +9,9 @@ def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
     import sys
     import gc
     import traceback
+    import random
+    import numpy as np
+    import time
     from datetime import datetime
     from main import main
 
@@ -19,6 +22,14 @@ def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
 
     log_file_path = os.path.join(worker_output_dir, f"worker_{worker_id}.log")
     error_file_path = os.path.join(worker_output_dir, f"worker_{worker_id}_error.log")
+
+    # Set unique seed combining time + worker_id for complete uniqueness
+    # time.time() gives seconds since epoch, * 1000 for millisecond precision
+    # worker_id * 10000 ensures different workers get different ranges
+    time_seed = int(time.time() * 1000) % (2**31 - 1)  # Keep within 32-bit range
+    run_seed = time_seed + worker_id * 10000
+    random.seed(run_seed)
+    np.random.seed(run_seed)
 
     orig_stdout = sys.stdout
     orig_stderr = sys.stderr
