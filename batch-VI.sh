@@ -14,5 +14,6 @@ module load 2025
 module load openmpi
 module load python
 
+source ~/.bashrc
 cd ~/mpc_MuJoCo
 srun pixi run VI
