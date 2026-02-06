@@ -13,11 +13,6 @@
 module load 2025
 module load openmpi
 module load python
-module load miniconda3/4.12.0
-module load gcc/12.4.0
 
-# Activate conda, run job, deactivate conda
-conda activate /home/nsoh/.conda/envs/mpc_mujoco
 cd ~/mpc_MuJoCo
-srun python -m value_iteration.value_iteration
-conda deactivate
+srun pixi run VI
