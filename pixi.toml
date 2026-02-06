@@ -46,9 +46,12 @@ torchinfo = ">=1.8.0, <2"
 ACADOS_SOURCE_DIR = "$PWD/external/acados"
 
 # Shared libraries (Linux uses LD_LIBRARY_PATH, macOS uses DYLD_LIBRARY_PATH)
-LD_LIBRARY_PATH   = "${PWD}/external/acados/lib:${LD_LIBRARY_PATH:-}"
-DYLD_LIBRARY_PATH = "${PWD}/external/acados/lib:${DYLD_LIBRARY_PATH:-}"
+#LD_LIBRARY_PATH   = "${PWD}/external/acados/lib:${LD_LIBRARY_PATH:-}"
+#DYLD_LIBRARY_PATH = "${PWD}/external/acados/lib:${DYLD_LIBRARY_PATH:-}"
+LD_LIBRARY_PATH = "$PWD/.pixi/envs/default/lib:${PWD}/external/acados/lib:${LD_LIBRARY_PATH:-}"
 
+# 3. macOS support
+DYLD_LIBRARY_PATH = "$PWD/.pixi/envs/default/lib:${PWD}/external/acados/lib:${DYLD_LIBRARY_PATH:-}"
 # Add the Tera renderer (if downloaded) to PATH
 PATH = "$PWD/external/acados/bin:$PATH"
 
