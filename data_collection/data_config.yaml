@@ -6,3 +6,4 @@
 data_collector:
   runs: 500
   max_steps: 100
+  workers: 8

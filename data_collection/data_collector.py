@@ -1,13 +1,8 @@
 import argparse
-import sys
-import os
-from datetime import datetime
-from main import main
 
 def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
     import os
     import sys
-    import gc
     import traceback
     import random
     import numpy as np
@@ -17,12 +12,13 @@ def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
 
     os.environ["OMP_NUM_THREADS"] = "1"
 
+    # Individual directory for each worker
     worker_output_dir = os.path.join(output_dir, f"worker_{worker_id}")
     os.makedirs(worker_output_dir, exist_ok=True)
 
+    # Log file for this worker
     log_file_path = os.path.join(worker_output_dir, f"worker_{worker_id}.log")
-    error_file_path = os.path.join(worker_output_dir, f"worker_{worker_id}_error.log")
-
+    
     # Set unique seed combining time + worker_id for complete uniqueness
     # time.time() gives seconds since epoch, * 1000 for millisecond precision
     # worker_id * 10000 ensures different workers get different ranges
@@ -31,11 +27,13 @@ def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
     random.seed(run_seed)
     np.random.seed(run_seed)
 
+    # Save original stdout/stderr
     orig_stdout = sys.stdout
     orig_stderr = sys.stderr
 
     try:
         with open(log_file_path, "a") as log_file:
+            # Redirect stdout/stderr to log file
             sys.stdout = log_file
             sys.stderr = log_file
 
@@ -63,6 +61,7 @@ def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
                         success = True
                         print(f"[Worker {worker_id}] Finished run {run_index}")
                         sys.stdout.flush()
+
                     except Exception as e:
                         retry_count += 1
                         error_msg = f"[Worker {worker_id}] Run {run_index} attempt {retry_count} failed: {type(e).__name__}: {e}"
@@ -70,39 +69,22 @@ def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
                         print(traceback.format_exc())
                         sys.stdout.flush()
                         
-                        # Save error to error log for later inspection
-                        with open(error_file_path, "a") as ef:
-                            ef.write(f"\n=== Run {run_index} Attempt {retry_count} ===\n")
-                            ef.write(f"Timestamp: {datetime.now()}\n")
-                            ef.write(error_msg + "\n")
-                            ef.write(traceback.format_exc())
-                        
                         if retry_count >= 3:
                             raise RuntimeError(f"Run {run_index} failed after 3 attempts: {e}")
-                
-                # Force garbage collection after each run to prevent memory accumulation
-                gc.collect()
-                print(f"[Worker {worker_id}] Garbage collected after run {run_index}")
-                sys.stdout.flush()
 
             print(f"[Worker {worker_id}] completed all assigned runs")
             sys.stdout.flush()
+
     except Exception as e:
         error_msg = f"[Worker {worker_id}] FATAL ERROR: {type(e).__name__}: {e}"
         print(error_msg)
         print(traceback.format_exc())
         sys.stdout.flush()
         
-        # Save fatal error to error log
-        with open(error_file_path, "a") as ef:
-            ef.write(f"\n=== FATAL ERROR ===\n")
-            ef.write(f"Timestamp: {datetime.now()}\n")
-            ef.write(error_msg + "\n")
-            ef.write(traceback.format_exc())
-        
         raise  # Re-raise so ProcessPoolExecutor can see it
 
     finally:
+        # Redirect stdout/stderr back to original
         sys.stdout = orig_stdout
         sys.stderr = orig_stderr
 
@@ -117,12 +99,16 @@ def run_data_collector(model_name, data_config_path="data_collection/data_config
     from utils import save_yaml
     from data_collection import save_npz
 
-    # Load config
+    # Load data_collector config
     with open(data_config_path, "r") as f:
         data_config = yaml.safe_load(f)["data_collector"]
 
+    # Extract config
     n_runs = data_config["runs"]
-    n_workers = min(mp.cpu_count(), data_config.get("workers", 8))  # number of workers
+    workers = data_config["workers"]
+
+    # Define number of workers
+    n_workers = min(mp.cpu_count(), workers)
     timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
 
     # Output dir
@@ -170,6 +156,7 @@ def run_data_collector(model_name, data_config_path="data_collection/data_config
         (w_id, runs) for w_id, runs in enumerate(remaining_indices_per_worker) if runs
     ]
 
+    # Submit to job pool
     if workers_with_remaining:
         with ProcessPoolExecutor(max_workers=len(workers_with_remaining)) as executor:
             futures = [
@@ -185,11 +172,13 @@ def run_data_collector(model_name, data_config_path="data_collection/data_config
                 for w_id, runs in workers_with_remaining
             ]
 
+            # Check result
             for future in as_completed(futures):
                 try:
-                    logs = future.result()  # No timeout
-                    all_logs.update(logs)
+                    logs = future.result()  # Returns log from main()
+                    all_logs.update(logs)   # Add to all_logs
                     print(f"Collected logs. Total runs so far: {len(all_logs)}/{n_runs}")
+
                 except Exception as e:
                     error_msg = f"ERROR: A worker failed with {type(e).__name__}: {e}"
                     print(error_msg)
@@ -200,6 +189,7 @@ def run_data_collector(model_name, data_config_path="data_collection/data_config
 
     elapsed = time.time() - start_time
 
+    # Save all_logs when done
     save_npz(f"{timestamp}_{model_name}_logs.npz", data=all_logs, output_dir=output_dir)
 
     print("\n=== Data collection finished ===")
