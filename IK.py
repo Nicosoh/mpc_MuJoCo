@@ -21,6 +21,9 @@ class InverseKinematicsSolver:
         self.config = config
         self.collision_config = collision_config
 
+        self.zone_idx = self.sample_zone()
+        self.config["mpc"]["zone_idx"] = self.zone_idx
+
         # Extract IK config
         self.visualize = self.config["IK"]["visualize_IK"]
         self.max_iterations = self.config["IK"]["max_iterations"]
@@ -38,6 +41,38 @@ class InverseKinematicsSolver:
 
         self.load_model()
 
+    def sample_zone(self):
+        q_ranges = np.array(self.config["mpc"]["x0_range"])
+
+        # Single zone → nothing to sample
+        if not (q_ranges.ndim == 3 and q_ranges.shape[0] > 1):
+            return None
+
+        # ---- Check that zone_probability exists ----
+        if "zone_probability" not in self.config["mpc"]:
+            raise ValueError(
+                f"zone_probability must be defined in the config when x0_range contains "
+                f"{len(q_ranges)} zones."
+            )
+
+        probs = np.array(self.config["mpc"]["zone_probability"])
+
+        # Validate length
+        if len(probs) != len(q_ranges):
+            raise ValueError(
+                f"Length of zone_probability ({len(probs)}) does not match number of zones ({len(q_ranges)})"
+            )
+
+        # Check that probabilities sum to 1
+        if not np.isclose(probs.sum(), 1.0, atol=1e-6):
+            raise ValueError(
+                f"zone_probability values must sum to 1. Currently sums to {probs.sum():.6f}"
+            )
+
+        zone_idx = np.random.choice(len(q_ranges), p=probs)
+        print(f"[IK] Selected zone {zone_idx}")
+        return int(zone_idx)
+    
     def load_x0(self):
         # =========== Load x0 ===========
         self.x0_q = self.get_valid_q("x0_q", "x0_range")
@@ -109,13 +144,26 @@ class InverseKinematicsSolver:
             self.update_robot_viz(self.configuration.q)
     
     def get_valid_q(self, q_name: str, q_range: str, max_attempts=1000):
-        q_range = np.array(self.config["mpc"][q_range])
+        q_ranges = np.array(self.config["mpc"][q_range])  # shape: (n_zones, 2, 3) or (2, 3)
+        zone_idx = self.config["mpc"].get("zone_idx", None)
+
+        # Select the active zone
+        if q_ranges.ndim == 3 and q_ranges.shape[0] > 1:
+            if zone_idx is None:
+                raise ValueError(
+                    f"zone_idx must be set for multi-zone {q_range}. "
+                    f"Found {q_ranges.shape[0]} zones, but zone_idx is None."
+                )
+            q_range_sel = q_ranges[zone_idx]
+        else:
+            q_range_sel = q_ranges
+            zone_idx = None
 
         for attempt in range(max_attempts):
             q = self.load_q(q_name)
 
             in_collision = self.collision_check(q)
-            in_bbox = self.frame_within_bbox(q, self.attachment_site, q_range)
+            in_bbox = self.frame_within_bbox(q, self.attachment_site, q_range_sel)
             min_dist = self.distance_check(q)
             dist_ok = min_dist > self.d_min
 
@@ -123,7 +171,7 @@ class InverseKinematicsSolver:
                 print(
                     f"Loaded valid {q_name} configuration in {attempt+1} attempts\n"
                     f"  q:        {q}\n"
-                    f"  q_range:  min={q_range[0]}, max={q_range[1]}\n"
+                    f"  q_range:  min={q_range_sel[0]}, max={q_range_sel[1]}\n"
                     f"  min_dist: {min_dist:.4f} (d_min={self.d_min})\n"
                 )
                 return q
