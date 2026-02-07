@@ -152,15 +152,23 @@ def run_vi_loop(loop_num, main_output_dir, model_name, data_config_path,
             GT = np.array(run_data["GT_cost"])
             CTRL = np.array(run_data["terminal_cost"])
             
-            GT_cost.append(np.nanmean(GT))
-            ctrl_cost.append(np.nanmean(CTRL))
-            sq_errors.extend(
-                ((GT - CTRL) ** 2)[np.isfinite(GT) & np.isfinite(CTRL)].ravel()
-            )
+            # Pairwise validity mask
+            valid_mask = np.isfinite(GT) & np.isfinite(CTRL)
+
+            # Skip runs with no valid paired data
+            if not np.any(valid_mask):
+                continue
+
+            GT_valid = GT[valid_mask]
+            CTRL_valid = CTRL[valid_mask]
+
+            GT_cost.append(GT_valid.mean())
+            ctrl_cost.append(CTRL_valid.mean())
+            sq_errors.extend((GT_valid - CTRL_valid) ** 2)
         
-        gt_mean = float(np.nanmean(GT_cost))
-        ctrl_mean = float(np.nanmean(ctrl_cost))
-        mse_mean = float(np.nanmean(sq_errors))
+        gt_mean = float(np.nanmean(GT_cost)) if GT_cost else np.nan
+        ctrl_mean = float(np.nanmean(ctrl_cost)) if ctrl_cost else np.nan
+        mse_mean = float(np.nanmean(sq_errors)) if sq_errors else np.nan
         
         metrics = {
             "loop": loop_num + 1,
