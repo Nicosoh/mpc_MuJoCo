@@ -129,8 +129,8 @@ class TwoDofArmModel(nn.Module):                                            # Wi
     def __init__(self, train_config):
         super().__init__()
 
-        self.fc0 = ScaleLayer(8)
-        self.fc1 = nn.Linear(8, 64)
+        self.fc0 = ScaleLayer(10)
+        self.fc1 = nn.Linear(10, 64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, 64)
         self.fc4 = nn.Linear(64, 1)
@@ -150,8 +150,8 @@ class TwoDofArmModelAcados(nn.Module):                                          
     def __init__(self, train_config):
         super().__init__()
 
-        self.fc0 = ScaleLayer(8)
-        self.fc1 = nn.Linear(8, 64)
+        self.fc0 = ScaleLayer(10)
+        self.fc1 = nn.Linear(10, 64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, 64)
         self.fc4 = nn.Linear(64, 1)
@@ -163,26 +163,5 @@ class TwoDofArmModelAcados(nn.Module):                                          
         x = F.tanh(self.fc3(x))
         x = self.fc4(x)                                                     # Output layer without activation ("scaling" layer)
         # x = torch.tensor(0.5, dtype=x.dtype, device=x.device) * x**2        # Least Squares which mimics acados cost
-
-        return x
-
-@register_model
-class PendulumModel_scale(nn.Module):
-    def __init__(self, train_config):
-        super().__init__()
-
-        self.fc0 = ScaleLayer(2)
-        self.fc1 = nn.Linear(2, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc3 = nn.Linear(64, 64)
-        self.fc4 = nn.Linear(64, 1)
-
-    def forward(self, x):
-        x = self.fc0(x)                                                     # Linear transformation without activation ("scaling" layer)
-        x = F.tanh(self.fc1(x))                                             # Hidden layers with tanh activations
-        x = F.tanh(self.fc2(x))
-        x = F.tanh(self.fc3(x))
-        x = self.fc4(x)                                                     # Output layer without activation ("scaling" layer)
-        x = torch.tensor(0.5, dtype=x.dtype, device=x.device) * x**2        # Least Squares which mimics acados cost
 
         return x

@@ -130,12 +130,14 @@ class TwoDofArmDataset_eeTracker(TwoDofArmDataset):
         for run_key in data.keys():  # iterate over each run
             run_data = data[run_key]
             pos = run_data["xyzpos"]
+            qpos = run_data["qpos"]
             qvel = run_data["qvel"]
             cost = run_data["total_cost"]
             yref_pos = np.tile(run_data["yref_xyz"], (pos.shape[0], 1))
+            yref_q_run = np.tile(run_data["yref_q"], (pos.shape[0], 1))
 
             # Concatenate qpos and qvel
-            X_run = np.concatenate([pos, qvel, yref_pos], axis=1)
+            X_run = np.concatenate([pos, qpos, qvel, yref_pos], axis=1)
             X_list.append(X_run)
 
             # Ensure cost is 2D
@@ -149,7 +151,7 @@ class TwoDofArmDataset_eeTracker(TwoDofArmDataset):
             Xs_pos = yref_pos
             # (ee pos, zero vel, yref pos) 
             # While ee_pos is at yref and with zero velocity cost should be zero.
-            Xs_run = np.concatenate([Xs_pos, np.zeros_like(qvel), Xs_pos], axis=1)
+            Xs_run = np.concatenate([Xs_pos, yref_q_run, np.zeros_like(qvel), Xs_pos], axis=1)
 
             ys = np.zeros((1,))
             ys_run = np.tile(ys, (pos.shape[0], 1))

@@ -127,6 +127,7 @@ class MuJoCoSimulator:
             "yref": [],
             "yref_full": self.yref,                 # Full reference trajectory could be in cartesian or joint space
             "yref_xyz": self.config["mpc"]["yref"], # Final end-effector position in XYZ
+            "yref_q": self.config["mpc"]["yref_q"][:self.model.nq],
             "u_applied": [],
             "stage_cost": [],
             "terminal_cost": [],
