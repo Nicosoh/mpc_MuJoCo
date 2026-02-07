@@ -890,7 +890,10 @@ weights_path = (
     # "value_iteration/output/2026-01-31_07-09-17_TwoDofArm_VI/loop_26/training/model_epoch_29.pt"
     # "value_iteration/output/2026-01-31_07-09-17_TwoDofArm_VI/loop_3/training/model_epoch_30.pt"
     # "value_iteration/output/2026-02-01_22-42-54_TwoDofArm_VI/loop_23/training/model_epoch_15.pt"
-    "value_iteration/output/2026-02-05_16-34-15_TwoDofArm_VI/loop_131/training/model_epoch_16.pt"
+    # "value_iteration/output/2026-02-05_16-34-15_TwoDofArm_VI/loop_131/training/model_epoch_16.pt"
+    # "value_iteration/output/2026-02-07_15-49-41_TwoDofArm_VI/loop_13/training/model_epoch_16.pt"
+    # "value_iteration/output/2026-02-07_15-49-41_TwoDofArm_VI/loop_5/training/model_epoch_15.pt"
+    "value_iteration/output/2026-02-07_15-49-41_TwoDofArm_VI/loop_32/training/model_epoch_16.pt"
 )
 
 model.load_state_dict(torch.load(weights_path, map_location=device))
