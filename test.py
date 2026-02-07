@@ -874,7 +874,23 @@ weights_path = (
     # "value_iteration/output/2026-01-24_18-36-01_TwoDofArm_VI/loop_33/training/model_epoch_46.pt"
     # "value_iteration/output/2026-01-24_18-36-01_TwoDofArm_VI/loop_38/training/model_epoch_37.pt"
     # "value_iteration/output/2026-01-24_18-36-01_TwoDofArm_VI/loop_50/training/model_epoch_49.pt"
-    "value_iteration/output/2026-01-25_09-26-20_TwoDofArm_VI/loop_7/training/model_epoch_50.pt"
+    # "value_iteration/output/2026-01-25_09-26-20_TwoDofArm_VI/loop_7/training/model_epoch_50.pt"
+    # "value_iteration/output/2026-01-25_13-49-22_TwoDofArm_VI/loop_8/training/model_epoch_100.pt"
+    # "value_iteration/output/2026-01-25_20-49-52_TwoDofArm_VI/loop_4/training/model_epoch_190.pt"
+    # "value_iteration/output/2026-01-25_20-49-52_TwoDofArm_VI/loop_22/training/model_epoch_85.pt"
+    # "value_iteration/output/2026-01-26_15-33-46_TwoDofArm_VI/loop_4/training/model_epoch_186.pt"
+    # "value_iteration/output/2026-01-26_22-15-43_TwoDofArm_VI/loop_19/training/model_epoch_58.pt"
+    # "value_iteration/output/2026-01-26_22-15-43_TwoDofArm_VI/loop_9/training/model_epoch_263.pt"
+    # "value_iteration/output/2026-01-26_22-15-43_TwoDofArm_VI/loop_38/training/model_epoch_97.pt"
+    # "value_iteration/output/2026-01-27_12-16-15_TwoDofArm_VI/loop_2/training/model_epoch_247.pt"
+    # "value_iteration/output/2026-01-27_12-16-15_TwoDofArm_VI/loop_8/training/model_epoch_85.pt"
+    # "value_iteration/output/2026-01-27_12-16-15_TwoDofArm_VI/loop_29/training/model_epoch_67.pt"
+    # "value_iteration/output/2026-01-27_12-16-15_TwoDofArm_VI/loop_34/training/model_epoch_32.pt"
+    # "value_iteration/output/2026-01-30_22-18-30_TwoDofArm_VI/loop_8/training/model_epoch_97.pt"
+    # "value_iteration/output/2026-01-31_07-09-17_TwoDofArm_VI/loop_26/training/model_epoch_29.pt"
+    # "value_iteration/output/2026-01-31_07-09-17_TwoDofArm_VI/loop_3/training/model_epoch_30.pt"
+    # "value_iteration/output/2026-02-01_22-42-54_TwoDofArm_VI/loop_23/training/model_epoch_15.pt"
+    "value_iteration/output/2026-02-05_16-34-15_TwoDofArm_VI/loop_131/training/model_epoch_16.pt"
 )
 
 model.load_state_dict(torch.load(weights_path, map_location=device))
@@ -899,9 +915,9 @@ y_set = 0.0
 q1_dot = 0.0
 q2_dot = 0.0
 
-x_goal = 0.4
+x_goal = -0.24940596379494712
 y_goal = 0.0
-z_goal = 1.4
+z_goal = 1.4716765900406363
 
 # ============================================================
 # 5. Evaluate cost over grid

@@ -36,12 +36,12 @@ mpc:
   x0_q: [0.7, -1.0]
   x0_v: [0, 0]      # Inital joint velocity if random not true
   x0_q_random: true # If true, x0 above will not be used
-  x0_range: [[-0.8, 0.0, 1.1], [0.8, 0.0, 1.8]] # Range for random x0 [[min_xyz], [max_xyz]]
+  x0_range: [[-0.2, 0.0, 0.8], [0.8, 0.0, 1.8]] # Range for random x0 [[min_xyz], [max_xyz]]
   x0_q_sampling: uniform # Only uniform for now
   yref_q: [-0.7, 1.0]
   # yref_q: [0.7469641061569476, -1.904786985473819]
   yref_q_random: true
-  yref_range: [[-0.8, 0.0, 1.1], [0.0, 0.0, 1.8]] # [[min_xyz], [max_xyz]]
+  yref_range: [[-0.8, 0.0, 0.8], [0.2, 0.0, 1.8]] # [[min_xyz], [max_xyz]]
   yref_q_sampling: uniform
   Q_mat: [50, 50, 50] # State cost weights for ee tracking
   Q_dot_mat: [0.002, 0.002] # Velocity state cost weights for joints
@@ -111,14 +111,14 @@ VI:
   changes:
     mpc:
       controller_name: "ManipulatorMPCController_eeTracker_point"
-      N_horizon: 50
-      mpc_timestep: 0.04 # seconds
+      N_horizon: 25
+      mpc_timestep: 0.08 # seconds
       terminal_cost: false
       json_name: "GT_controller"
 
 NN:
   model_name: "TwoDofArmModelAcados"
-  checkpoint_path: "value_iteration/output/2026-02-05_16-34-15_TwoDofArm_VI/loop_131/training/model_epoch_16.pt"
+  checkpoint_path: "value_iteration/output/2026-02-06_15-33-51_TwoDofArm_VI/loop_72/training/model_epoch_50.pt"
 
 plots:
   EndEffector X Position: ["xyzpos", 0, "m"]
