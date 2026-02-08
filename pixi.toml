@@ -51,12 +51,9 @@ ACADOS_SOURCE_DIR = "$PWD/external/acados"
 # Shared libraries (Linux uses LD_LIBRARY_PATH, macOS uses DYLD_LIBRARY_PATH)
 LD_LIBRARY_PATH   = "${PWD}/external/acados/lib:${LD_LIBRARY_PATH:-}"
 DYLD_LIBRARY_PATH = "${PWD}/external/acados/lib:${DYLD_LIBRARY_PATH:-}"
-# LD_LIBRARY_PATH = "$PWD/.pixi/envs/default/lib:${PWD}/external/acados/lib:${LD_LIBRARY_PATH:-}"
 
-# 3. macOS support
-# DYLD_LIBRARY_PATH = "$PWD/.pixi/envs/default/lib:${PWD}/external/acados/lib:${DYLD_LIBRARY_PATH:-}"
 # Add the Tera renderer (if downloaded) to PATH
-PATH = "$PWD/external/acados/bin:$PATH"
+# PATH = "$PWD/external/acados/bin:$PATH"
 
 # Include + link flags so generated code can find HPIPM/BLASFEO headers & libs
 # CFLAGS   = "-I$CONDA_PREFIX/include -I$CONDA_PREFIX/include/hpipm/include -I$CONDA_PREFIX/include/blasfeo/include $CFLAGS"
@@ -68,6 +65,13 @@ CMAKE_PREFIX_PATH = "$PWD/external/acados:$CMAKE_PREFIX_PATH"
 
 # (Optional) useful for pkg-config consumers
 PKG_CONFIG_PATH = "$PWD/external/acados/lib/pkgconfig:$PKG_CONFIG_PATH"
+
+# =============================
+# Force Pixi to use system GCC
+# =============================
+CC  = "/apps/generic/compiler/2025/software/linux-rhel8-x86_64_v3/gcc-8.5.0/gcc-12.4.0-ozeu7oz3fbajoamcr7yiorwpuhasqz5q/bin/gcc"
+CXX = "/apps/generic/compiler/2025/software/linux-rhel8-x86_64_v3/gcc-8.5.0/gcc-12.4.0-ozeu7oz3fbajoamcr7yiorwpuhasqz5q/bin/g++"
+PATH = "/apps/generic/compiler/2025/software/linux-rhel8-x86_64_v3/gcc-8.5.0/gcc-12.4.0-ozeu7oz3fbajoamcr7yiorwpuhasqz5q/bin:$PATH"
 
 [tasks]
 # Clone acados with submodules
