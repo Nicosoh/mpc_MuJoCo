@@ -2,6 +2,7 @@ import os
 import sys
 import yaml
 import json
+import shutil
 import datetime
 import numpy as np
 import subprocess
@@ -38,13 +39,6 @@ def main():
         ax2.legend()
         ax2.set_yscale('log')
         
-        # Set x-axis limits and ticks
-        if x:
-            max_x = max(x)
-            ax2.set_xlim(0, max_x + 1)
-            ax2.set_xticks(np.arange(0, max_x + 1, 1), minor=True)
-            ax2.set_xticks(np.arange(0, max_x + 1, 5))
-        
         fig.tight_layout()
         plt.savefig(plt_save_path, dpi=400, bbox_inches='tight')
     
@@ -58,22 +52,35 @@ def main():
     data_config_path = VI_config["data_config_path"]
     train_config_path = VI_config["train_config_path"]
     value_iteration_loops = VI_config["VI_loops"]
+    resume_training = VI_config["resume_training"]
     
-    # Setup output directories
-    base_dir = "value_iteration/output"
+    # Check if resume training
+    start_loop = 0
     main_timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    main_output_dir = os.path.join(base_dir, f"{main_timestamp}_{model_name}_VI")
-    os.makedirs(main_output_dir, exist_ok=True)
-    
-    # Save VI config and setup log file
-    yaml_save_path = os.path.join(main_output_dir, "VI_config.yaml")
-    save_yaml(VI_config, yaml_save_path)
-    
-    # VI log file path
-    vi_log_path = os.path.join(main_output_dir, "VI.log")
+    if resume_training:
+        start_loop = VI_config["loop_to_resume_from"]
+        main_output_dir = VI_config["VI_dir"]
+        suffix = f"_resume_from_{start_loop}"
+        
+        # Delete the directory for the loop we are resuming from
+        loop_dir_to_delete = os.path.join(main_output_dir, f"loop_{start_loop}")
 
-    # Plt file path
-    plt_save_path = os.path.join(main_output_dir, "VI_plot.png")
+        if os.path.exists(loop_dir_to_delete):
+            print(f"Deleting existing directory: {loop_dir_to_delete}")
+            shutil.rmtree(loop_dir_to_delete)
+    
+    else:
+        base_dir = "value_iteration/output"
+        main_output_dir = os.path.join(base_dir, f"{main_timestamp}_{model_name}_VI")
+        os.makedirs(main_output_dir, exist_ok=True)
+        suffix = ""
+
+    # Paths to save files to
+    plt_save_path = os.path.join(main_output_dir, f"VI_plot{suffix}.png")
+    vi_log_path   = os.path.join(main_output_dir, f"VI{suffix}.log")
+    yaml_save_path = os.path.join(main_output_dir, f"VI_config{suffix}.yaml")
+
+    save_yaml(VI_config, yaml_save_path)
     
     with open(vi_log_path, "w") as f:
         f.write("=== VALUE ITERATION LOG (SUBPROCESS MODE) ===\n")
@@ -92,9 +99,9 @@ def main():
     
     # Absolute path to the worker script
     vi_loop_worker_path = os.path.join(os.path.dirname(__file__), "vi_loop_worker.py")
-    
-    # VI Loop
-    for loop in range(value_iteration_loops):
+        
+    # VI Loop, Zero indexed, so minus one from the folder number
+    for loop in range(start_loop - 1, value_iteration_loops):
         log_vi(f"=== Starting Value Iteration Loop {loop+1}/{value_iteration_loops} ===")
         
         # Spawn subprocess for this loop
