@@ -58,12 +58,12 @@ def main():
     start_loop = 0
     main_timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     if resume_training:
-        start_loop = VI_config["loop_to_resume_from"]
+        start_loop = VI_config["loop_to_resume_from"] - 1
         main_output_dir = VI_config["VI_dir"]
-        suffix = f"_resume_from_{start_loop}"
+        suffix = f"_resume_from_{start_loop + 1}"
         
         # Delete the directory for the loop we are resuming from
-        loop_dir_to_delete = os.path.join(main_output_dir, f"loop_{start_loop}")
+        loop_dir_to_delete = os.path.join(main_output_dir, f"loop_{start_loop + 1}")
 
         if os.path.exists(loop_dir_to_delete):
             print(f"Deleting existing directory: {loop_dir_to_delete}")
@@ -101,7 +101,7 @@ def main():
     vi_loop_worker_path = os.path.join(os.path.dirname(__file__), "vi_loop_worker.py")
         
     # VI Loop, Zero indexed, so minus one from the folder number
-    for loop in range(start_loop - 1, value_iteration_loops):
+    for loop in range(start_loop, value_iteration_loops):
         log_vi(f"=== Starting Value Iteration Loop {loop+1}/{value_iteration_loops} ===")
         
         # Spawn subprocess for this loop
