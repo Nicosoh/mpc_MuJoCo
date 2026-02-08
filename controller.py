@@ -95,7 +95,7 @@ class BaseMPCController:
 
         # Set initial constraint
         # ocp.constraints.x0 = self.x0
-        ocp.constraints.x0 = np.array([1.5, 0.0, 0.0, 0.0])  
+        ocp.constraints.x0 = np.zeros((1,nx))
 
         # set prediction horizon
         ocp.solver_options.N_horizon = N_horizon
@@ -344,6 +344,7 @@ class NNMPCController(BaseMPCController):
             self.ocp_solver.cost_set(self.N, "yref", np.zeros((1,)), api='new')  # Terminal reference (only x)
 
     def define_terminal_cost(self, ocp, model, config):
+        self.ny_e = model.x.rows()
         ocp.cost.cost_type_e = 'NONLINEAR_LS'               # Terminal cost
         ocp.cost.W_e = np.ones((1, 1))                      # Weights set to 1, meaning no scaling for the NN output
         ocp.cost.yref_e = np.zeros((1, ))                   # Set terminal reference to zero for NN output
