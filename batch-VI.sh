@@ -2,7 +2,7 @@
 
 #SBATCH --job-name=VI_train
 #SBATCH --partition=compute
-#SBATCH --time=6:00:00
+#SBATCH --time=23:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --gpus-per-task=0
@@ -11,7 +11,6 @@
 #SBATCH --account=education-me-msc-ro
 
 module load 2025
-module load openmpi
 module load python
 module load gcc/12.4.0
 module load cuda/12.5
