@@ -13,7 +13,9 @@
 module load 2025
 module load openmpi
 module load python
+module load gcc/12.4.0
+module load cuda/12.5
 
 source ~/.bashrc
-cd ~/mpc_MuJoCo
+cd /scratch/mpc_MuJoCo
 srun pixi run VI
