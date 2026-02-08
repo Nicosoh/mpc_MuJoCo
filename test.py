@@ -893,7 +893,8 @@ weights_path = (
     # "value_iteration/output/2026-02-05_16-34-15_TwoDofArm_VI/loop_131/training/model_epoch_16.pt"
     # "value_iteration/output/2026-02-07_15-49-41_TwoDofArm_VI/loop_13/training/model_epoch_16.pt"
     # "value_iteration/output/2026-02-07_15-49-41_TwoDofArm_VI/loop_5/training/model_epoch_15.pt"
-    "value_iteration/output/2026-02-07_15-49-41_TwoDofArm_VI/loop_32/training/model_epoch_16.pt"
+    # "value_iteration/output/2026-02-07_15-49-41_TwoDofArm_VI/loop_32/training/model_epoch_16.pt"
+    "value_iteration/output/2026-02-07_18-38-13_TwoDofArm_VI/loop_17/training/model_epoch_16.pt"
 )
 
 model.load_state_dict(torch.load(weights_path, map_location=device))
