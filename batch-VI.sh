@@ -4,7 +4,7 @@
 #SBATCH --partition=compute
 #SBATCH --time=23:00:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=28
+#SBATCH --cpus-per-task=12
 #SBATCH --gpus-per-task=0
 #SBATCH --ntasks-per-node=1
 #SBATCH --mem-per-cpu=1024MB
