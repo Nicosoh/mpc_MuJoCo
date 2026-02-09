@@ -16,5 +16,5 @@ module load gcc/12.4.0
 module load cuda/12.5
 
 source ~/.bashrc
-cd /scratch/mpc_MuJoCo
+cd /scratch/nsoh/mpc_MuJoCo
 srun pixi run VI
