@@ -656,7 +656,7 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
         # Export trained NN model
         self.l4c_model = export_torch_model(config, self.worker_id)
         # Evaluate NN symbolically
-        y_sym = self.l4c_model(ca.transpose(vertcat(self.ee_expr, model.x, ocp.model.p)))
+        y_sym = self.l4c_model(ca.transpose(vertcat(model.x, ocp.model.p)))
         ocp.model.cost_y_expr_e = y_sym
         # Link shared library
         ocp.solver_options.model_external_shared_lib_dir = self.l4c_model.shared_lib_dir
@@ -667,9 +667,9 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
         # xN_q_dot = X[self.N][self.nx//2:]                       # Extract joint velocities only
 
         q_final = X[self.N][:self.nx//2]                        # Extract joint positions only
-        ee_val = np.array(self.ee_fun(q_final)).squeeze()       # Evaluate FK to get end-effector position
+        # ee_val = np.array(self.ee_fun(q_final)).squeeze()       # Evaluate FK to get end-effector position
 
-        xN_p = np.concatenate([ee_val, X[self.N], self.p])       # Combine ee position, joint velocities, and parameters shape: (7,)
+        xN_p = np.concatenate([X[self.N], self.p])       # Combine ee position, joint velocities, and parameters shape: (7,)
 
         # Evaluate NN numerically
         yN = np.asarray(self.l4c_model(xN_p)).squeeze()
