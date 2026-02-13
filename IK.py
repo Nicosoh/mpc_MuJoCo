@@ -281,8 +281,10 @@ class InverseKinematicsSolver:
     def load_model(self):
         # Load model from XML
         base_dir = "models_xml"
-        model_name = self.config["model"]["name"].lower()  # e.g., "two_dof_arm"
-        filename = os.path.join(base_dir, f"{model_name}.xml")
+        # model_name = self.config["model"]["name"].lower()  # e.g., "two_dof_arm"
+        # filename = os.path.join(base_dir, f"{model_name}.xml")
+        model_path = self.config["model"]["model_path"]
+        filename = os.path.join(base_dir, model_path)
 
         try:
             # Load from MJCF

@@ -1,0 +1,103 @@
+# ----------------------------------------------------------------------------------------
+# Iiwa14 MODEL CONFIGURATION
+# ----------------------------------------------------------------------------------------
+mujoco:
+  # urdf_available: false
+  # model_path: 'external/mujoco_menagerie/kuka_iiwa_14/scene.xml'
+  sim_timestep: 0.001 # seconds
+  sim_duration: 5 # seconds
+  sim_framerate: 30  # Hz
+  render: true # Render simulation
+  verbose: false # Print debug information
+  resolution: [480, 640]
+
+model:
+  name: "iiwa14"
+  scene_path: 'kuka_iiwa_14/scene.xml'
+  model_path: 'kuka_iiwa_14/iiwa14.xml'
+
+pin:
+  nu: 7 # Number of control inputs
+  actuated_joints: [0, 1, 2, 3, 4, 5, 6] # all 7 joints
+
+mpc:
+  json_name: "main_controller"
+  controller_name: "ManipulatorMPCController_eeTracker_point"
+  Fmax: [320, 320, 176, 176, 110, 40, 40]
+  xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 3.05433, # 170, 120, 170, 120, 170, 120, 175 deg
+          1.48353, 1.48353, 1.74533, 1.309, 2.26893, 2.35619, 2.35619] # 85, 85, 100, 75, 130, 135, 135 deg/s
+  N_horizon: 200
+  use_RTI: true
+  mpc_timestep: 0.01
+  x0_q: [0, 0.785398, 0, -1.5708, 0, 0, 0]
+  x0_v: [0, 0, 0, 0, 0, 0, 0]      # Inital joint velocity if random not true
+  x0_q_random: false # If true, x0 above will not be used
+  x0_range: [[-5.0, -5.0, -5.0], [5.0, 5.0, 5.0]]
+  x0_q_sampling: uniform # Only uniform for now
+  yref_q: [0, -0.785398, 0, 1.5708, 0, 0, 0]
+  yref_q_random: false
+  yref_range: [[-5.0, -5.0, -5.0], [5.0, 5.0, 5.0]]
+  yref_q_sampling: uniform
+  zone_probability: [0.5, 0.5]
+  terminal_cost: false
+  Q_mat: [500, 500, 500] # State cost weights for ee tracking
+  Q_dot_mat: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01] # Velocity state cost weights for joints
+  R_mat: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
+  early_termination_cost: true # Enable early termination based on cost
+  termination_cost: 0.005 # Tolerance for early termination cost
+  early_termination_state: false # Enable early termination based on state
+  termination_state: 0.01 # Tolerance for early termination state
+  solve_ocp: false # Enable if only a single step is required
+  full_traj: true # If above is true, then this needs to be true as well
+  IK_required: true # Enable inverse kinematics in MPC setup (only for manipulators)
+  levenberg_marquardt: 10.0
+  regularize_method: 'NO_REGULARIZE'
+  nlp_solver_warm_start_first_qp_from_nlp: true
+  nlp_solver_warm_start_first_qp: true
+  qp_solver_warm_start: 1
+
+data:
+  save_data: true
+
+IK:
+  IK_required: true # Enable inverse kinematics in MPC setup (only for manipulators)
+  output_xyz: true 
+  point_reference: true
+  stop_threshold: 0.001
+  visualize_IK: false
+  max_iterations: 100000          # max iters before considering goal not reachable
+  velocity_threshold: 0.001    # min velocity from solve_ik before considering goal not reachable
+  velocitylimit: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0] # rad/s
+  limit_acceleration: false
+  accelerationlimit: [50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0] # rad/s^2\
+  safety_distance: 0.05 # minimum distance to maintain from obstacles
+
+collision:
+  collision_avoidance: false
+
+VI:
+  ground_truth_controller: false
+
+plots:
+  Joint 1 Angle: ["qpos", 0, "rad"]
+  Joint 2 Angle: ["qpos", 1, "rad"]
+  Joint 3 Angle: ["qpos", 2, "rad"]
+  Joint 4 Angle: ["qpos", 3, "rad"]
+  Joint 5 Angle: ["qpos", 4, "rad"]
+  Joint 6 Angle: ["qpos", 5, "rad"]
+  Joint 7 Angle: ["qpos", 6, "rad"]
+  Joint 1 Angular Velocity: ["qvel", 0, "rad/s"]
+  Joint 2 Angular Velocity: ["qvel", 1, "rad/s"]
+  Joint 3 Angular Velocity: ["qvel", 2, "rad/s"]
+  Joint 4 Angular Velocity: ["qvel", 3, "rad/s"]
+  Joint 5 Angular Velocity: ["qvel", 4, "rad/s"]
+  Joint 6 Angular Velocity: ["qvel", 5, "rad/s"]
+  Joint 7 Angular Velocity: ["qvel", 6, "rad/s"]
+  # MPC Cost: ["cost", 0, "Cost"]
+  Control Input 1: ["ctrl", 0, "N"]
+  Control Input 2: ["ctrl", 1, "N"]
+  Control Input 3: ["ctrl", 2, "N"]
+  Control Input 4: ["ctrl", 3, "N"]
+  Control Input 5: ["ctrl", 4, "N"]
+  Control Input 6: ["ctrl", 5, "N"]
+  Control Input 7: ["ctrl", 6, "N"]

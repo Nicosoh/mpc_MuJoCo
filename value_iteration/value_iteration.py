@@ -19,25 +19,40 @@ def main():
         with open(vi_log_path, "a") as f:
             f.write(line)
     
-    def update_plot(x, ground_truth, controller, MSE):
-        """Update and save plot with current metrics."""
+    def update_plot(x, ground_truth, controller, MSE, MSE_std, train_loss):
+        """Update and save plot with current metrics in separate subplots."""
         ax1.clear()
         ax2.clear()
+        ax3.clear()  # new subplot for train loss
         
         # Top subplot: ground truth vs controller
-        ax1.plot(x, ground_truth, label="Ground Truth", linewidth = 0.8)
-        ax1.plot(x, controller, label="Controller", linewidth = 0.8)
+        ax1.plot(x, ground_truth, label="Ground Truth", linewidth=0.8)
+        ax1.plot(x, controller, label="Controller", linewidth=0.8)
         ax1.set_ylabel("Mean Cost")
         ax1.grid(True, which="both", linestyle=":", alpha=0.4)
         ax1.legend()
         
-        # Bottom subplot: MSE
-        ax2.plot(x, MSE, label="MSE", color='r', linewidth = 0.8)
-        ax2.set_xlabel("Value Iteration Loop")
+        # Middle subplot: MSE ± std
+        MSE = np.array(MSE)
+        MSE_std = np.array(MSE_std)
+        
+        ax2.plot(x, MSE, label="MSE", color='green', linewidth=0.8)
+        if len(MSE_std) == len(MSE):
+            ax2.fill_between(x, MSE - MSE_std, MSE + MSE_std, color='r', alpha=0.3, label="MSE ± std")
+        
         ax2.set_ylabel("Mean Squared Error")
+        ax2.tick_params(axis='y')
+        # ax2.set_yscale('log')
         ax2.grid(True, which="both", linestyle=":", alpha=0.4)
-        ax2.legend()
-        ax2.set_yscale('log')
+        ax2.legend(loc='upper right')
+        
+        # Bottom subplot: training loss
+        train_loss = np.array(train_loss)
+        ax3.plot(x, train_loss, label="Train Loss", color='b', linewidth=0.8)
+        ax3.set_xlabel("Value Iteration Loop")
+        ax3.set_ylabel("Train Loss")
+        ax3.grid(True, which="both", linestyle=":", alpha=0.4)
+        ax3.legend(loc='upper right')
         
         fig.tight_layout()
         plt.savefig(plt_save_path, dpi=400, bbox_inches='tight')
@@ -90,12 +105,14 @@ def main():
         f.write("=" * 50 + "\n\n")
     
     # Setup plot
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
     
     x = []
     ground_truth = []
     controller = []
     MSE = []
+    MSE_std = []
+    train_loss = []
     
     # Absolute path to the worker script
     vi_loop_worker_path = os.path.join(os.path.dirname(__file__), "vi_loop_worker.py")
@@ -143,6 +160,8 @@ def main():
                     ground_truth.append(metrics["gt_cost"])
                     controller.append(metrics["ctrl_cost"])
                     MSE.append(metrics["mse"])
+                    MSE_std.append(metrics["mse_std"])
+                    train_loss.append(metrics["train_loss"])
                     
                     log_vi(f"Metrics: GT={metrics['gt_cost']:.4f}, CTRL={metrics['ctrl_cost']:.4f}, MSE={metrics['mse']:.4e}")
                 else:
@@ -151,7 +170,7 @@ def main():
                 log_vi(f"ERROR: No metrics file found at {metrics_path}")
             
             # Update plot after each loop
-            update_plot(x, ground_truth, controller, MSE)
+            update_plot(x, ground_truth, controller, MSE, MSE_std, train_loss)
             
         except Exception as e:
             log_vi(f"ERROR spawning/running loop worker: {e}")

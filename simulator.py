@@ -20,7 +20,7 @@ class MuJoCoSimulator:
         self.IK_required = self.config["IK"]["IK_required"]
         self.point_reference = self.config["IK"]["point_reference"]
 
-        self.model, self.data = load_model(self.config)                     # Create MuJoCo simulator object with loaded model
+        self.model, self.data = load_scene_from_xml(self.config)                     # Create MuJoCo simulator object with loaded model
         # self.sanity_check()                                                 # Sanity check between model, controller, yref, x0
         self.model.opt.timestep = self.config["mujoco"]["sim_timestep"]     # Set simulation timestep
 
@@ -198,6 +198,7 @@ class MuJoCoSimulator:
             # Render if enabled
             if render and len(self.frames) < self.data.time * sim_framerate:
                 self.renderer.update_scene(self.data, scene_option=self.scene_option, camera=0)
+                # self.renderer.update_scene(self.data, scene_option=self.scene_option)
                 
                 # if output_xyz:
                 #     add_visual_sphere(self.renderer.scene, self.config["mpc"]["yref"], 0.5, rgba=(0.0, 1.0, 0.0, 1.0))  # For the end goal (green)
@@ -376,7 +377,7 @@ class MujocoReplay:
         self.model_config = model_config
         self.replay_config = replay_config
 
-        self.model, self.data = load_model(self.model_config)                  # Create MuJoCo simulator object with loaded model
+        self.model, self.data = load_scene_from_xml(self.model_config)                  # Create MuJoCo simulator object with loaded model
         self.model.opt.timestep = self.model_config["mpc"]["mpc_timestep"]     # Set simulation timestep
 
         self.qpos = logs_dict["qpos"]

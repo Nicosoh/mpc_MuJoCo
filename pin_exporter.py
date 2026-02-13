@@ -9,8 +9,8 @@ def export_ode_model(config) -> AcadosModel:
     Converts a Pinocchio-based model into an AcadosModel for OCP solving.
     """
     base_dir = "models_xml"
-    model_name = config["model"]["name"].lower()  # e.g., "two_dof_arm"
-    filename = os.path.join(base_dir, f"{model_name}.xml")
+    model_path = config["model"]["model_path"]  # e.g., "two_dof_arm"
+    filename = os.path.join(base_dir, model_path)
 
     try:
         # Load the robot using PinocchioCasadi

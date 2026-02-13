@@ -11,6 +11,7 @@ class PinocchioCasadiRobotWrapper(RobotWrapper):
     def __init__(self, filename, config):
         super().initFromMJCF(filename=filename) # Parse MJCF file to RobotWrapper
 
+        self.config = config
         pin_config = config["pin"]
         self.cmodel = cpin.Model(self.model)  # cast to CasADi model
         self.cdata = self.cmodel.createData() # create CasADi data
@@ -77,9 +78,19 @@ class PinocchioCasadiRobotWrapper(RobotWrapper):
 
         # CasADi FK expressions
         self.universe = self.cdata.oMf[self.cmodel.getFrameId("universe")].translation
-        self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
-        self.j_2 = self.cdata.oMf[self.cmodel.getFrameId("j_2")].translation
         self.attachment_site = self.cdata.oMf[self.cmodel.getFrameId("attachment_site")].translation
+
+        if self.config["model"]["name"] == "two_dof_arm":
+            self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
+            self.j_2 = self.cdata.oMf[self.cmodel.getFrameId("j_2")].translation
+        # elif self.config["model"]["name"] == "iiwa14"
+        #     self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
+        #     self.j_2 = self.cdata.oMf[self.cmodel.getFrameId("j_2")].translation
+        #                 self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
+        #     self.j_2 = self.cdata.oMf[self.cmodel.getFrameId("j_2")].translation
+        #                 self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
+        #     self.j_2 = self.cdata.oMf[self.cmodel.getFrameId("j_2")].translation
+        #                 self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
 
     def forward(self, x, u): # Current state and input  -> next state
         nq = self.model.nq

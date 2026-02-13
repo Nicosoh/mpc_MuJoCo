@@ -1,25 +1,30 @@
-# import mujoco
-# import mujoco.viewer  # this is the built-in viewer (as of MuJoCo 2.3+)
+import mujoco
+import mujoco.viewer  # this is the built-in viewer (as of MuJoCo 2.3+)
 
-# # Load the model using robot_descriptions
-# from robot_descriptions import iiwa14_mj_description
-# model = mujoco.MjModel.from_xml_path("models_xml/two_dof_arm.xml")
+# Load the model using robot_descriptions
+model = mujoco.MjModel.from_xml_path("models_xml/kuka_iiwa_14/scene.xml")
 
-# # Alternatively, load via utility (commented out if using above)
-# # from robot_descriptions.loaders.mujoco import load_robot_description
-# # model = load_robot_description("panda_mj_description")
+# Alternatively, load via utility (commented out if using above)
+# from robot_descriptions.loaders.mujoco import load_robot_description
+# model = load_robot_description("panda_mj_description")
 
-# # Create MjData (state container)
-# data = mujoco.MjData(model)
+# Create MjData (state container)
+data = mujoco.MjData(model)
 
-# # Open the viewer
-# with mujoco.viewer.launch_passive(model, data) as viewer:
-#     print("Viewer is running. Close the window to exit.")
+# Open the viewer
+with mujoco.viewer.launch_passive(model, data) as viewer:
+    print("Viewer is running. Close the window to exit.")
     
-#     # Keep rendering until the viewer is closed
-#     while viewer.is_running():
-#         mujoco.mj_step(model, data)
-#         viewer.sync()
+    viewer.opt.geomgroup[3] = 1
+    
+    # Enable mouse perturbation (drag bodies)
+    viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_PERTFORCE] = 1
+    viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_PERTOBJ] = 1
+
+    while viewer.is_running():
+        mujoco.mj_step(model, data)
+        viewer.sync()
+        
 
 # import os
 # from pathlib import Path
@@ -825,283 +830,283 @@
 # plt.tight_layout()
 # plt.show()
 
-import torch
-import torch.nn as nn
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Circle
-from mpl_toolkits.mplot3d import Axes3D
-from neural_network.models import TwoDofArmModel
+# import torch
+# import torch.nn as nn
+# import numpy as np
+# import matplotlib.pyplot as plt
+# from matplotlib.patches import Rectangle, Circle
+# from mpl_toolkits.mplot3d import Axes3D
+# from neural_network.models import TwoDofArmModel
 
-# ============================================================
-# 1. Capsule definition (x–z slice)
-# ============================================================
+# # ============================================================
+# # 1. Capsule definition (x–z slice)
+# # ============================================================
 
-capsule_x = 0.0
-capsule_z_start = 1.2
-capsule_z_end = 1.8
-capsule_radius = 0.1
+# capsule_x = 0.0
+# capsule_z_start = 1.2
+# capsule_z_end = 1.8
+# capsule_radius = 0.1
 
-# ============================================================
-# 2. Load model and trained weights
-# ============================================================
+# # ============================================================
+# # 2. Load model and trained weights
+# # ============================================================
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-model = TwoDofArmModel(None).to(device)
+# model = TwoDofArmModel(None).to(device)
 
-weights_path = (
-    # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_1/training/model_epoch_199.pt"
-    # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_5/training/model_epoch_125.pt"
-    # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_10/training/model_epoch_38.pt"
-    # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_15/training/model_epoch_37.pt"
-    # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_20/training/model_epoch_27.pt"
-    # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_25/training/model_epoch_52.pt"
-    # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_40/training/model_epoch_42.pt"
-    # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_1/training/model_epoch_296.pt"
-    # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_10/training/model_epoch_128.pt"
-    # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_20/training/model_epoch_42.pt"
-    # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_30/training/model_epoch_42.pt"
-    # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_40/training/model_epoch_178.pt"
-    # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_50/training/model_epoch_99.pt"
-    # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_70/training/model_epoch_150.pt"
-    # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_100/training/model_epoch_142.pt"
-    # "value_iteration/output/2026-01-24_13-56-28_TwoDofArm_VI/loop_7/training/model_epoch_49.pt"
-    # "value_iteration/output/2026-01-24_13-56-28_TwoDofArm_VI/loop_16/training/model_epoch_48.pt"
-    # "value_iteration/output/2026-01-24_13-56-28_TwoDofArm_VI/loop_44/training/model_epoch_49.pt"
-    # "value_iteration/output/2026-01-24_18-36-01_TwoDofArm_VI/loop_5/training/model_epoch_50.pt"
-    # "value_iteration/output/2026-01-24_18-36-01_TwoDofArm_VI/loop_25/training/model_epoch_50.pt"
-    # "value_iteration/output/2026-01-24_18-36-01_TwoDofArm_VI/loop_33/training/model_epoch_46.pt"
-    # "value_iteration/output/2026-01-24_18-36-01_TwoDofArm_VI/loop_38/training/model_epoch_37.pt"
-    # "value_iteration/output/2026-01-24_18-36-01_TwoDofArm_VI/loop_50/training/model_epoch_49.pt"
-    # "value_iteration/output/2026-01-25_09-26-20_TwoDofArm_VI/loop_7/training/model_epoch_50.pt"
-    # "value_iteration/output/2026-01-25_13-49-22_TwoDofArm_VI/loop_8/training/model_epoch_100.pt"
-    # "value_iteration/output/2026-01-25_20-49-52_TwoDofArm_VI/loop_4/training/model_epoch_190.pt"
-    # "value_iteration/output/2026-01-25_20-49-52_TwoDofArm_VI/loop_22/training/model_epoch_85.pt"
-    # "value_iteration/output/2026-01-26_15-33-46_TwoDofArm_VI/loop_4/training/model_epoch_186.pt"
-    # "value_iteration/output/2026-01-26_22-15-43_TwoDofArm_VI/loop_19/training/model_epoch_58.pt"
-    # "value_iteration/output/2026-01-26_22-15-43_TwoDofArm_VI/loop_9/training/model_epoch_263.pt"
-    # "value_iteration/output/2026-01-26_22-15-43_TwoDofArm_VI/loop_38/training/model_epoch_97.pt"
-    # "value_iteration/output/2026-01-27_12-16-15_TwoDofArm_VI/loop_2/training/model_epoch_247.pt"
-    # "value_iteration/output/2026-01-27_12-16-15_TwoDofArm_VI/loop_8/training/model_epoch_85.pt"
-    # "value_iteration/output/2026-01-27_12-16-15_TwoDofArm_VI/loop_29/training/model_epoch_67.pt"
-    # "value_iteration/output/2026-01-27_12-16-15_TwoDofArm_VI/loop_34/training/model_epoch_32.pt"
-    # "value_iteration/output/2026-01-30_22-18-30_TwoDofArm_VI/loop_8/training/model_epoch_97.pt"
-    # "value_iteration/output/2026-01-31_07-09-17_TwoDofArm_VI/loop_26/training/model_epoch_29.pt"
-    # "value_iteration/output/2026-01-31_07-09-17_TwoDofArm_VI/loop_3/training/model_epoch_30.pt"
-    # "value_iteration/output/2026-02-01_22-42-54_TwoDofArm_VI/loop_23/training/model_epoch_15.pt"
-    # "value_iteration/output/2026-02-05_16-34-15_TwoDofArm_VI/loop_131/training/model_epoch_16.pt"
-    # "value_iteration/output/2026-02-07_15-49-41_TwoDofArm_VI/loop_13/training/model_epoch_16.pt"
-    # "value_iteration/output/2026-02-07_15-49-41_TwoDofArm_VI/loop_5/training/model_epoch_15.pt"
-    # "value_iteration/output/2026-02-07_15-49-41_TwoDofArm_VI/loop_32/training/model_epoch_16.pt"
-    "value_iteration/output/2026-02-07_18-38-13_TwoDofArm_VI/loop_17/training/model_epoch_16.pt"
-)
+# weights_path = (
+#     # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_1/training/model_epoch_199.pt"
+#     # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_5/training/model_epoch_125.pt"
+#     # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_10/training/model_epoch_38.pt"
+#     # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_15/training/model_epoch_37.pt"
+#     # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_20/training/model_epoch_27.pt"
+#     # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_25/training/model_epoch_52.pt"
+#     # "value_iteration/output/2026-01-21_21-24-23_twodofarm_VI/loop_40/training/model_epoch_42.pt"
+#     # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_1/training/model_epoch_296.pt"
+#     # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_10/training/model_epoch_128.pt"
+#     # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_20/training/model_epoch_42.pt"
+#     # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_30/training/model_epoch_42.pt"
+#     # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_40/training/model_epoch_178.pt"
+#     # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_50/training/model_epoch_99.pt"
+#     # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_70/training/model_epoch_150.pt"
+#     # "value_iteration/output/2026-01-22_13-52-18_TwoDofArm_VI/loop_100/training/model_epoch_142.pt"
+#     # "value_iteration/output/2026-01-24_13-56-28_TwoDofArm_VI/loop_7/training/model_epoch_49.pt"
+#     # "value_iteration/output/2026-01-24_13-56-28_TwoDofArm_VI/loop_16/training/model_epoch_48.pt"
+#     # "value_iteration/output/2026-01-24_13-56-28_TwoDofArm_VI/loop_44/training/model_epoch_49.pt"
+#     # "value_iteration/output/2026-01-24_18-36-01_TwoDofArm_VI/loop_5/training/model_epoch_50.pt"
+#     # "value_iteration/output/2026-01-24_18-36-01_TwoDofArm_VI/loop_25/training/model_epoch_50.pt"
+#     # "value_iteration/output/2026-01-24_18-36-01_TwoDofArm_VI/loop_33/training/model_epoch_46.pt"
+#     # "value_iteration/output/2026-01-24_18-36-01_TwoDofArm_VI/loop_38/training/model_epoch_37.pt"
+#     # "value_iteration/output/2026-01-24_18-36-01_TwoDofArm_VI/loop_50/training/model_epoch_49.pt"
+#     # "value_iteration/output/2026-01-25_09-26-20_TwoDofArm_VI/loop_7/training/model_epoch_50.pt"
+#     # "value_iteration/output/2026-01-25_13-49-22_TwoDofArm_VI/loop_8/training/model_epoch_100.pt"
+#     # "value_iteration/output/2026-01-25_20-49-52_TwoDofArm_VI/loop_4/training/model_epoch_190.pt"
+#     # "value_iteration/output/2026-01-25_20-49-52_TwoDofArm_VI/loop_22/training/model_epoch_85.pt"
+#     # "value_iteration/output/2026-01-26_15-33-46_TwoDofArm_VI/loop_4/training/model_epoch_186.pt"
+#     # "value_iteration/output/2026-01-26_22-15-43_TwoDofArm_VI/loop_19/training/model_epoch_58.pt"
+#     # "value_iteration/output/2026-01-26_22-15-43_TwoDofArm_VI/loop_9/training/model_epoch_263.pt"
+#     # "value_iteration/output/2026-01-26_22-15-43_TwoDofArm_VI/loop_38/training/model_epoch_97.pt"
+#     # "value_iteration/output/2026-01-27_12-16-15_TwoDofArm_VI/loop_2/training/model_epoch_247.pt"
+#     # "value_iteration/output/2026-01-27_12-16-15_TwoDofArm_VI/loop_8/training/model_epoch_85.pt"
+#     # "value_iteration/output/2026-01-27_12-16-15_TwoDofArm_VI/loop_29/training/model_epoch_67.pt"
+#     # "value_iteration/output/2026-01-27_12-16-15_TwoDofArm_VI/loop_34/training/model_epoch_32.pt"
+#     # "value_iteration/output/2026-01-30_22-18-30_TwoDofArm_VI/loop_8/training/model_epoch_97.pt"
+#     # "value_iteration/output/2026-01-31_07-09-17_TwoDofArm_VI/loop_26/training/model_epoch_29.pt"
+#     # "value_iteration/output/2026-01-31_07-09-17_TwoDofArm_VI/loop_3/training/model_epoch_30.pt"
+#     # "value_iteration/output/2026-02-01_22-42-54_TwoDofArm_VI/loop_23/training/model_epoch_15.pt"
+#     # "value_iteration/output/2026-02-05_16-34-15_TwoDofArm_VI/loop_131/training/model_epoch_16.pt"
+#     # "value_iteration/output/2026-02-07_15-49-41_TwoDofArm_VI/loop_13/training/model_epoch_16.pt"
+#     # "value_iteration/output/2026-02-07_15-49-41_TwoDofArm_VI/loop_5/training/model_epoch_15.pt"
+#     # "value_iteration/output/2026-02-07_15-49-41_TwoDofArm_VI/loop_32/training/model_epoch_16.pt"
+#     "value_iteration/output/2026-02-07_18-38-13_TwoDofArm_VI/loop_17/training/model_epoch_16.pt"
+# )
 
-model.load_state_dict(torch.load(weights_path, map_location=device))
-model.eval()
+# model.load_state_dict(torch.load(weights_path, map_location=device))
+# model.eval()
 
-print("Model loaded successfully.")
+# print("Model loaded successfully.")
 
-# ============================================================
-# 3. Define grid over x and z
-# ============================================================
+# # ============================================================
+# # 3. Define grid over x and z
+# # ============================================================
 
-x_vals = np.linspace(-0.6, 0.6, 100)
-z_vals = np.linspace(0.8, 1.9, 100)
+# x_vals = np.linspace(-0.6, 0.6, 100)
+# z_vals = np.linspace(0.8, 1.9, 100)
 
-X, Z = np.meshgrid(x_vals, z_vals)
+# X, Z = np.meshgrid(x_vals, z_vals)
 
-# ============================================================
-# 4. Fixed values for remaining inputs
-# ============================================================
+# # ============================================================
+# # 4. Fixed values for remaining inputs
+# # ============================================================
 
-y_set = 0.0
-q1_dot = 0.0
-q2_dot = 0.0
+# y_set = 0.0
+# q1_dot = 0.0
+# q2_dot = 0.0
 
-x_goal = -0.24940596379494712
-y_goal = 0.0
-z_goal = 1.4716765900406363
+# x_goal = -0.24940596379494712
+# y_goal = 0.0
+# z_goal = 1.4716765900406363
 
-# ============================================================
-# 5. Evaluate cost over grid
-# ============================================================
+# # ============================================================
+# # 5. Evaluate cost over grid
+# # ============================================================
 
-Cost = np.zeros_like(X)
+# Cost = np.zeros_like(X)
 
-with torch.no_grad():
-    for i in range(X.shape[0]):
-        for j in range(X.shape[1]):
-            nn_input = torch.tensor(
-                [
-                    X[i, j],
-                    y_set,
-                    Z[i, j],
-                    q1_dot,
-                    q2_dot,
-                    x_goal,
-                    y_goal,
-                    z_goal,
-                ],
-                dtype=torch.float32,
-                device=device,
-            )
+# with torch.no_grad():
+#     for i in range(X.shape[0]):
+#         for j in range(X.shape[1]):
+#             nn_input = torch.tensor(
+#                 [
+#                     X[i, j],
+#                     y_set,
+#                     Z[i, j],
+#                     q1_dot,
+#                     q2_dot,
+#                     x_goal,
+#                     y_goal,
+#                     z_goal,
+#                 ],
+#                 dtype=torch.float32,
+#                 device=device,
+#             )
 
-            Cost[i, j] = model(nn_input).item()
+#             Cost[i, j] = model(nn_input).item()
 
-# ============================================================
-# 6. Compute cost at the goal
-# ============================================================
+# # ============================================================
+# # 6. Compute cost at the goal
+# # ============================================================
 
-with torch.no_grad():
-    goal_input = torch.tensor(
-        [
-            x_goal,
-            y_set,
-            z_goal,
-            q1_dot,
-            q2_dot,
-            x_goal,
-            y_goal,
-            z_goal,
-        ],
-        dtype=torch.float32,
-        device=device,
-    )
+# with torch.no_grad():
+#     goal_input = torch.tensor(
+#         [
+#             x_goal,
+#             y_set,
+#             z_goal,
+#             q1_dot,
+#             q2_dot,
+#             x_goal,
+#             y_goal,
+#             z_goal,
+#         ],
+#         dtype=torch.float32,
+#         device=device,
+#     )
 
-    goal_cost = model(goal_input).item()
+#     goal_cost = model(goal_input).item()
 
-# ============================================================
-# 7. 3D Surface Plot
-# ============================================================
+# # ============================================================
+# # 7. 3D Surface Plot
+# # ============================================================
 
-fig = plt.figure(figsize=(9, 6))
-ax = fig.add_subplot(111, projection="3d")
+# fig = plt.figure(figsize=(9, 6))
+# ax = fig.add_subplot(111, projection="3d")
 
-ax.plot_surface(X, Z, Cost, cmap="viridis", edgecolor="none", alpha=0.95)
+# ax.plot_surface(X, Z, Cost, cmap="viridis", edgecolor="none", alpha=0.95)
 
-ax.scatter(
-    x_goal,
-    z_goal,
-    goal_cost,
-    color="red",
-    s=80,
-    label="Goal",
-)
+# ax.scatter(
+#     x_goal,
+#     z_goal,
+#     goal_cost,
+#     color="red",
+#     s=80,
+#     label="Goal",
+# )
 
-ax.set_xlabel("x")
-ax.set_ylabel("z")
-ax.set_zlabel("Cost")
-ax.set_title("3D Cost Map (x–z slice)")
-ax.legend()
+# ax.set_xlabel("x")
+# ax.set_ylabel("z")
+# ax.set_zlabel("Cost")
+# ax.set_title("3D Cost Map (x–z slice)")
+# ax.legend()
 
-plt.tight_layout()
-plt.show()
+# plt.tight_layout()
+# plt.show()
 
-# ============================================================
-# 8. 2D Contour Plot + Capsule + Goal (IMPROVED)
-# ============================================================
+# # ============================================================
+# # 8. 2D Contour Plot + Capsule + Goal (IMPROVED)
+# # ============================================================
 
-fig, ax = plt.subplots(figsize=(6, 5), dpi=120)
+# fig, ax = plt.subplots(figsize=(6, 5), dpi=120)
 
-# ------------------------------------------------------------
-# Filled contours (smooth background)
-# ------------------------------------------------------------
+# # ------------------------------------------------------------
+# # Filled contours (smooth background)
+# # ------------------------------------------------------------
 
-filled_levels = 60
-line_levels = 20
+# filled_levels = 60
+# line_levels = 20
 
-contourf = ax.contourf(
-    X,
-    Z,
-    Cost,
-    levels=filled_levels,
-    cmap="viridis"
-)
+# contourf = ax.contourf(
+#     X,
+#     Z,
+#     Cost,
+#     levels=filled_levels,
+#     cmap="viridis"
+# )
 
-cbar = plt.colorbar(contourf, ax=ax)
-cbar.set_label("Cost")
+# cbar = plt.colorbar(contourf, ax=ax)
+# cbar.set_label("Cost")
 
-# ------------------------------------------------------------
-# CONTOUR LINES (this is the key improvement)
-# ------------------------------------------------------------
+# # ------------------------------------------------------------
+# # CONTOUR LINES (this is the key improvement)
+# # ------------------------------------------------------------
 
-contour_lines = ax.contour(
-    X,
-    Z,
-    Cost,
-    levels=line_levels,
-    colors="black",
-    linewidths=0.6,
-    alpha=0.7
-)
+# contour_lines = ax.contour(
+#     X,
+#     Z,
+#     Cost,
+#     levels=line_levels,
+#     colors="black",
+#     linewidths=0.6,
+#     alpha=0.7
+# )
 
-# Optional: label contour lines
-ax.clabel(
-    contour_lines,
-    inline=True,
-    fontsize=8,
-    fmt="%.1f"
-)
+# # Optional: label contour lines
+# ax.clabel(
+#     contour_lines,
+#     inline=True,
+#     fontsize=8,
+#     fmt="%.1f"
+# )
 
-# ------------------------------------------------------------
-# Capsule body (rectangle)
-# ------------------------------------------------------------
+# # ------------------------------------------------------------
+# # Capsule body (rectangle)
+# # ------------------------------------------------------------
 
-capsule_height = capsule_z_end - capsule_z_start
+# capsule_height = capsule_z_end - capsule_z_start
 
-rect = Rectangle(
-    (capsule_x - capsule_radius, capsule_z_start),
-    2 * capsule_radius,
-    capsule_height,
-    linewidth=2,
-    edgecolor="white",
-    facecolor="none",
-)
+# rect = Rectangle(
+#     (capsule_x - capsule_radius, capsule_z_start),
+#     2 * capsule_radius,
+#     capsule_height,
+#     linewidth=2,
+#     edgecolor="white",
+#     facecolor="none",
+# )
 
-ax.add_patch(rect)
+# ax.add_patch(rect)
 
-# ------------------------------------------------------------
-# Capsule end caps (circles)
-# ------------------------------------------------------------
+# # ------------------------------------------------------------
+# # Capsule end caps (circles)
+# # ------------------------------------------------------------
 
-cap_bottom = Circle(
-    (capsule_x, capsule_z_start),
-    capsule_radius,
-    linewidth=2,
-    edgecolor="white",
-    facecolor="none",
-)
+# cap_bottom = Circle(
+#     (capsule_x, capsule_z_start),
+#     capsule_radius,
+#     linewidth=2,
+#     edgecolor="white",
+#     facecolor="none",
+# )
 
-cap_top = Circle(
-    (capsule_x, capsule_z_end),
-    capsule_radius,
-    linewidth=2,
-    edgecolor="white",
-    facecolor="none",
-)
+# cap_top = Circle(
+#     (capsule_x, capsule_z_end),
+#     capsule_radius,
+#     linewidth=2,
+#     edgecolor="white",
+#     facecolor="none",
+# )
 
-ax.add_patch(cap_bottom)
-ax.add_patch(cap_top)
+# ax.add_patch(cap_bottom)
+# ax.add_patch(cap_top)
 
-# ------------------------------------------------------------
-# Goal marker
-# ------------------------------------------------------------
+# # ------------------------------------------------------------
+# # Goal marker
+# # ------------------------------------------------------------
 
-ax.scatter(
-    x_goal,
-    z_goal,
-    color="red",
-    s=120,
-    edgecolors="black",
-    linewidths=1.5,
-    label="Goal",
-)
+# ax.scatter(
+#     x_goal,
+#     z_goal,
+#     color="red",
+#     s=120,
+#     edgecolors="black",
+#     linewidths=1.5,
+#     label="Goal",
+# )
 
-ax.set_xlabel("x")
-ax.set_ylabel("z")
-ax.set_title("Cost Map (x–z slice) with Capsule Obstacle")
-ax.legend()
+# ax.set_xlabel("x")
+# ax.set_ylabel("z")
+# ax.set_title("Cost Map (x–z slice) with Capsule Obstacle")
+# ax.legend()
 
-plt.tight_layout()
-plt.show()
+# plt.tight_layout()
+# plt.show()

@@ -6,5 +6,5 @@ controller_name: "ManipulatorMPCController_eeTracker_point"
 NN_controller_name: "NNManipulatorMPCController_eeTracker_point"
 
 resume_training: false
-loop_to_resume_from: 
-VI_dir: ""
+loop_to_resume_from: 5
+VI_dir: "value_iteration/output/2026-02-07_19-38-02_TwoDofArm_VI"

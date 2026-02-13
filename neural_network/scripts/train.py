@@ -162,16 +162,6 @@ def train_model(config, run_dir, data_path=None, seed=42):
                 print(f"New best model saved: {ckpt_path}")
             else:
                 vals_since_improvement += 1
-            
-            # # If no improvement for a certain number of epochs, restore best weights and reduce learning rate
-            # if vals_since_improvement >= patience:
-            #     print(
-            #         f"Validation loss did not improve for {patience} validations. Reducing learning rate and restoring best model weights.")
-            #     if best_model_path is not None:
-            #         model.load_state_dict(torch.load(best_model_path))
-            #     for param_group in optimizer.param_groups:
-            #         param_group['lr'] /= 10
-            #     vals_since_improvement = 0
 
             if vals_since_improvement >= patience:
                 lr_reduced = False
@@ -214,3 +204,5 @@ def train_model(config, run_dir, data_path=None, seed=42):
         show_plot = True
 
     plot_loss(train_losses, val_losses, run_dir=run_dir, show_plot=show_plot)
+
+    return train_losses[-1][1] # Return last epoch's train loss

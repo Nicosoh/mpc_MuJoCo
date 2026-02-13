@@ -45,6 +45,6 @@ if __name__ == '__main__':
         config = configparser.ConfigParser()
         config.read(args.config_path)
         print(f'Training with config from {args.config_path}')
-        train_model(config, run_dir)
+        train_loss = train_model(config, run_dir)
     elif args.script_name == 'evaluate_model':
         evaluate_model(args.config_path, run_dir)
