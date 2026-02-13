@@ -51,10 +51,7 @@ ACADOS_SOURCE_DIR = "$PWD/external/acados"
 # Shared libraries (Linux uses LD_LIBRARY_PATH, macOS uses DYLD_LIBRARY_PATH)
 LD_LIBRARY_PATH   = "${PWD}/external/acados/lib:${LD_LIBRARY_PATH:-}"
 DYLD_LIBRARY_PATH = "${PWD}/external/acados/lib:${DYLD_LIBRARY_PATH:-}"
-# LD_LIBRARY_PATH = "$PWD/.pixi/envs/default/lib:${PWD}/external/acados/lib:${LD_LIBRARY_PATH:-}"
 
-# 3. macOS support
-# DYLD_LIBRARY_PATH = "$PWD/.pixi/envs/default/lib:${PWD}/external/acados/lib:${DYLD_LIBRARY_PATH:-}"
 # Add the Tera renderer (if downloaded) to PATH
 PATH = "$PWD/external/acados/bin:$PATH"
 
@@ -71,18 +68,8 @@ PKG_CONFIG_PATH = "$PWD/external/acados/lib/pkgconfig:$PKG_CONFIG_PATH"
 
 [tasks]
 # Clone acados with submodules
-# acados_clone = "git clone --recursive https://github.com/acados/acados.git external/acados"
-
-acados_checkout = "cd external/acados && git checkout dc5ca937b88ebfb8784aae5822c8918424f8f27f"
-
-# # Configure acados to install into the pixi prefix
-# acados_configure = "cmake -S external/acados -B build/acados -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$PWD/external/acados -DBLASFEO_TARGET=X64_AUTOMATIC -DHPIPM_TARGET=GENERIC -DACADOS_EXAMPLES=OFF -DACADOS_UNIT_TESTS=OFF"
-
-# # # Build and install the C libs (acados, hpipm, blasfeo) into the env
-# acados_build   = "cmake --build build/acados -j $PIXI_JOBS"
-# acados_install = "cmake --install build/acados --prefix external/acados"
-
 acados_clone = "git clone --recursive https://github.com/acados/acados.git external/acados"
+acados_checkout = "cd external/acados && git checkout dc5ca937b88ebfb8784aae5822c8918424f8f27f"
 
 acados_build   = "cmake -S external/acados -B build/acados -DCMAKE_INSTALL_PREFIX=$PWD/external/acados -DCMAKE_BUILD_TYPE=Release -DBLASFEO_TARGET=X64_AUTOMATIC -DHPIPM_TARGET=GENERIC -DACADOS_EXAMPLES=OFF -DACADOS_UNIT_TESTS=OFF -DACADOS_NUM_THREADS=1 -DACADOS_WITH_OPENMP=ON"
 acados_install = "make -C build/acados -j4 install"
@@ -92,12 +79,8 @@ acados_python = "python -m pip install -e external/acados/interfaces/acados_temp
 
 acados_full = "pixi run acados_clone && pixi run acados_checkout && pixi run acados_build && pixi run acados_install && pixi run acados_python"
 
-# # One-shot: clone + configure + build + install + python interface
-# acados_full = "pixi run acados_clone && pixi run acados_checkout && pixi run acados_configure && pixi run acados_build && pixi run acados_install && pixi run acados_python"
-
 # Install l4casadi and pytorch dependencies
 install_l4casadi = "pixi run pip install l4casadi --no-build-isolation"
-# install_pytorch = "pixi run pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu"
 
 # Run the minimal Python example
 minimal_example = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY_PATH\" && python external/acados/examples/acados_python/getting_started/minimal_example_ocp.py"
@@ -107,7 +90,7 @@ main_cartpole = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRA
 viz_cartpole = "python pin_visualizer.py cartpole"
 
 # For pendulum
-main_pendulum = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY_PATH\" && python main.py pendulum"
+main_pendulum = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY_PATH\" && python main.py Pendulum"
 viz_pendulum = "python pin_visualizer.py pendulum"
 
 # For double_pendulum

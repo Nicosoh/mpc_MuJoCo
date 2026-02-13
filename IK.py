@@ -143,7 +143,7 @@ class InverseKinematicsSolver:
             self.update_target_viz(self.T_target.np)  # currently only updating translation, if 6DOF then update
             self.update_robot_viz(self.configuration.q)
     
-    def get_valid_q(self, q_name: str, q_range: str, max_attempts=1000):
+    def get_valid_q(self, q_name: str, q_range: str, max_attempts=10000):
         q_ranges = np.array(self.config["mpc"][q_range])  # shape: (n_zones, 2, 3) or (2, 3)
         zone_idx = self.config["mpc"].get("zone_idx", None)
 
@@ -281,8 +281,10 @@ class InverseKinematicsSolver:
     def load_model(self):
         # Load model from XML
         base_dir = "models_xml"
-        model_name = self.config["model"]["name"].lower()  # e.g., "two_dof_arm"
-        filename = os.path.join(base_dir, f"{model_name}.xml")
+        # model_name = self.config["model"]["name"].lower()  # e.g., "two_dof_arm"
+        # filename = os.path.join(base_dir, f"{model_name}.xml")
+        model_path = self.config["model"]["model_path"]
+        filename = os.path.join(base_dir, model_path)
 
         try:
             # Load from MJCF

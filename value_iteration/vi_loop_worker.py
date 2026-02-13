@@ -132,7 +132,7 @@ def run_vi_loop(loop_num, main_output_dir, model_name, data_config_path,
         # Training
         # -----------------
         log_worker(worker_log_path, "Starting model training")
-        train_model(
+        train_loss = train_model(
             train_config,
             run_dir=training_dir,
             data_path=data_npz_path,
@@ -162,20 +162,23 @@ def run_vi_loop(loop_num, main_output_dir, model_name, data_config_path,
             GT_valid = GT[valid_mask]
             CTRL_valid = CTRL[valid_mask]
 
-            GT_cost.append(GT_valid.mean())
-            ctrl_cost.append(CTRL_valid.mean())
+            GT_cost.extend(GT_valid)
+            ctrl_cost.extend(CTRL_valid)
             sq_errors.extend((GT_valid - CTRL_valid) ** 2)
         
         gt_mean = float(np.nanmean(GT_cost)) if GT_cost else np.nan
         ctrl_mean = float(np.nanmean(ctrl_cost)) if ctrl_cost else np.nan
         mse_mean = float(np.nanmean(sq_errors)) if sq_errors else np.nan
+        mse_std = float(np.nanstd(sq_errors)) if sq_errors else np.nan
         
         metrics = {
             "loop": loop_num + 1,
             "gt_cost": gt_mean,
             "ctrl_cost": ctrl_mean,
             "mse": mse_mean,
+            "mse_std": mse_std,
             "success": True,
+            "train_loss": train_loss,
         }
         
         # Save metrics
@@ -195,8 +198,10 @@ def run_vi_loop(loop_num, main_output_dir, model_name, data_config_path,
             "gt_cost": None,
             "ctrl_cost": None,
             "mse": None,
+            "mse_std": None,
             "success": False,
             "error": str(e),
+            "train_loss": None
         }
         with open(metrics_path, "w") as f:
             json.dump(metrics, f, indent=2)

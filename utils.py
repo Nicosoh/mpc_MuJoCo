@@ -577,24 +577,41 @@ def validate_collision_config(collision):
             raise KeyError(f"Unknown obstacle in collision_pairs: {obs}")
 
 # Load model from xml file
+def load_scene_from_xml(config):
+    """Load a MuJoCo model and create associated data object."""
+    base_dir = "models_xml"
+
+    scene_path = config["model"]["scene_path"]
+    filename = os.path.join(base_dir, scene_path)
+
+    model = mujoco.MjModel.from_xml_path(filename)
+    data = mujoco.MjData(model)
+
+    apply_model_config(config, model)
+    
+    return model, data
+
 def load_model_from_xml(config):
     """Load a MuJoCo model and create associated data object."""
     base_dir = "models_xml"
-    model_name = config["model"]["name"].lower()  # e.g., "two_dof_arm"
-    filename = os.path.join(base_dir, f"{model_name}.xml")
-    
+
+    scene_path = config["model"]["model_path"]
+    filename = os.path.join(base_dir, scene_path)
+
     model = mujoco.MjModel.from_xml_path(filename)
     data = mujoco.MjData(model)
+
+    apply_model_config(config, model)
 
     return model, data
 
 # Load model from robot descriptions
-def load_model_from_robot_descriptions(description_name: str):
-    """Load a MuJoCo model and data using robot_descriptions."""
-    model = load_robot_description(description_name)  # Loads and parses the MJCF
-    data = mujoco.MjData(model)
+# def load_model_from_robot_descriptions(description_name: str):
+#     """Load a MuJoCo model and data using robot_descriptions."""
+#     model = load_robot_description(description_name)  # Loads and parses the MJCF
+#     data = mujoco.MjData(model)
     
-    return model, data
+#     return model, data
 
 # Apply model config only if loaded from xml
 def apply_model_config(config, model):
@@ -613,22 +630,22 @@ def apply_model_config(config, model):
     except KeyError:
         print("No custom mass or inertia values found in config; using model defaults.")
 
-def load_model(config):
-    # Load MuJoCo model from cml or URDF if available
-    if config["mujoco"]["urdf_available"]:
-        menagerie_name =  config["mujoco"]["menagerie_name"]
-        model, data = load_model_from_robot_descriptions(menagerie_name)
-    else:
-        model, data = load_model_from_xml(config)
-        # Update model parameters from config
-        apply_model_config(config, model)
+# def load_model(config):
+#     # Load MuJoCo model from cml or URDF if available
+#     # if config["mujoco"]["urdf_available"]:
+#     #     menagerie_name =  config["mujoco"]["menagerie_name"]
+#     #     model, data = load_model_from_robot_descriptions(menagerie_name)
+#     # else:
+#     model, data = load_model_from_xml(config)
+#     # Update model parameters from config
+#     apply_model_config(config, model)
     
-    if config["model"]["name"] == "iiwa14": # Converts iiwa14 from PD to torque control (ultimately modify the URDF)
-        model.actuator_biastype = np.array([0, 0, 0, 0, 0, 0, 0]) # removes bias by setting it to "none"
-        model.actuator_gainprm = np.ones((7,10))   # sets gain to 1
-        model.actuator_ctrlrange = np.array([[-320, 320], [-320, 320], [-176,176], [-176,176], [-110,110], [-40,40], [-40,40]]) # sets control range
+#     # if config["model"]["name"] == "iiwa14": # Converts iiwa14 from PD to torque control (ultimately modify the URDF)
+#     #     model.actuator_biastype = np.array([0, 0, 0, 0, 0, 0, 0]) # removes bias by setting it to "none"
+#     #     model.actuator_gainprm = np.ones((7,10))   # sets gain to 1
+#     #     model.actuator_ctrlrange = np.array([[-320, 320], [-320, 320], [-176,176], [-176,176], [-110,110], [-40,40], [-40,40]]) # sets control range
     
-    return model, data
+#     return model, data
 
 def init_scene_options():
     """Initialize visualization options for rendering."""

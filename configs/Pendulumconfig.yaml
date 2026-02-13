@@ -12,7 +12,9 @@ mujoco:
   resolution: [480, 640]
 
 model:
-  name: "pendulum"
+  name: "Pendulum"
+  model_path: "pendulum.xml"
+  scene_path: "pendulum.xml"
   mass:
     pendulum: 0.1 # kg
   inertia:

@@ -4,6 +4,6 @@
 # Hence, the max number of samples will be runs multiplied max_steps
 
 data_collector:
-  runs: 200
-  max_steps: 100
+  runs: 600
+  max_steps: 50
   workers: 8
