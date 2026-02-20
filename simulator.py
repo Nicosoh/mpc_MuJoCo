@@ -127,7 +127,6 @@ class MuJoCoSimulator:
             "yref": [],
             "yref_full": self.yref,                 # Full reference trajectory could be in cartesian or joint space
             "yref_xyz": self.config["mpc"]["yref"], # Final end-effector position in XYZ
-            "yref_q": self.config["mpc"]["yref_q"][:self.model.nq],
             "u_applied": [],
             "stage_cost": [],
             "terminal_cost": [],
@@ -141,6 +140,9 @@ class MuJoCoSimulator:
             "GT_xyz_traj": [],
         }
         
+        if self.IK_required:
+            self.logs["yref_q"] = self.config["mpc"]["yref_q"][:self.model.nq]
+
         if output_xyz:
             self.logs["xyzpos"] = []                                                                # Empty list for End-effector positions in XYZ
             site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE,"attachment_site")          # End-effector site id

@@ -17,7 +17,7 @@ class PendulumModel(nn.Module):
     def __init__(self, train_config):
         super().__init__()
 
-        self.fc0 = nn.Linear(2, 2)
+        self.fc0 = ScaleLayer(2)
         self.fc1 = nn.Linear(2, 64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, 64)
