@@ -136,8 +136,9 @@ class MuJoCoSimulator:
             "u_traj": [],
             "sq_dist": [],
             "GT_cost": [],
+            "GT_qpos_traj": [],
+            "GT_qvel_traj": [],
             "xyz_traj": [],
-            "GT_xyz_traj": [],
         }
         
         if self.IK_required:
@@ -145,6 +146,7 @@ class MuJoCoSimulator:
 
         if output_xyz:
             self.logs["xyzpos"] = []                                                                # Empty list for End-effector positions in XYZ
+            self.logs["GT_xyz_traj"] = []
             site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE,"attachment_site")          # End-effector site id
 
         # Set initial position and velocity from x0
@@ -166,7 +168,7 @@ class MuJoCoSimulator:
         # Main simulation loop
         while self.data.time < sim_duration:
             # Step simulation
-            stage_cost, terminal_cost, total_cost ,qpos_traj, qvel_traj, u_traj, sq_dist, xyz_traj, GT_cost, GT_xyz_traj = self.step_sim()
+            stage_cost, terminal_cost, total_cost ,qpos_traj, qvel_traj, u_traj, sq_dist, xyz_traj, GT_qpos_traj, GT_qvel_traj, GT_cost, GT_xyz_traj = self.step_sim()
 
             # Only log data if MPC actually produced new control
             if total_cost is not None and qpos_traj is not None and qvel_traj is not None and u_traj is not None:
@@ -182,11 +184,13 @@ class MuJoCoSimulator:
                 self.logs["u_traj"].append(u_traj)
                 self.logs["sq_dist"].append(sq_dist)
                 self.logs["GT_cost"].append(GT_cost)
+                self.logs["GT_qpos_traj"].append(GT_qpos_traj)
+                self.logs["GT_qvel_traj"].append(GT_qvel_traj)
                 self.logs["xyz_traj"].append(xyz_traj)
-                self.logs["GT_xyz_traj"].append(GT_xyz_traj)
 
                 if output_xyz:
                     self.logs["xyzpos"].append(np.copy(self.data.site_xpos[site_id]))
+                    self.logs["GT_xyz_traj"].append(GT_xyz_traj)
 
                 if verbose:
                     print(
@@ -234,7 +238,7 @@ class MuJoCoSimulator:
             pbar.update(1)
 
         pbar.close()
-        
+
         # Convert logs to arrays
         for key in self.logs.keys():
             self.logs[key] = np.array(self.logs[key])
@@ -250,6 +254,8 @@ class MuJoCoSimulator:
         sq_dist = None
         GT_cost = None
         xyz_traj = None
+        GT_qpos_traj = None
+        GT_qvel_traj = None
         GT_xyz_traj = None
 
         # Only update MPC if needed
@@ -270,9 +276,9 @@ class MuJoCoSimulator:
 
                     if self.update_initial_guess:
                         self.gt_controller.update_initial_guess(GT_x)
-                        self.update_ititial_guess = False
+                        self.update_initial_guess = False
 
-                    _, GT_cost, _, _, _, _, _, _, GT_xyz_traj = self.gt_controller(GT_x, yref_now, self.config["mpc"]["full_traj"])
+                    _, GT_cost, _, _, GT_qpos_traj, GT_qvel_traj, _, _, GT_xyz_traj = self.gt_controller(GT_x, yref_now, self.config["mpc"]["full_traj"])
 
                 # += to next mpc time step
                 self.next_mpc_time += self.mpc_timestep
@@ -288,7 +294,7 @@ class MuJoCoSimulator:
         # Step simulation
         mujoco.mj_step(self.model, self.data)
 
-        return stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj, sq_dist, xyz_traj, GT_cost, GT_xyz_traj
+        return stage_cost, terminal_cost, total_cost, qpos_traj, qvel_traj, u_traj, sq_dist, xyz_traj, GT_qpos_traj, GT_qvel_traj, GT_cost, GT_xyz_traj
     
 def add_visual_capsule(scene, p1, p2, radius, rgba):
     """Adds a visual-only capsule to an mjvScene (no physics)."""
