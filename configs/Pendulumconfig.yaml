@@ -42,7 +42,7 @@ mpc:
   yref: [0.0, 0.0, 0.0] # [angle, angular_velocity, input]
   Q_mat: [2000, 0.02] # State cost weights
   R_mat: [20] # Input cost weights
-  terminal_cost: true
+  terminal_cost: false
   early_termination_cost: false # Enable early termination based on cost
   termination_cost: 0.1 # Tolerance for early termination cost
   early_termination_state: false
