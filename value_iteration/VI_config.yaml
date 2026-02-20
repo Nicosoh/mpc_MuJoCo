@@ -1,10 +1,10 @@
-model_name: TwoDofArm
+model_name: Pendulum
 data_config_path: data_collection/data_config.yaml
-train_config_path: neural_network/configs/TwoDofArmModelTrainConfig.ini
+train_config_path: neural_network/configs/PendulumModelTrainConfig.ini
 VI_loops: 1000
-controller_name: "ManipulatorMPCController_eeTracker_point"
-NN_controller_name: "NNManipulatorMPCController_eeTracker_point"
+controller_name: "BaseMPCController"
+NN_controller_name: "NNMPCController"
 
-resume_training: true
+resume_training: false
 loop_to_resume_from: 121
-VI_dir: "/scratch/nsoh/mpc_MuJoCo/value_iteration/output/2026-02-13_16-58-33_TwoDofArm_VI"
+VI_dir: ""

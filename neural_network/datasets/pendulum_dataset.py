@@ -57,7 +57,7 @@ class PendulumDataset(Dataset):
             run_data = data[run_key]
             qpos = run_data["qpos"]
             qvel = run_data["qvel"]
-            cost = run_data["cost"]
+            cost = run_data["total_cost"]
 
             # Concatenate qpos and qvel
             X_run = np.concatenate([qpos, qvel], axis=1)
