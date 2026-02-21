@@ -19,9 +19,9 @@ fi
 DIR_NAME=$(basename "$DIR_PATH")
 PARENT_DIR=$(dirname "$DIR_PATH")
 
-# Create the tarball in the same directory using pigz for compression
+# Create the tarball in the same directory using tar and pipe it to pigz for compression
 TARBALL_NAME="${DIR_NAME}.tar.gz"
-tar -caf "${PARENT_DIR}/${TARBALL_NAME}" -C "$PARENT_DIR" "$DIR_NAME" --use-compress-program=pigz
+tar -cf - -C "$PARENT_DIR" "$DIR_NAME" | pigz -9 -p 32 > "${PARENT_DIR}/${TARBALL_NAME}"
 
 # Print success message
 echo "Tarball created: ${PARENT_DIR}/${TARBALL_NAME}"
