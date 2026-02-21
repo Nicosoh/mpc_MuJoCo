@@ -280,6 +280,9 @@ class MuJoCoSimulator:
 
                     _, GT_cost, _, _, GT_qpos_traj, GT_qvel_traj, _, _, GT_xyz_traj = self.gt_controller(GT_x, yref_now, self.config["mpc"]["full_traj"])
 
+                    if np.isnan(GT_cost):
+                        self.update_initial_guess = True
+
                 # += to next mpc time step
                 self.next_mpc_time += self.mpc_timestep
 

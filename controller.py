@@ -308,7 +308,7 @@ class BaseMPCController:
                 if not self.config["mpc"]["json_name"] == "GT_controller":
                     raise RuntimeError(f"MPC solver returned status {status} in SQP mode")
                 else:
-                    return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.full((self.N+1, 3), np.nan)
+                    return np.nan, np.nan, np.nan, np.nan, np.full((self.N+1, self.nx//2), np.nan), np.full((self.N+1, self.nx//2), np.nan), np.nan, np.nan, np.full((self.N+1, 3), np.nan)
             
             u = self.ocp_solver.get(0, "u")
         
