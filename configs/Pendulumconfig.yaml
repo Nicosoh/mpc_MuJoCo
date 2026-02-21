@@ -43,7 +43,7 @@ mpc:
   Q_mat: [2000, 0.02] # State cost weights
   R_mat: [20] # Input cost weights
   terminal_cost: false
-  early_termination_cost: false # Enable early termination based on cost
+  early_termination_cost: true # Enable early termination based on cost
   termination_cost: 0.1 # Tolerance for early termination cost
   early_termination_state: false
   termination_state: 0.01
