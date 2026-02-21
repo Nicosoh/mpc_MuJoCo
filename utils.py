@@ -1,5 +1,7 @@
+import re
 import os
 import ast
+import json
 import yaml
 import mujoco
 import numpy as np
@@ -801,3 +803,107 @@ def build_capsule_collision_constraints(robot_sys, links, obstacles, collision_p
         constraints.append(dist2 - min_dist2)
 
     return vertcat(*constraints)
+
+def plot_metrics(root_dir, plt_save_path):
+    # ==========================
+    # Configuration
+    # ==========================
+    # root_dir = "value_iteration/output/2026-02-13_16-58-33_TwoDofArm_VI"
+    # plt_save_path = "metrics_plot.png"
+
+    # ==========================
+    # Collect metrics
+    # ==========================
+    loop_pattern = re.compile(r"loop_(\d+)")
+
+    loops = []
+    gt_cost = []
+    ctrl_cost = []
+    mse = []
+    mse_std = []
+    train_loss = []
+
+    # Scan directory
+    for folder in os.listdir(root_dir):
+        folder_path = os.path.join(root_dir, folder)
+        
+        if os.path.isdir(folder_path):
+            match = loop_pattern.match(folder)
+            if match:
+                loop_number = int(match.group(1))
+                metrics_path = os.path.join(folder_path, "metrics.json")
+                
+                if os.path.exists(metrics_path):
+                    with open(metrics_path, "r") as f:
+                        data = json.load(f)
+                    
+                    loops.append(loop_number)
+                    gt_cost.append(data.get("gt_cost", np.nan))
+                    ctrl_cost.append(data.get("ctrl_cost", np.nan))
+                    mse.append(data.get("mse", np.nan))
+                    mse_std.append(data.get("mse_std", np.nan))
+                    train_loss.append(data.get("train_loss", np.nan))
+
+    # ==========================
+    # Sort everything by loop number
+    # ==========================
+    sorted_idx = np.argsort(loops)
+
+    loops = np.array(loops)[sorted_idx]
+    gt_cost = np.array(gt_cost)[sorted_idx]
+    ctrl_cost = np.array(ctrl_cost)[sorted_idx]
+    mse = np.array(mse)[sorted_idx]
+    mse_std = np.array(mse_std)[sorted_idx]
+    train_loss = np.array(train_loss)[sorted_idx]
+
+    # ==========================
+    # Plot setup
+    # ==========================
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(8, 10), sharex=True)
+
+    def update_plot(x, ground_truth, controller, MSE, MSE_std, train_loss):
+        """Update and save plot with current metrics in separate subplots."""
+        ax1.clear()
+        ax2.clear()
+        ax3.clear()
+        
+        # Top subplot
+        ax1.plot(x, ground_truth, label="Ground Truth", linewidth=0.8)
+        ax1.plot(x, controller, label="Controller", linewidth=0.8)
+        ax1.set_ylabel("Mean Cost")
+        ax1.grid(True, which="both", linestyle=":", alpha=0.4)
+        ax1.legend()
+        
+        # Middle subplot
+        MSE = np.array(MSE)
+        MSE_std = np.array(MSE_std)
+        
+        ax2.plot(x, MSE, label="MSE", color='green', linewidth=0.8)
+        if len(MSE_std) == len(MSE):
+            ax2.fill_between(x, MSE - MSE_std, MSE + MSE_std,
+                            color='r', alpha=0.3, label="MSE ± std")
+        
+        ax2.set_ylabel("Mean Squared Error")
+        ax2.set_yscale("log")
+        ax2.grid(True, which="both", linestyle=":", alpha=0.4)
+        ax2.legend(loc='upper right')
+        
+        # Bottom subplot
+        train_loss = np.array(train_loss)
+        ax3.plot(x, train_loss, label="Train Loss",
+                color='b', linewidth=0.8)
+        ax3.set_xlabel("Value Iteration Loop")
+        ax3.set_yscale("log")
+        ax3.set_ylabel("Train Loss")
+        ax3.grid(True, which="both", linestyle=":", alpha=0.4)
+        ax3.legend(loc='upper right')
+        
+        fig.tight_layout()
+        plt.savefig(plt_save_path, dpi=400, bbox_inches='tight')
+        print(f"Saved plot to {plt_save_path}")
+
+    # ==========================
+    # Run plotting
+    # ==========================
+    update_plot(loops, gt_cost, ctrl_cost, mse, mse_std, train_loss)
+    plt.close(fig)
