@@ -139,7 +139,13 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
                         output_dir=run_dir,
                     )
             except Exception as plot_err:
-                print(f"Could not complete finally block: {plot_err}")
+                import traceback
+    
+                print("\n=== Error inside finally block ===")
+                print(f"Error type: {type(plot_err).__name__}")
+                print(f"Error message: {plot_err}")
+                print("Traceback:")
+                traceback.print_exc()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Load config for a given model")
