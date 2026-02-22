@@ -23,11 +23,12 @@ fi
 DIR_NAME=$(basename "$DIR_PATH")
 PARENT_DIR=$(dirname "$DIR_PATH")
 
+TARBALL_NAME="${DIR_NAME}.tar.gz"
+
 # Print start message
 echo "Creating Tarball: ${PARENT_DIR}/${TARBALL_NAME}"
 
 # Create the tarball in the same directory using tar and pipe it to pigz for compression
-TARBALL_NAME="${DIR_NAME}.tar.gz"
 srun tar -cf - -C "$PARENT_DIR" "$DIR_NAME" | pigz -9 -p 32 > "$PARENT_DIR/$DIR_NAME.tar.gz"
 
 # Print success message
