@@ -11,7 +11,7 @@
 #SBATCH --account=education-me-msc-ro
 
 # Set the specific directory path
-DIR_PATH="/scratch/nsoh/mpc_MuJoCo/value_iteration/output/2026-02-13_16-58-33_TwoDofArm_VI"
+DIR_PATH="/scratch/nsoh/mpc_MuJoCo/value_iteration/output/2026-02-21_22-11-41_Pendulum_VI"
 
 # Check if the provided path exists and is a directory
 if [ ! -d "$DIR_PATH" ]; then
@@ -22,6 +22,9 @@ fi
 # Extract the directory name (basename) and the parent directory (dirname)
 DIR_NAME=$(basename "$DIR_PATH")
 PARENT_DIR=$(dirname "$DIR_PATH")
+
+# Print start message
+echo "Creating Tarball: ${PARENT_DIR}/${TARBALL_NAME}"
 
 # Create the tarball in the same directory using tar and pipe it to pigz for compression
 TARBALL_NAME="${DIR_NAME}.tar.gz"
