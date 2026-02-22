@@ -1,13 +1,17 @@
 #!/bin/bash
 
-# Check if a directory path is provided
-if [ -z "$1" ]; then
-  echo "Usage: $0 <directory_path>"
-  exit 1
-fi
+#SBATCH --job-name=create_tarball
+#SBATCH --partition=compute
+#SBATCH --time=23:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=12
+#SBATCH --gpus-per-task=0
+#SBATCH --ntasks-per-node=1
+#SBATCH --mem-per-cpu=256MB
+#SBATCH --account=education-me-msc-ro
 
-# Get the provided directory path
-DIR_PATH="$1"
+# Set the specific directory path
+DIR_PATH="/scratch/nsoh/mpc_MuJoCo/value_iteration/output/2026-02-13_16-58-33_TwoDofArm_VI"
 
 # Check if the provided path exists and is a directory
 if [ ! -d "$DIR_PATH" ]; then
@@ -21,7 +25,7 @@ PARENT_DIR=$(dirname "$DIR_PATH")
 
 # Create the tarball in the same directory using tar and pipe it to pigz for compression
 TARBALL_NAME="${DIR_NAME}.tar.gz"
-tar -cf - -C "$PARENT_DIR" "$DIR_NAME" | pigz -9 -p 32 > "${PARENT_DIR}/${TARBALL_NAME}"
+srun tar -cf - -C "$PARENT_DIR" "$DIR_NAME" | pigz -9 -p 32 > "$PARENT_DIR/$DIR_NAME.tar.gz"
 
 # Print success message
 echo "Tarball created: ${PARENT_DIR}/${TARBALL_NAME}"
