@@ -35,15 +35,15 @@ mpc:
   mpc_timestep: 0.01 # seconds
   x0: [3.142, 0.0]
   # x0: [-1.702437617635593, 0.15633105949216464]
-  x0_random: false # If true, x0 above will not be used
-  x0_range: [[-3.142, 3.142], [-5.0, 5.0]] # Range for random x0
+  x0_random: true # If true, x0 above will not be used
+  x0_range: [[-3.142, -5.0], [3.142, 5.0]] # Range for random x0
   x0_sampling: "uniform" # Only uniform for now
   yref_random: false
   yref: [0.0, 0.0, 0.0] # [angle, angular_velocity, input]
   Q_mat: [2000, 0.02] # State cost weights
   R_mat: [20] # Input cost weights
   terminal_cost: false
-  early_termination_cost: false # Enable early termination based on cost
+  early_termination_cost: true # Enable early termination based on cost
   termination_cost: 0.1 # Tolerance for early termination cost
   early_termination_state: false
   termination_state: 0.01
