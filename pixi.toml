@@ -52,19 +52,19 @@ ACADOS_SOURCE_DIR = "$PWD/external/acados"
 LD_LIBRARY_PATH   = "${PWD}/external/acados/lib:${LD_LIBRARY_PATH:-}"
 DYLD_LIBRARY_PATH = "${PWD}/external/acados/lib:${DYLD_LIBRARY_PATH:-}"
 
-# Add the Tera renderer (if downloaded) to PATH
-PATH = "$PWD/external/acados/bin:$PATH"
-
-# Include + link flags so generated code can find HPIPM/BLASFEO headers & libs
-# CFLAGS   = "-I$CONDA_PREFIX/include -I$CONDA_PREFIX/include/hpipm/include -I$CONDA_PREFIX/include/blasfeo/include $CFLAGS"
-# CPPFLAGS = "$CFLAGS"
-# LDFLAGS  = "-L$CONDA_PREFIX/lib $LDFLAGS"
-
 # Makes CMake-based downstream projects find acados automatically
 CMAKE_PREFIX_PATH = "$PWD/external/acados:$CMAKE_PREFIX_PATH"
 
 # (Optional) useful for pkg-config consumers
 PKG_CONFIG_PATH = "$PWD/external/acados/lib/pkgconfig:$PKG_CONFIG_PATH"
+
+# PATH = "$PWD/external/acados/bin:$PATH"
+# =============================
+# Force Pixi to use system GCC
+# =============================(Need these for l4casadi install)
+CC  = "/apps/generic/compiler/2025/software/linux-rhel8-x86_64_v3/gcc-8.5.0/gcc-12.4.0-ozeu7oz3fbajoamcr7yiorwpuhasqz5q/bin/gcc"
+CXX = "/apps/generic/compiler/2025/software/linux-rhel8-x86_64_v3/gcc-8.5.0/gcc-12.4.0-ozeu7oz3fbajoamcr7yiorwpuhasqz5q/bin/g++"
+PATH = "/apps/generic/compiler/2025/software/linux-rhel8-x86_64_v3/gcc-8.5.0/gcc-12.4.0-ozeu7oz3fbajoamcr7yiorwpuhasqz5q/bin:$PATH"
 
 [tasks]
 # Clone acados with submodules
