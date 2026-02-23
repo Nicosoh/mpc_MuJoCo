@@ -5,7 +5,7 @@ mujoco:
   # urdf_available: false
   # model_path: 'external/mujoco_menagerie/kuka_iiwa_14/scene.xml'
   sim_timestep: 0.001 # seconds
-  sim_duration: 5 # seconds
+  sim_duration: 5.0 # seconds
   sim_framerate: 30  # Hz
   render: true # Render simulation
   verbose: false # Print debug information
@@ -26,21 +26,21 @@ mpc:
   Fmax: [320, 320, 176, 176, 110, 40, 40]
   xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 3.05433, # 170, 120, 170, 120, 170, 120, 175 deg
           1.48353, 1.48353, 1.74533, 1.309, 2.26893, 2.35619, 2.35619] # 85, 85, 100, 75, 130, 135, 135 deg/s
-  N_horizon: 200
+  N_horizon: 400
   use_RTI: true
-  mpc_timestep: 0.01
-  x0_q: [0, 0.785398, 0, -1.5708, 0, 0, 0]
+  mpc_timestep: 0.005
+  x0_q: [0.2, 0.785398, 0, -1.5708, 0, 0, 0]
   x0_v: [0, 0, 0, 0, 0, 0, 0]      # Inital joint velocity if random not true
   x0_q_random: false # If true, x0 above will not be used
   x0_range: [[-5.0, -5.0, -5.0], [5.0, 5.0, 5.0]]
   x0_q_sampling: uniform # Only uniform for now
-  yref_q: [0, -0.785398, 0, 1.5708, 0, 0, 0]
+  yref_q: [-0.2, 0.785398, 0, -1.5708, 0, 0, 0]
   yref_q_random: false
   yref_range: [[-5.0, -5.0, -5.0], [5.0, 5.0, 5.0]]
   yref_q_sampling: uniform
   zone_probability: [0.5, 0.5]
   terminal_cost: false
-  Q_mat: [500, 500, 500] # State cost weights for ee tracking
+  Q_mat: [5000, 5000, 5000] # State cost weights for ee tracking
   Q_dot_mat: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01] # Velocity state cost weights for joints
   R_mat: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
   early_termination_cost: true # Enable early termination based on cost
@@ -79,6 +79,9 @@ VI:
   ground_truth_controller: false
 
 plots:
+  EndEffector X Position: ["xyzpos", 0, "m"]
+  EndEffector Y Position: ["xyzpos", 1, "m"]
+  EndEffector Z Position: ["xyzpos", 2, "m"]
   Joint 1 Angle: ["qpos", 0, "rad"]
   Joint 2 Angle: ["qpos", 1, "rad"]
   Joint 3 Angle: ["qpos", 2, "rad"]

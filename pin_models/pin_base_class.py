@@ -83,6 +83,7 @@ class PinocchioCasadiRobotWrapper(RobotWrapper):
         if self.config["model"]["name"] == "two_dof_arm":
             self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
             self.j_2 = self.cdata.oMf[self.cmodel.getFrameId("j_2")].translation
+        
         # elif self.config["model"]["name"] == "iiwa14"
         #     self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
         #     self.j_2 = self.cdata.oMf[self.cmodel.getFrameId("j_2")].translation
