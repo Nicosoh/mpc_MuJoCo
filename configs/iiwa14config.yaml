@@ -5,7 +5,7 @@ mujoco:
   # urdf_available: false
   # model_path: 'external/mujoco_menagerie/kuka_iiwa_14/scene.xml'
   sim_timestep: 0.001 # seconds
-  sim_duration: 2.5 # seconds
+  sim_duration: 0.5 # seconds
   sim_framerate: 30  # Hz
   render: true # Render simulation
   verbose: false # Print debug information
@@ -74,22 +74,40 @@ IK:
   safety_distance: 0.05 # minimum distance to maintain from obstacles
 
 collision:
-  collision_avoidance: false
+  collision_avoidance: true
+  srdf_path: "models_xml/kuka_iiwa_14/iiwa14.srdf"
   links:  # Frames from pinocchio model
-    link1:
+    cap3:
       from: c11
       to: c12
       radius: 0.12
 
-    link2:
+    cap5:
       from: c21
       to: c22
       radius: 0.10
     
-    link3:
+    cap7:
       from: c31
       to: c32
       radius: 0.06
+
+  obstacles_random: true
+  obstacles_num: 1
+  obstacles_range: [[0.3, 0.0, 0.0], [0.8, 0.0, 0.60],       # [[from_min_x,y,z, from_max_x,y,z], 
+                    [0.3, 0.0, 0.0], [0.8, 0.0, 0.60],       # [to_min_x,y,z, to_max_x,y,z], 
+                    [0.05, 0.05]]                             # [radius_min, radius_max]]
+  obstacles_sampling: uniform
+
+  obstacles: # Only if obstacles_random: true and will be replaced
+    obs1:
+      from: [0.2, 0.0, 0.1]
+      to:   [1.0, 0.0, 0.1]
+      radius: 0.01
+
+  collision_pairs: [[cap3, obs1],
+                  [cap5, obs1],
+                  [cap7, obs1]]
 
 VI:
   ground_truth_controller: false
@@ -120,3 +138,6 @@ plots:
   Control Input 5: ["ctrl", 4, "N"]
   Control Input 6: ["ctrl", 5, "N"]
   Control Input 7: ["ctrl", 6, "N"]
+  Squared Distance 1: ["sq_dist", 0, "m^2"]
+  Squared Distance 2: ["sq_dist", 1, "m^2"]
+  Squared Distance 3: ["sq_dist", 2, "m^2"]
