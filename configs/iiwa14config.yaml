@@ -5,7 +5,7 @@ mujoco:
   # urdf_available: false
   # model_path: 'external/mujoco_menagerie/kuka_iiwa_14/scene.xml'
   sim_timestep: 0.001 # seconds
-  sim_duration: 5.0 # seconds
+  sim_duration: 2.5 # seconds
   sim_framerate: 30  # Hz
   render: true # Render simulation
   verbose: false # Print debug information
@@ -23,12 +23,13 @@ pin:
 mpc:
   json_name: "main_controller"
   controller_name: "ManipulatorMPCController_eeTracker_point"
-  Fmax: [320, 320, 176, 176, 110, 40, 40]
+  # Fmax: [320, 320, 176, 176, 110, 40, 40]
+  Fmax: [320, 320, 176, 176, 110, 40, 0]
   xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 3.05433, # 170, 120, 170, 120, 170, 120, 175 deg
           1.48353, 1.48353, 1.74533, 1.309, 2.26893, 2.35619, 2.35619] # 85, 85, 100, 75, 130, 135, 135 deg/s
-  N_horizon: 400
-  use_RTI: true
-  mpc_timestep: 0.005
+  N_horizon: 50
+  use_RTI: false
+  mpc_timestep: 0.01
   x0_q: [0.2, 0.785398, 0, -1.5708, 0, 0, 0]
   x0_v: [0, 0, 0, 0, 0, 0, 0]      # Inital joint velocity if random not true
   x0_q_random: false # If true, x0 above will not be used
@@ -39,10 +40,10 @@ mpc:
   yref_range: [[-5.0, -5.0, -5.0], [5.0, 5.0, 5.0]]
   yref_q_sampling: uniform
   zone_probability: [0.5, 0.5]
-  terminal_cost: false
+  terminal_cost: true
   Q_mat: [5000, 5000, 5000] # State cost weights for ee tracking
-  Q_dot_mat: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01] # Velocity state cost weights for joints
-  R_mat: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
+  Q_dot_mat: [100, 100, 70, 70, 10, 10, 10] # Velocity state cost weights for joints
+  R_mat: [0.00001, 0.00001, 0.00001, 0.00001, 0.0001, 0.00001, 0.00001]
   early_termination_cost: true # Enable early termination based on cost
   termination_cost: 0.005 # Tolerance for early termination cost
   early_termination_state: false # Enable early termination based on state
@@ -74,6 +75,21 @@ IK:
 
 collision:
   collision_avoidance: false
+  links:  # Frames from pinocchio model
+    link1:
+      from: c11
+      to: c12
+      radius: 0.12
+
+    link2:
+      from: c21
+      to: c22
+      radius: 0.10
+    
+    link3:
+      from: c31
+      to: c32
+      radius: 0.06
 
 VI:
   ground_truth_controller: false
