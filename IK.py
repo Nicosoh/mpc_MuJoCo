@@ -357,7 +357,7 @@ class InverseKinematicsSolver:
 
         # Reprocess collision pairs after adding obstacles
         self.robot.collision_data = process_collision_pairs(
-            self.robot.model, self.robot.collision_model, "models_xml/two_dof_arm.srdf"
+            self.robot.model, self.robot.collision_model, self.config["collision"]["srdf_path"]
         )
 
     def start_viz(self):

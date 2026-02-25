@@ -5,7 +5,7 @@ mujoco:
   # urdf_available: false
   # model_path: 'external/mujoco_menagerie/kuka_iiwa_14/scene.xml'
   sim_timestep: 0.001 # seconds
-  sim_duration: 5 # seconds
+  sim_duration: 0.5 # seconds
   sim_framerate: 30  # Hz
   render: true # Render simulation
   verbose: false # Print debug information
@@ -23,26 +23,29 @@ pin:
 mpc:
   json_name: "main_controller"
   controller_name: "ManipulatorMPCController_eeTracker_point"
-  Fmax: [320, 320, 176, 176, 110, 40, 40]
+  # Fmax: [320, 320, 176, 176, 110, 40, 40]
+  Fmax: [320, 320, 176, 176, 110, 40, 0]
   xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 3.05433, # 170, 120, 170, 120, 170, 120, 175 deg
           1.48353, 1.48353, 1.74533, 1.309, 2.26893, 2.35619, 2.35619] # 85, 85, 100, 75, 130, 135, 135 deg/s
+  # xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 0, # 170, 120, 170, 120, 170, 120, 175 deg
+  #         1.48353, 1.48353, 1.74533, 1.309, 2.26893, 2.35619, 0] # 85, 85, 100, 75, 130, 135, 135 deg/s
   N_horizon: 200
-  use_RTI: true
+  use_RTI: false
   mpc_timestep: 0.01
-  x0_q: [0, 0.785398, 0, -1.5708, 0, 0, 0]
+  x0_q: [0.4, 0.9, 0, -1.6, 0, 0, 0]
   x0_v: [0, 0, 0, 0, 0, 0, 0]      # Inital joint velocity if random not true
   x0_q_random: false # If true, x0 above will not be used
   x0_range: [[-5.0, -5.0, -5.0], [5.0, 5.0, 5.0]]
   x0_q_sampling: uniform # Only uniform for now
-  yref_q: [0, -0.785398, 0, 1.5708, 0, 0, 0]
+  yref_q: [-0.4, 0.9, 0, -1.6, 0, 0, 0]
   yref_q_random: false
   yref_range: [[-5.0, -5.0, -5.0], [5.0, 5.0, 5.0]]
   yref_q_sampling: uniform
   zone_probability: [0.5, 0.5]
-  terminal_cost: false
-  Q_mat: [500, 500, 500] # State cost weights for ee tracking
-  Q_dot_mat: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01] # Velocity state cost weights for joints
-  R_mat: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
+  terminal_cost: true
+  Q_mat: [5000, 5000, 5000] # State cost weights for ee tracking
+  Q_dot_mat: [100, 100, 70, 70, 10, 10, 10] # Velocity state cost weights for joints
+  R_mat: [0.0001, 0.0001, 0.0001, 0.0001, 0.001, 0.0001, 0.0001]
   early_termination_cost: true # Enable early termination based on cost
   termination_cost: 0.005 # Tolerance for early termination cost
   early_termination_state: false # Enable early termination based on state
@@ -73,12 +76,48 @@ IK:
   safety_distance: 0.05 # minimum distance to maintain from obstacles
 
 collision:
-  collision_avoidance: false
+  collision_avoidance: true
+  srdf_path: "models_xml/kuka_iiwa_14/iiwa14.srdf"
+  links:  # Frames from pinocchio model
+    cap3:
+      from: c11
+      to: c12
+      radius: 0.12
+
+    cap5:
+      from: c21
+      to: c22
+      radius: 0.10
+    
+    cap7:
+      from: c31
+      to: c32
+      radius: 0.06
+
+  obstacles_random: false
+  obstacles_num: 1
+  obstacles_range: [[0.3, 0.0, 0.0], [0.8, 0.0, 0.60],       # [[from_min_x,y,z, from_max_x,y,z], 
+                    [0.3, 0.0, 0.0], [0.8, 0.0, 0.60],       # [to_min_x,y,z, to_max_x,y,z], 
+                    [0.05, 0.05]]                             # [radius_min, radius_max]]
+  obstacles_sampling: uniform
+
+  obstacles: # Only if obstacles_random: true and will be replaced
+    obs1:
+      from: [0.2, 0.0, 0.2]
+      to:   [1.0, 0.0, 0.2]
+      radius: 0.05
+
+  collision_pairs: [[cap3, obs1],
+                  [cap5, obs1],
+                  [cap7, obs1]]
 
 VI:
   ground_truth_controller: false
 
 plots:
+  EndEffector X Position: ["xyzpos", 0, "m"]
+  EndEffector Y Position: ["xyzpos", 1, "m"]
+  EndEffector Z Position: ["xyzpos", 2, "m"]
   Joint 1 Angle: ["qpos", 0, "rad"]
   Joint 2 Angle: ["qpos", 1, "rad"]
   Joint 3 Angle: ["qpos", 2, "rad"]
@@ -93,7 +132,6 @@ plots:
   Joint 5 Angular Velocity: ["qvel", 4, "rad/s"]
   Joint 6 Angular Velocity: ["qvel", 5, "rad/s"]
   Joint 7 Angular Velocity: ["qvel", 6, "rad/s"]
-  # MPC Cost: ["cost", 0, "Cost"]
   Control Input 1: ["ctrl", 0, "N"]
   Control Input 2: ["ctrl", 1, "N"]
   Control Input 3: ["ctrl", 2, "N"]
@@ -101,3 +139,6 @@ plots:
   Control Input 5: ["ctrl", 4, "N"]
   Control Input 6: ["ctrl", 5, "N"]
   Control Input 7: ["ctrl", 6, "N"]
+  Squared Distance 1: ["sq_dist", 0, "m^2"]
+  Squared Distance 2: ["sq_dist", 1, "m^2"]
+  Squared Distance 3: ["sq_dist", 2, "m^2"]

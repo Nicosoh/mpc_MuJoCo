@@ -632,28 +632,17 @@ def apply_model_config(config, model):
     except KeyError:
         print("No custom mass or inertia values found in config; using model defaults.")
 
-# def load_model(config):
-#     # Load MuJoCo model from cml or URDF if available
-#     # if config["mujoco"]["urdf_available"]:
-#     #     menagerie_name =  config["mujoco"]["menagerie_name"]
-#     #     model, data = load_model_from_robot_descriptions(menagerie_name)
-#     # else:
-#     model, data = load_model_from_xml(config)
-#     # Update model parameters from config
-#     apply_model_config(config, model)
-    
-#     # if config["model"]["name"] == "iiwa14": # Converts iiwa14 from PD to torque control (ultimately modify the URDF)
-#     #     model.actuator_biastype = np.array([0, 0, 0, 0, 0, 0, 0]) # removes bias by setting it to "none"
-#     #     model.actuator_gainprm = np.ones((7,10))   # sets gain to 1
-#     #     model.actuator_ctrlrange = np.array([[-320, 320], [-320, 320], [-176,176], [-176,176], [-110,110], [-40,40], [-40,40]]) # sets control range
-    
-#     return model, data
-
 def init_scene_options():
     """Initialize visualization options for rendering."""
     scene_option = mujoco.MjvOption()
     scene_option.flags[mujoco.mjtVisFlag.mjVIS_JOINT] = False
+    scene_option.geomgroup[3] = 1 # Enable collision capsules
+    scene_option.sitegroup[2] = 1 # Enable "attachement_site"
+    scene_option.sitegroup[:2] = 0 # Disable all others
     # scene_option.frame = mujoco.mjtFrame.mjFRAME_GEOM
+
+    # Show coordinate frames at sites
+    scene_option.frame = mujoco.mjtFrame.mjFRAME_SITE # Add x,y,z aces at sites``
     return scene_option
 
 def get_yref_at_time(t_now, yref):

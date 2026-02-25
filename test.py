@@ -1,29 +1,29 @@
-import mujoco
-import mujoco.viewer  # this is the built-in viewer (as of MuJoCo 2.3+)
+# import mujoco
+# import mujoco.viewer  # this is the built-in viewer (as of MuJoCo 2.3+)
 
-# Load the model using robot_descriptions
-model = mujoco.MjModel.from_xml_path("models_xml/kuka_iiwa_14/scene.xml")
+# # Load the model using robot_descriptions
+# model = mujoco.MjModel.from_xml_path("models_xml/kuka_iiwa_14/scene.xml")
 
-# Alternatively, load via utility (commented out if using above)
-# from robot_descriptions.loaders.mujoco import load_robot_description
-# model = load_robot_description("panda_mj_description")
+# # Alternatively, load via utility (commented out if using above)
+# # from robot_descriptions.loaders.mujoco import load_robot_description
+# # model = load_robot_description("panda_mj_description")
 
-# Create MjData (state container)
-data = mujoco.MjData(model)
+# # Create MjData (state container)
+# data = mujoco.MjData(model)
 
-# Open the viewer
-with mujoco.viewer.launch_passive(model, data) as viewer:
-    print("Viewer is running. Close the window to exit.")
+# # Open the viewer
+# with mujoco.viewer.launch_passive(model, data) as viewer:
+#     print("Viewer is running. Close the window to exit.")
     
-    viewer.opt.geomgroup[3] = 1
+#     viewer.opt.geomgroup[3] = 1
     
-    # Enable mouse perturbation (drag bodies)
-    viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_PERTFORCE] = 1
-    viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_PERTOBJ] = 1
+#     # Enable mouse perturbation (drag bodies)
+#     viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_PERTFORCE] = 1
+#     viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_PERTOBJ] = 1
 
-    while viewer.is_running():
-        mujoco.mj_step(model, data)
-        viewer.sync()
+#     while viewer.is_running():
+#         mujoco.mj_step(model, data)
+#         viewer.sync()
         
 
 # import os
@@ -609,7 +609,88 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
 
 # plt.legend()
 # plt.show()
+import torch
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+from neural_network.models import MODEL_REGISTRY
 
+matplotlib.use("TkAgg")  # Keep only if running as a script (NOT in Jupyter)
+
+# =========================
+# USER SETTINGS
+# =========================
+
+ANGLE_MIN, ANGLE_MAX = -np.pi, np.pi
+ANGVEL_MIN, ANGVEL_MAX = -5.0, 5.0
+NUM_POINTS = 100
+
+
+# =========================
+# LOAD MODEL
+# =========================
+
+model = MODEL_REGISTRY["PendulumModel"](None)
+model.load_state_dict(torch.load(
+    "value_iteration/output/2026-02-21_22-11-41_Pendulum_VI_converged/loop_400/training/model_epoch_14.pt",
+    map_location="cpu"
+))
+model.eval()
+
+
+# =========================
+# CREATE INPUT GRID
+# =========================
+
+angles = np.linspace(ANGLE_MIN, ANGLE_MAX, NUM_POINTS)
+ang_vels = np.linspace(ANGVEL_MIN, ANGVEL_MAX, NUM_POINTS)
+
+A, W = np.meshgrid(angles, ang_vels)
+
+inputs = np.stack([A.ravel(), W.ravel()], axis=1)
+inputs_torch = torch.tensor(inputs, dtype=torch.float32)
+
+
+# =========================
+# RUN MODEL
+# =========================
+
+with torch.no_grad():
+    costs = model(inputs_torch).cpu().numpy()
+
+C = costs.reshape(NUM_POINTS, NUM_POINTS)
+
+
+# =========================
+# 2D CONTOUR PLOT
+# =========================
+
+plt.figure(figsize=(8, 6))
+
+# Filled contours
+contour_filled = plt.contourf(
+    A, W, C,
+    levels=50,
+    cmap="viridis"
+)
+
+# Optional: contour lines on top
+contour_lines = plt.contour(
+    A, W, C,
+    levels=20,
+    colors="black",
+    linewidths=0.5
+)
+
+plt.clabel(contour_lines, inline=True, fontsize=8)
+
+plt.xlabel("Angle (rad)")
+plt.ylabel("Angular Velocity (rad/s)")
+plt.title("Neural Network Cost Landscape")
+plt.colorbar(contour_filled, label="Cost")
+
+plt.tight_layout()
+plt.show()
 # import torch
 # import numpy as np
 # import matplotlib
@@ -621,7 +702,7 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
 # # USER SETTINGS
 # # =========================
 
-# MODEL_PATH = "mneural_network/output/2025-12-11_15-40-48_train_model_3/model_epoch_900.pt"   # path to saved model
+# # MODEL_PATH = "mneural_network/output/2025-12-11_15-40-48_train_model_3/model_epoch_900.pt"   # path to saved model
 
 # # Input ranges
 # ANGLE_MIN, ANGLE_MAX = -np.pi, np.pi          # radians
@@ -635,7 +716,7 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
 # # =========================
 
 # model = MODEL_REGISTRY["PendulumModel"](None)
-# model.load_state_dict(torch.load("neural_network/output/2025-12-11_15-40-48_train_model_3/model_epoch_900.pt", map_location="cpu"))
+# model.load_state_dict(torch.load("value_iteration/output/2026-02-21_22-11-41_Pendulum_VI_converged/loop_400/training/model_epoch_14.pt", map_location="cpu"))
 # model.eval()
 
 

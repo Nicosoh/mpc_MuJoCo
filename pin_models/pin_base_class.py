@@ -83,14 +83,14 @@ class PinocchioCasadiRobotWrapper(RobotWrapper):
         if self.config["model"]["name"] == "two_dof_arm":
             self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
             self.j_2 = self.cdata.oMf[self.cmodel.getFrameId("j_2")].translation
-        # elif self.config["model"]["name"] == "iiwa14"
-        #     self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
-        #     self.j_2 = self.cdata.oMf[self.cmodel.getFrameId("j_2")].translation
-        #                 self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
-        #     self.j_2 = self.cdata.oMf[self.cmodel.getFrameId("j_2")].translation
-        #                 self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
-        #     self.j_2 = self.cdata.oMf[self.cmodel.getFrameId("j_2")].translation
-        #                 self.j_1 = self.cdata.oMf[self.cmodel.getFrameId("j_1")].translation
+        
+        elif self.config["model"]["name"] == "iiwa14":
+            self.c11 = self.cdata.oMf[self.cmodel.getFrameId("c11")].translation
+            self.c12 = self.cdata.oMf[self.cmodel.getFrameId("c12")].translation
+            self.c21 = self.cdata.oMf[self.cmodel.getFrameId("c21")].translation
+            self.c22 = self.cdata.oMf[self.cmodel.getFrameId("c22")].translation
+            self.c31 = self.cdata.oMf[self.cmodel.getFrameId("c31")].translation
+            self.c32 = self.cdata.oMf[self.cmodel.getFrameId("c32")].translation
 
     def forward(self, x, u): # Current state and input  -> next state
         nq = self.model.nq
