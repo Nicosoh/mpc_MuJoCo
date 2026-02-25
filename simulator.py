@@ -204,11 +204,10 @@ class MuJoCoSimulator:
             # Render if enabled
             if render and len(self.frames) < self.data.time * sim_framerate:
                 self.renderer.update_scene(self.data, scene_option=self.scene_option, camera=0)
-                # self.renderer.update_scene(self.data, scene_option=self.scene_option)
-                
-                # if output_xyz:
-                #     add_visual_sphere(self.renderer.scene, self.config["mpc"]["yref"], 0.5, rgba=(0.0, 1.0, 0.0, 1.0))  # For the end goal (green)
-                #     add_visual_sphere(self.renderer.scene, self.config["mpc"]["x0"], 0.5, rgba=(1.0, 1.0, 0.0, 1.0))  # For the start goal (yellow)
+
+                if output_xyz:
+                    add_visual_sphere(self.renderer.scene, self.config["mpc"]["yref"], 0.03, rgba=(0.0, 1.0, 0.0, 0.2))  # For the end goal (green)
+                    add_visual_sphere(self.renderer.scene, self.config["mpc"]["x0"], 0.03, rgba=(1.0, 1.0, 0.0, 0.2))  # For the start goal (yellow)
                 if self.collision_config is not None:
                     # Add obstacle capsules to the scene (for now ignoring that over time it can shift aka static obstacles)
                     obstacles = self.collision_config["obstacles"]
@@ -341,11 +340,11 @@ def add_visual_sphere(scene, position, radius, rgba):
 
     mujoco.mjv_initGeom(
         scene.geoms[idx],
-        mujoco.mjtGeom.mjGEOM_SPHERE,
-        np.array(radius, dtype=np.float32),  # size: radius in x
-        position,                                    # position
-        np.zeros(9, dtype=np.float32),               # rotation (unused)
-        rgba                                         # color
+        type = mujoco.mjtGeom.mjGEOM_SPHERE,
+        size = np.array([radius, 0.0, 0.0], dtype=np.float32),  # size: radius in x
+        pos = position,                                    # position
+        mat=np.eye(3).flatten(),
+        rgba = rgba                                         # color
     )
 
 def get_reference_for_horizon(traj, t, N, mpc_dt):

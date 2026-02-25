@@ -27,15 +27,17 @@ mpc:
   Fmax: [320, 320, 176, 176, 110, 40, 0]
   xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 3.05433, # 170, 120, 170, 120, 170, 120, 175 deg
           1.48353, 1.48353, 1.74533, 1.309, 2.26893, 2.35619, 2.35619] # 85, 85, 100, 75, 130, 135, 135 deg/s
-  N_horizon: 50
+  # xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 0, # 170, 120, 170, 120, 170, 120, 175 deg
+  #         1.48353, 1.48353, 1.74533, 1.309, 2.26893, 2.35619, 0] # 85, 85, 100, 75, 130, 135, 135 deg/s
+  N_horizon: 200
   use_RTI: false
   mpc_timestep: 0.01
-  x0_q: [0.2, 0.785398, 0, -1.5708, 0, 0, 0]
+  x0_q: [0.4, 0.9, 0, -1.6, 0, 0, 0]
   x0_v: [0, 0, 0, 0, 0, 0, 0]      # Inital joint velocity if random not true
   x0_q_random: false # If true, x0 above will not be used
   x0_range: [[-5.0, -5.0, -5.0], [5.0, 5.0, 5.0]]
   x0_q_sampling: uniform # Only uniform for now
-  yref_q: [-0.2, 0.785398, 0, -1.5708, 0, 0, 0]
+  yref_q: [-0.4, 0.9, 0, -1.6, 0, 0, 0]
   yref_q_random: false
   yref_range: [[-5.0, -5.0, -5.0], [5.0, 5.0, 5.0]]
   yref_q_sampling: uniform
@@ -43,7 +45,7 @@ mpc:
   terminal_cost: true
   Q_mat: [5000, 5000, 5000] # State cost weights for ee tracking
   Q_dot_mat: [100, 100, 70, 70, 10, 10, 10] # Velocity state cost weights for joints
-  R_mat: [0.00001, 0.00001, 0.00001, 0.00001, 0.0001, 0.00001, 0.00001]
+  R_mat: [0.0001, 0.0001, 0.0001, 0.0001, 0.001, 0.0001, 0.0001]
   early_termination_cost: true # Enable early termination based on cost
   termination_cost: 0.005 # Tolerance for early termination cost
   early_termination_state: false # Enable early termination based on state
@@ -92,7 +94,7 @@ collision:
       to: c32
       radius: 0.06
 
-  obstacles_random: true
+  obstacles_random: false
   obstacles_num: 1
   obstacles_range: [[0.3, 0.0, 0.0], [0.8, 0.0, 0.60],       # [[from_min_x,y,z, from_max_x,y,z], 
                     [0.3, 0.0, 0.0], [0.8, 0.0, 0.60],       # [to_min_x,y,z, to_max_x,y,z], 
@@ -101,9 +103,9 @@ collision:
 
   obstacles: # Only if obstacles_random: true and will be replaced
     obs1:
-      from: [0.2, 0.0, 0.1]
-      to:   [1.0, 0.0, 0.1]
-      radius: 0.01
+      from: [0.2, 0.0, 0.2]
+      to:   [1.0, 0.0, 0.2]
+      radius: 0.05
 
   collision_pairs: [[cap3, obs1],
                   [cap5, obs1],
@@ -130,7 +132,6 @@ plots:
   Joint 5 Angular Velocity: ["qvel", 4, "rad/s"]
   Joint 6 Angular Velocity: ["qvel", 5, "rad/s"]
   Joint 7 Angular Velocity: ["qvel", 6, "rad/s"]
-  # MPC Cost: ["cost", 0, "Cost"]
   Control Input 1: ["ctrl", 0, "N"]
   Control Input 2: ["ctrl", 1, "N"]
   Control Input 3: ["ctrl", 2, "N"]
