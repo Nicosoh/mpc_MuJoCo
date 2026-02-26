@@ -154,15 +154,9 @@ class TwoDofArmModel(nn.Module):                                            # Wi
         return x
 
 @register_model
-class TwoDofArmModelAcados(nn.Module):                                            # Without obstacles
+class TwoDofArmModelAcados(TwoDofArmModel):                                            # Without obstacles
     def __init__(self, train_config):
         super().__init__()
-
-        self.fc0 = ScaleLayer(7)
-        self.fc1 = nn.Linear(7, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc3 = nn.Linear(64, 64)
-        self.fc4 = nn.Linear(64, 1)
 
     def forward(self, x):
         x = self.fc0(x)                                                     # Linear transformation without activation ("scaling" layer)
@@ -183,8 +177,8 @@ class iiwa14Model(nn.Module):                                            # Witho
     def __init__(self, train_config):
         super().__init__()
 
-        self.fc0 = ScaleLayer(15)
-        self.fc1 = nn.Linear(15, 64)
+        self.fc0 = ScaleLayer(17)
+        self.fc1 = nn.Linear(17, 64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, 64)
         self.fc4 = nn.Linear(64, 64)
@@ -202,16 +196,9 @@ class iiwa14Model(nn.Module):                                            # Witho
         return x
     
 @register_model
-class iiwa14ModelAcados(nn.Module):                                            # Without obstacles
+class iiwa14ModelAcados(iiwa14Model):                                            # Without obstacles
     def __init__(self, train_config):
         super().__init__()
-
-        self.fc0 = ScaleLayer(15)
-        self.fc1 = nn.Linear(15, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc3 = nn.Linear(64, 64)
-        self.fc4 = nn.Linear(64, 64)
-        self.fc5 = nn.Linear(64, 1)
 
     def forward(self, x):
         x = self.fc0(x)                                                     # Linear transformation without activation ("scaling" layer)

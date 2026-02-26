@@ -496,47 +496,66 @@ def randomise_x0(config):
 
 # ========== Loading obstacles/collision setup ==========
 def load_collision_config(config):
-    collision_cfg = config["collision"]
-
+    cfg = config["collision"]
     collision = {}
 
-    # ---------- LINKS ----------
-    collision["links"] = {}
-    for name, link in collision_cfg["links"].items():
-        collision["links"][name] = {
+    collision["collision_avoidance_obstacle"] = cfg.get("collision_avoidance_obstacle", False)
+    collision["collision_avoidance_ground"] = cfg.get("collision_avoidance_ground", False)
+    
+    # ==========================================================
+    # LINKS
+    # ==========================================================
+    collision["links"] = {
+        name: {
             "from": link["from"],
             "to": link["to"],
             "radius": float(link["radius"]),
         }
+        for name, link in cfg["links"].items()
+    }
 
-    # ---------- OBSTACLES ----------
-    if collision_cfg["collision_avoidance"]:
-        if collision_cfg["obstacles_random"]:
-            obstacles = randomise_obstacles(config)
+    # ==========================================================
+    # OBSTACLES
+    # ==========================================================
+    if cfg.get("collision_avoidance_obstacle", False):
+
+        if cfg.get("obstacles_random", False):
+            obstacles = randomise_obstacles(cfg)
+            # Save generated obstacles back to config (YAML safe)
+            config["collision"]["obstacles"] = to_yaml_safe(obstacles)
         else:
-            obstacles = {}
-            for name, obs in collision_cfg["obstacles"].items():
-                obstacles[name] = {
+            obstacles = {
+                name: {
                     "from": np.array(obs["from"], dtype=float),
                     "to": np.array(obs["to"], dtype=float),
                     "radius": float(obs["radius"]),
                 }
+                for name, obs in cfg.get("obstacles", {}).items()
+            }
     else:
         obstacles = {}
 
     collision["obstacles"] = obstacles
 
-    # ---------- COLLISION PAIRS ----------
-    collision["collision_pairs"] = [
-        (pair[0], pair[1])
-        for pair in collision_cfg["collision_pairs"]
-    ]
+    # ==========================================================
+    # GROUND
+    # ==========================================================
+    if cfg.get("collision_avoidance_ground", False):
+        collision["ground_plane"] = np.array(cfg["ground_plane"], dtype=float)
+    else:
+        collision["ground_plane"] = None
 
-    # Validate collision pair namings
+    # ==========================================================
+    # COLLISION PAIRS
+    # ==========================================================
+    pairs_cfg = cfg.get("collision_pairs", {})
+
+    collision["collision_pairs"] = {
+        "obstacle": pairs_cfg.get("obstacle", []),
+        "ground": pairs_cfg.get("ground", []),
+    }
+
     validate_collision_config(collision)
-
-    # Save obstacles if randomly generated
-    config["collision"]["obstacles"] = to_yaml_safe(collision["obstacles"])
 
     return collision, config
 
@@ -572,11 +591,35 @@ def randomise_obstacles(config):
     return obstacles
 
 def validate_collision_config(collision):
-    for link, obs in collision["collision_pairs"]:
-        if link not in collision["links"]:
-            raise KeyError(f"Unknown link in collision_pairs: {link}")
-        if obs not in collision["obstacles"]:
-            raise KeyError(f"Unknown obstacle in collision_pairs: {obs}")
+
+    links = collision["links"]
+
+    # ==========================================================
+    # OBSTACLE VALIDATION
+    # ==========================================================
+    if collision.get("collision_avoidance_obstacle", False):
+
+        obstacles = collision["obstacles"]
+
+        for link_name, obs_name in collision["collision_pairs"].get("obstacle", []):
+            if link_name not in links:
+                raise KeyError(f"Unknown link in obstacle collision_pairs: {link_name}")
+            if obs_name not in obstacles:
+                raise KeyError(f"Unknown obstacle in collision_pairs: {obs_name}")
+
+    # ==========================================================
+    # GROUND VALIDATION
+    # ==========================================================
+    if collision.get("collision_avoidance_ground", False):
+
+        if collision.get("ground_plane") is None:
+            raise ValueError("collision_avoidance_ground=True but no ground_plane defined")
+
+        for link_name, ground_name in collision["collision_pairs"].get("ground", []):
+            if link_name not in links:
+                raise KeyError(f"Unknown link in ground collision_pairs: {link_name}")
+            if ground_name != "ground":
+                raise KeyError("Ground collision pair must use name 'ground'")
 
 # Load model from xml file
 def load_scene_from_xml(config):
@@ -606,14 +649,6 @@ def load_model_from_xml(config):
     apply_model_config(config, model)
 
     return model, data
-
-# Load model from robot descriptions
-# def load_model_from_robot_descriptions(description_name: str):
-#     """Load a MuJoCo model and data using robot_descriptions."""
-#     model = load_robot_description(description_name)  # Loads and parses the MJCF
-#     data = mujoco.MjData(model)
-    
-#     return model, data
 
 # Apply model config only if loaded from xml
 def apply_model_config(config, model):
@@ -768,7 +803,7 @@ def segment_segment_squared_distance():
         ["dist2", "s", "t", "c1", "c2"]
     )
 
-def build_capsule_collision_constraints(robot_sys, links, obstacles, collision_pairs):
+def build_obstacle_collision_constraints(robot_sys, links, obstacles, collision_pairs):
     constraints = []
 
     for link_name, obs_name in collision_pairs:
@@ -790,6 +825,62 @@ def build_capsule_collision_constraints(robot_sys, links, obstacles, collision_p
         min_dist2 = (r1 + r2)**2
 
         constraints.append(dist2 - min_dist2)
+
+    return vertcat(*constraints)
+
+def capsule_plane_distance():
+
+    # Symbolic variables
+    a = ca.MX.sym('a', 3)      # segment start
+    b = ca.MX.sym('b', 3)      # segment end
+    n = ca.MX.sym('n', 3)      # plane normal (assumed normalized)
+    d = ca.MX.sym('d')         # plane offset
+    r = ca.MX.sym('r')         # capsule radius
+
+    # Signed distances
+    da = ca.dot(n, a) - d
+    db = ca.dot(n, b) - d
+
+    # Check if segment crosses plane
+    crosses = da * db <= 0
+
+    # Distance if not crossing
+    abs_da = ca.fabs(da)
+    abs_db = ca.fabs(db)
+    min_dist = ca.if_else(abs_da < abs_db, abs_da, abs_db)
+
+    seg_dist = ca.if_else(crosses, 0, min_dist)
+
+    # Capsule distance
+    final_dist = ca.if_else(seg_dist - r > 0, seg_dist - r, 0)
+
+    # Create CasADi function
+    f = ca.Function(
+        'capsule_plane_distance',
+        [a, b, n, d, r],
+        [final_dist]
+    )
+
+    return f
+
+def build_ground_collision_constraints(robot_sys, links, ground_plane, collision_pairs):
+    constraints = []
+
+    for link_name, obs_name in collision_pairs:
+        cap_plane_dist = capsule_plane_distance()    # ca function
+
+        link = links[link_name]
+
+        p1 = getattr(robot_sys, link["from"])   # CasADi 3-vector
+        q1 = getattr(robot_sys, link["to"])     # CasADi 3-vector
+        r1 = link["radius"]
+
+        n = ground_plane[:3]
+        d = ground_plane[3]
+
+        dist = cap_plane_dist(p1, q1, n, d, r1)
+
+        constraints.append(dist)
 
     return vertcat(*constraints)
 

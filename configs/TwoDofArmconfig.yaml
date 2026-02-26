@@ -82,7 +82,9 @@ IK:
   safety_distance: 0.05 # minimum distance to maintain from obstacles
 
 collision:
-  collision_avoidance: false
+  collision_avoidance_obstacle: false
+  collision_avoidance_ground: false
+
   srdf_path: "models_xml/two_dof_arm.srdf"
   links:  # Frames from pinocchio model
     link1:
@@ -108,8 +110,12 @@ collision:
       to:   [0.0, 0.0, 1.8]
       radius: 0.1
 
-  collision_pairs: [[link2, obs1],
-                  [link1, obs1]]
+  ground_plane: [0, 0, 1, 0]
+
+  collision_pairs: 
+    obstacle: [[link2, obs1],
+              [link1, obs1]]
+    ground: [[link2, ground]]
 
 # Ground truth controller
 VI:
