@@ -5,7 +5,7 @@ mujoco:
   urdf_available: false
   model_path: "models_xml/2dof_arm.xml"
   sim_timestep: 0.001 # seconds
-  sim_duration: 3.0 # seconds
+  sim_duration: 5.0 # seconds
   sim_framerate: 30  # Hz
   render: true # Render simulation
   verbose: false # Print debug information
@@ -28,8 +28,8 @@ pin:
 
 mpc:
   json_name: "main_controller"
-  controller_name: "ManipulatorMPCController_eeTracker_point"
-  # controller_name: "NNManipulatorMPCController_eeTracker_point"
+  # controller_name: "ManipulatorMPCController_eeTracker_point"
+  controller_name: "NNManipulatorMPCController_eeTracker_point"
   Fmax: [5, 5] # Maximum force
   xmax: [3.142, 3.142, 1.0, 1.0]
   N_horizon: 5 # Prediction horizon
@@ -37,22 +37,22 @@ mpc:
   mpc_timestep: 0.01 # seconds  
   x0_q: [0.8, -1.1]
   x0_v: [0, 0]      # Inital joint velocity if random not true
-  x0_q_random: true # If true, x0 above will not be used
-  x0_range: [[[0.3, 0.0, 1.25], [0.6, 0.0, 1.55]], # Zone 1 # Range for random x0 [[min_xyz], [max_xyz]]
-              [[-0.6, 0.0, 1.25], [-0.3, 0.0, 1.55]]] # Zone 2 [[min_xyz], [max_xyz]]
-  # x0_range: [[-0.8, 0.0, 0.8], [0.8, 0.0, 1.8]]
+  x0_q_random: false # If true, x0 above will not be used
+  # x0_range: [[[0.3, 0.0, 1.25], [0.6, 0.0, 1.55]], # Zone 1 # Range for random x0 [[min_xyz], [max_xyz]]
+  #             [[-0.6, 0.0, 1.25], [-0.3, 0.0, 1.55]]] # Zone 2 [[min_xyz], [max_xyz]]
+  x0_range: [[-0.8, 0.0, 0.8], [0.8, 0.0, 1.8]]
   x0_q_sampling: uniform # Only uniform for now
   yref_q: [0.24, -1.21]
-  yref_q_random: true
-  yref_range: [[[-0.6, 0.0, 1.25], [-0.3, 0.0, 1.55]],
-                [[0.3, 0.0, 1.25], [0.6, 0.0, 1.55]]] # Zone 1,2 [[min_xyz], [max_xyz]]
-  # yref_range: [[-0.8, 0.0, 0.8], [0.8, 0.0, 1.8]]
+  yref_q_random: false
+  # yref_range: [[[-0.6, 0.0, 1.25], [-0.3, 0.0, 1.55]],
+  #               [[0.3, 0.0, 1.25], [0.6, 0.0, 1.55]]] # Zone 1,2 [[min_xyz], [max_xyz]]
+  yref_range: [[-0.8, 0.0, 0.8], [0.8, 0.0, 1.8]]
   yref_q_sampling: uniform
   zone_probability: [0.5, 0.5]
-  Q_mat: [5000, 5000, 5000] # State cost weights for ee tracking
-  Q_dot_mat: [500, 300] # Velocity state cost weights for joints
+  Q_mat: [50, 50, 50] # State cost weights for ee tracking
+  Q_dot_mat: [0.002, 0.002] # Velocity state cost weights for joints
   R_mat: [0.001, 0.001] # Input cost weights
-  terminal_cost: false
+  terminal_cost: true
   early_termination_cost: false # Enable early termination based on cost
   termination_cost: 0.005 # Tolerance for early termination cost
   early_termination_state: false # Enable early termination based on state
@@ -125,7 +125,7 @@ VI:
 
 NN:
   model_name: "TwoDofArmModelAcados"
-  checkpoint_path: ""
+  checkpoint_path: "value_iteration/output/2026-02-22_15-19-00_TwoDofArm_VI/loop_60/training/model_epoch_16.pt"
 
 plots:
   EndEffector X Position: ["xyzpos", 0, "m"]
@@ -135,9 +135,6 @@ plots:
   Joint 2 Angle: ["qpos", 1, "rad"]
   Joint 1 Angular Velocity: ["qvel", 0, "rad/s"]
   Joint 2 Angular Velocity: ["qvel", 1, "rad/s"]
-  # Stage MPC Cost: ["stage_cost", 0, "Stage Cost"]
-  # Terminal MPC Cost: ["terminal_cost", 0, "Terminal Cost"]
-  # Total MPC Cost: ["total_cost", 0, "Total Cost"]
   Control Input 1: ["ctrl", 0, "Nm"]
   Control Input 2: ["ctrl", 1, "Nm"]
   # Squared Distance 1: ["sq_dist", 0, "m^2"]
