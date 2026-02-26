@@ -141,35 +141,32 @@ class TwoDofArmModel(nn.Module):                                            # Wi
         self.fc1 = nn.Linear(7, 64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, 64)
-        self.fc4 = nn.Linear(64, 1)
+	self.fc4 = nn.Linear(64, 64)
+        self.fc5 = nn.Linear(64, 1)
 
     def forward(self, x):
         x = self.fc0(x)                                                     # Linear transformation without activation ("scaling" layer)
         x = F.tanh(self.fc1(x))                                             # Hidden layers with tanh activations
         x = F.tanh(self.fc2(x))
         x = F.tanh(self.fc3(x))
-        x = self.fc4(x)                                                     # Output layer without activation ("scaling" layer)
+	x = F.tanh(self.fc4(x))
+        x = self.fc5(x)                                                     # Output layer without activation ("scaling" layer)
         x = torch.tensor(0.5, dtype=x.dtype, device=x.device) * x**2        # Least Squares which mimics acados cost
 
         return x
 
 @register_model
-class TwoDofArmModelAcados(nn.Module):                                            # Without obstacles
+class TwoDofArmModelAcados(TwoDofArmModel):                                            # Without obstacles
     def __init__(self, train_config):
-        super().__init__()
-
-        self.fc0 = ScaleLayer(7)
-        self.fc1 = nn.Linear(7, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc3 = nn.Linear(64, 64)
-        self.fc4 = nn.Linear(64, 1)
+        super().__init__(train_config)
 
     def forward(self, x):
         x = self.fc0(x)                                                     # Linear transformation without activation ("scaling" layer)
         x = F.tanh(self.fc1(x))                                             # Hidden layers with tanh activations
         x = F.tanh(self.fc2(x))
         x = F.tanh(self.fc3(x))
-        x = self.fc4(x)                                                     # Output layer without activation ("scaling" layer)
+	x = F.tanh(self.fc4(x))
+        x = self.fc5(x)                                                     # Output layer without activation ("scaling" layer)
         # x = torch.tensor(0.5, dtype=x.dtype, device=x.device) * x**2        # Least Squares which mimics acados cost
 
         return x
