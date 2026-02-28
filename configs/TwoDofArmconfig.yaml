@@ -33,7 +33,6 @@ mpc:
   Fmax: [5, 5] # Maximum force
   xmax: [3.142, 3.142, 1.0, 1.0]
   N_horizon: 5 # Prediction horizon
-  N_horizon: 5 # Prediction horizon
   use_RTI: false # Use Real-Time Iteration
   mpc_timestep: 0.01 # seconds  
   x0_q: [0.8, -1.1]
@@ -50,8 +49,8 @@ mpc:
   # yref_range: [[-0.8, 0.0, 0.8], [0.8, 0.0, 1.8]]
   yref_q_sampling: uniform
   zone_probability: [0.5, 0.5]
-  Q_mat: [50, 50, 50] # State cost weights for ee tracking
-  Q_dot_mat: [0.002, 0.002] # Velocity state cost weights for joints
+  Q_mat: [5000, 5000, 5000] # State cost weights for ee tracking
+  Q_dot_mat: [500, 200] # Velocity state cost weights for joints
   R_mat: [0.001, 0.001] # Input cost weights
   terminal_cost: false
   early_termination_cost: true # Enable early termination based on cost
