@@ -156,7 +156,7 @@ class TwoDofArmModel(nn.Module):                                            # Wi
 @register_model
 class TwoDofArmModelAcados(TwoDofArmModel):                                            # Without obstacles
     def __init__(self, train_config):
-        super().__init__()
+        super().__init__(train_config)
 
     def forward(self, x):
         x = self.fc0(x)                                                     # Linear transformation without activation ("scaling" layer)
@@ -198,7 +198,7 @@ class iiwa14Model(nn.Module):                                            # Witho
 @register_model
 class iiwa14ModelAcados(iiwa14Model):                                            # Without obstacles
     def __init__(self, train_config):
-        super().__init__()
+        super().__init__(train_config)
 
     def forward(self, x):
         x = self.fc0(x)                                                     # Linear transformation without activation ("scaling" layer)
