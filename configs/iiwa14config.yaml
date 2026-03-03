@@ -56,6 +56,7 @@ mpc:
   qp_solver_warm_start: 1
 
 data:
+  save_yaml: false # only work in data collection mode
   save_data: true
 
 IK:
