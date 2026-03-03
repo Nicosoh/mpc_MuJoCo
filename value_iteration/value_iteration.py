@@ -42,7 +42,7 @@ def main():
         
         ax2.set_ylabel("Mean Squared Error")
         ax2.tick_params(axis='y')
-        # ax2.set_yscale('log')
+        ax2.set_yscale('log')
         ax2.grid(True, which="both", linestyle=":", alpha=0.4)
         ax2.legend(loc='upper right')
         
@@ -163,7 +163,7 @@ def main():
                     MSE_std.append(metrics["mse_std"])
                     train_loss.append(metrics["train_loss"])
                     
-                    log_vi(f"Metrics: GT={metrics['gt_cost']:.4f}, CTRL={metrics['ctrl_cost']:.4f}, MSE={metrics['mse']:.4e}")
+                    log_vi(f"Metrics: GT={metrics['gt_cost']:.4f}, CTRL={metrics['ctrl_cost']:.4f}, MSE={metrics['mse']:.4e}, TR_loss={metrics['train_loss']:.4f}")
                 else:
                     log_vi(f"ERROR: {metrics.get('error', 'Unknown error')}")
             else:
