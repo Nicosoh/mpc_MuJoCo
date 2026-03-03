@@ -297,7 +297,17 @@ class InverseKinematicsSolver:
             raise FileNotFoundError(f"Model file '{filename}' does not exist. Check your models_xml folder.")
         
         if self.collision_config is not None:
-            self.add_obstacle_capsules()
+            if self.collision_config["collision_avoidance_obstacle"]:
+                self.add_obstacle_capsules()
+            if self.collision_config["collision_avoidance_ground"]:
+                self.add_ground_plane()
+            
+            self.robot.collision_data = process_collision_pairs(
+                self.robot.model,
+                self.robot.collision_model,
+                self.config["collision"]["srdf_path"]
+                )
+            
             # Collision barriers between self and obstacles
             collision_barrier = SelfCollisionBarrier(
                 n_collision_pairs=len(self.robot.collision_model.collisionPairs),
@@ -309,6 +319,47 @@ class InverseKinematicsSolver:
             self.barriers = [collision_barrier]
         else:
             self.barriers = None
+
+    def add_ground_plane(self):
+
+        """
+        Adds an infinite ground plane to the robot collision model.
+
+        ground_plane format in config:
+            [a, b, c, d]  -> ax + by + cz + d = 0
+        """
+
+        plane_params = self.collision_config["ground_plane"]
+        a, b, c, d = plane_params
+
+        normal = np.array([a, b, c], dtype=float)
+        norm = np.linalg.norm(normal)
+
+        if norm < 1e-8:
+            raise ValueError("Ground plane normal vector cannot be zero.")
+
+        normal /= norm
+        d /= norm  # normalize plane equation
+
+        # Create FCL plane
+        shape_plane = fcl.Plane(normal, d)
+
+        # Identity placement (plane already defined in world frame)
+        placement = pin.SE3.Identity()
+
+        # Create geometry object attached to universe (joint 0)
+        geom = pin.GeometryObject(
+            "ground",
+            0,  # universe joint
+            placement,
+            shape_plane
+        )
+
+        geom.meshColor = np.array([0.5, 0.5, 0.5, 0.3])  # semi-transparent gray
+
+        # Add ONLY to collision model
+        self.robot.collision_model.addGeometryObject(geom)
+        self.robot.visual_model.addGeometryObject(geom)
 
     def add_obstacle_capsules(self):
         """
@@ -354,11 +405,6 @@ class InverseKinematicsSolver:
             # Add to models
             self.robot.collision_model.addGeometryObject(geom)
             self.robot.visual_model.addGeometryObject(geom)
-
-        # Reprocess collision pairs after adding obstacles
-        self.robot.collision_data = process_collision_pairs(
-            self.robot.model, self.robot.collision_model, self.config["collision"]["srdf_path"]
-        )
 
     def start_viz(self):
         if self.visualize:

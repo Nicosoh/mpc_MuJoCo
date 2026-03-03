@@ -65,8 +65,9 @@ class BaseMPCController:
         nx = model.x.rows()
         nu = model.u.rows()
 
-        # Generate collision constraints
-        if collision_config is not None and config["collision"]["collision_avoidance"]:
+        # Generate obstacle collision constraints
+        if (collision_config is not None and 
+            (config["collision"]["collision_avoidance_obstacle"] or config["collision"]["collision_avoidance_ground"])):
             self.add_hard_constraints(ocp, model, collision_config)
 
         # Set stage cost module
@@ -319,7 +320,7 @@ class BaseMPCController:
         stage_cost, terminal_cost, total_cost = self.collect_cost(qpos_traj, qvel_traj, u_traj, yref_now)
 
         # Collect distances between capsules
-        if self.config["collision"]["collision_avoidance"]:
+        if self.config["collision"]["collision_avoidance_obstacle"] or self.config["collision"]["collision_avoidance_ground"]:
             sq_dist = self.evaluate_distances(qpos_traj, qvel_traj)
         else:
             sq_dist = 0
@@ -379,11 +380,30 @@ class ManipulatorMPCController(BaseMPCController):
 
     def add_hard_constraints(self, ocp, model, collision_config):
         # Generate collision constraints
-        constraints = build_capsule_collision_constraints(self.robot_sys, 
-                                                              collision_config["links"], 
-                                                              collision_config["obstacles"], 
-                                                              collision_config["collision_pairs"])
+        constraint_list = []
 
+        if self.config["collision"]["collision_avoidance_obstacle"]:
+            obstacle_constraints = build_obstacle_collision_constraints(
+                self.robot_sys,
+                collision_config["links"],
+                collision_config["obstacles"],
+                collision_config["collision_pairs"]["obstacle"],
+            )
+            constraint_list.append(obstacle_constraints)
+
+        if self.config["collision"]["collision_avoidance_ground"]:
+            ground_constraints = build_ground_collision_constraints(
+                self.robot_sys,
+                collision_config["links"],
+                collision_config["ground_plane"],
+                collision_config["collision_pairs"]["ground"],
+            )
+            constraint_list.append(ground_constraints)
+
+        constraints = ca.vertcat(*constraint_list)
+
+        print(f"Number of collision constraints: {constraints.shape[0]}")
+        
         ocp.model.con_h_expr = constraints
         ocp.constraints.lh = np.zeros(constraints.shape[0])
         ocp.constraints.uh = 1e10 * np.ones(constraints.shape[0])

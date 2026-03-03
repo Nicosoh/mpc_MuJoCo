@@ -33,18 +33,23 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     folder_name = f"{timestamp}_{model_name}"
     run_dir = os.path.join(output_dir, folder_name)
-    os.makedirs(run_dir, exist_ok=True)
-    print(f"Saving current run data to: {run_dir}")
+
+    # Only create run directory if not in data collection mode and saving yaml is enabled
+    if not data_collection and config["data"]["save_yaml"]:
+        os.makedirs(run_dir, exist_ok=True)
+        print(f"Saving current run data to: {run_dir}")
 
     try:
         config_save_path = os.path.join(run_dir, f"{model_name}config.yaml")
         # ======== Collisions/obstacles ========
-        if config["collision"]["collision_avoidance"]:                                                      # If enabled in config
+        if config["collision"]["collision_avoidance_obstacle"] or config["collision"]["collision_avoidance_ground"]:                                                      # If enabled in config
             collision_config, config = load_collision_config(config)                                        # Load obstacles
         else:
             collision_config = None
 
-        save_yaml(config=config, save_path=config_save_path)                                                # Save summary with updated obstacles
+        # Only save yaml if not in data collection mode and saving yaml is enabled
+        if not data_collection and config["data"]["save_yaml"]:
+            save_yaml(config=config, save_path=config_save_path)                                                # Save summary with updated obstacles
 
         # ======== x0/yref ======== 
         if not config["IK"]["IK_required"]: 
@@ -57,7 +62,9 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
             IK = InverseKinematicsSolver(config, collision_config)
             x0_q = IK.load_x0()                                                                                    # Load valid x0 in IK solver
             config = IK.config
-            save_yaml(config=config, save_path=config_save_path)
+            # Only save yaml if not in data collection mode and saving yaml is enabled
+            if not data_collection and config["data"]["save_yaml"]:
+                save_yaml(config=config, save_path=config_save_path)
 
             if config["IK"]["point_reference"]:                                                             # If not point reference, convert to trajectory reference
                 yref = IK.load_yref()
@@ -65,8 +72,9 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
             else:
                 yref, config = IK.IK_to_XYZ(yref)                                                           # Add to config for summary saving purpose
                 
-
-        save_yaml(config=config, save_path=config_save_path)                                                # Save summary with IK inputs
+        # Only save yaml if not in data collection mode and saving yaml is enabled
+        if not data_collection and config["data"]["save_yaml"]:
+            save_yaml(config=config, save_path=config_save_path)                                                # Save summary with IK inputs
 
         controller = CONTROLLER_REGISTRY[config["mpc"]["controller_name"]](config, collision_config, worker_id)        # Create MPCController
         

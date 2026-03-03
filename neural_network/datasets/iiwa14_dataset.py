@@ -9,7 +9,7 @@ from utils import get_num_config
 class iiwa14_eeTracker(Dataset):
     """
     Dataset for TwoDofArm:
-    Inputs X = [X_ee, Y_ee, X_ee, qvel1, qvel2, X_yref, Y_yref, Z_yref]
+    Inputs X = [q1, ... q7, qvel1, ... qvel7, X_yref, Y_yref, Z_yref] (Total 17 features)
     Targets y = cost
     Handles multiple runs inside the data dictionary.
 
@@ -69,8 +69,6 @@ class iiwa14_eeTracker(Dataset):
             y_list.append(y_run)
 
             # Stationary point arrays
-            # Xs_pos = yref_pos
-            # (ee pos, zero vel, yref pos) 
             # While ee_pos is at yref and with zero velocity cost should be zero.
             Xs_run = np.concatenate([yref_q_run, np.zeros_like(qvel), yref_pos], axis=1)
 
