@@ -69,8 +69,8 @@ def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
                         print(traceback.format_exc())
                         sys.stdout.flush()
                         
-                        if retry_count >= 3:
-                            raise RuntimeError(f"Run {run_index} failed after 3 attempts: {e}")
+                        if retry_count >= 10:
+                            raise RuntimeError(f"Run {run_index} failed after 10 attempts: {e}")
 
             print(f"[Worker {worker_id}] completed all assigned runs")
             sys.stdout.flush()
