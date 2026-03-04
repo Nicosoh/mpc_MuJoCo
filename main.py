@@ -117,14 +117,15 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         import traceback
         print(f"\nRun failed: {e}")
 
-        # Save the error info in the run folder
-        error_log_path = os.path.join(run_dir, "error.log")
-        with open(error_log_path, "w") as f:
-            f.write("=== Simulation Run Failed ===\n")
-            f.write(f"Timestamp: {datetime.now()}\n\n")
-            f.write(f"Error: {e}\n\n")
-            f.write("=== Traceback ===\n")
-            traceback.print_exc(file=f)
+        if not data_collection and config["data"]["save_yaml"]:
+            # Save the error info in the run folder
+            error_log_path = os.path.join(run_dir, "error.log")
+            with open(error_log_path, "w") as f:
+                f.write("=== Simulation Run Failed ===\n")
+                f.write(f"Timestamp: {datetime.now()}\n\n")
+                f.write(f"Error: {e}\n\n")
+                f.write("=== Traceback ===\n")
+                traceback.print_exc(file=f)
         raise
 
     finally:

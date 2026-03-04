@@ -5,5 +5,5 @@
 
 data_collector:
   runs: 5000
-  max_steps: 50
-  workers: 24
+  max_steps: 100
+  workers: 30

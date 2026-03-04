@@ -282,9 +282,12 @@ class BaseMPCController:
             self.ocp_solver.options_set('rti_phase', 1)
             
             status = self.ocp_solver.solve()
-            if status != 0:
-                raise RuntimeError(f"MPC solver returned status {status} in RTI phase 1")
-            
+            if status != 0 and status != 2:
+                if not self.config["mpc"]["json_name"] == "GT_controller":
+                    raise RuntimeError(f"MPC solver returned status {status} in RTI phase 1")
+                else:
+                    return np.nan, np.nan, np.nan, np.nan, np.full((self.N+1, self.nx//2), np.nan), np.full((self.N+1, self.nx//2), np.nan), np.nan, np.nan, np.full((self.N+1, 3), np.nan)
+
             # Set initial state
             self.ocp_solver.set(0, "lbx", x)
             self.ocp_solver.set(0, "ubx", x)
@@ -293,8 +296,11 @@ class BaseMPCController:
             self.ocp_solver.options_set('rti_phase', 2)
 
             status = self.ocp_solver.solve()
-            if status != 0:
-                raise RuntimeError(f"MPC solver returned status {status} in RTI phase 2")
+            if status != 0 and status != 2:
+                if not self.config["mpc"]["json_name"] == "GT_controller":
+                    raise RuntimeError(f"MPC solver returned status {status} in RTI phase 2")
+                else:
+                    return np.nan, np.nan, np.nan, np.nan, np.full((self.N+1, self.nx//2), np.nan), np.full((self.N+1, self.nx//2), np.nan), np.nan, np.nan, np.full((self.N+1, 3), np.nan)
 
             # Get first control input
             u = self.ocp_solver.get(0, "u")

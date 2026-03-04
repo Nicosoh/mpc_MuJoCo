@@ -41,8 +41,8 @@ def main(model_name, data_path, run, samples):
 
 def plot_traj_xyz(all_logs, config, frame_name, save_dir=None):
     base_dir = "models_xml"
-    model_name = config["model"]["name"].lower()
-    filename = os.path.join(base_dir, f"{model_name}.xml")
+    model_path = config["model"]["model_path"]
+    filename = os.path.join(base_dir, model_path)
 
     robot = RobotWrapper.BuildFromMJCF(filename=filename)
     frame_id = robot.model.getFrameId(frame_name)
