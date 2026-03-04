@@ -143,7 +143,7 @@ class InverseKinematicsSolver:
             self.update_target_viz(self.T_target.np)  # currently only updating translation, if 6DOF then update
             self.update_robot_viz(self.configuration.q)
     
-    def get_valid_q(self, q_name: str, q_range: str, max_attempts=10000):
+    def get_valid_q(self, q_name: str, q_range: str):
         q_ranges = np.array(self.config["mpc"][q_range])  # shape: (n_zones, 2, 3) or (2, 3)
         zone_idx = self.config["mpc"].get("zone_idx", None)
 
@@ -158,8 +158,9 @@ class InverseKinematicsSolver:
         else:
             q_range_sel = q_ranges
             zone_idx = None
-
-        for attempt in range(max_attempts):
+        
+        attempt = 0
+        while True:
             q = self.load_q(q_name)
 
             in_collision = self.collision_check(q)
