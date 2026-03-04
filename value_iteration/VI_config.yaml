@@ -1,6 +1,6 @@
-model_name: TwoDofArm
+model_name: iiwa14
 data_config_path: data_collection/data_config.yaml
-train_config_path: neural_network/configs/TwoDofArmModelTrainConfig.ini
+train_config_path: neural_network/configs/iiwa14ModelTrainConfig.ini
 VI_loops: 1000
 controller_name: "ManipulatorMPCController_eeTracker_point"
 NN_controller_name: "NNManipulatorMPCController_eeTracker_point"
