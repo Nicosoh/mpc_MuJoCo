@@ -33,13 +33,13 @@ def main(model_name, data_path, run, samples):
     # Load data
     all_logs = load_npz(npz_file)
     if config["IK"]["IK_required"]:
-        plot_traj_xyz(all_logs, config=config, frame_name="attachment_site", save_dir=plots_dir)
+        plot_traj_xyz(all_logs, config=config, samples=samples, frame_name="attachment_site", save_dir=plots_dir)
 
     # Run plotting functions
     plot_traj(all_logs, save_dir=plots_dir, samples=samples, config=config, run_filter=run)
     plot_dist(all_logs, save_dir=plots_dir,  config=config)
 
-def plot_traj_xyz(all_logs, config, frame_name, save_dir=None):
+def plot_traj_xyz(all_logs, config, samples,frame_name, save_dir=None):
     base_dir = "models_xml"
     model_path = config["model"]["model_path"]
     filename = os.path.join(base_dir, model_path)
@@ -50,7 +50,15 @@ def plot_traj_xyz(all_logs, config, frame_name, save_dir=None):
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(111, projection="3d")
 
-    for run_key, run_data in all_logs.items():
+    run_keys = sorted(all_logs.keys())
+    if samples is not None and samples < len(run_keys):
+        run_keys = random.sample(run_keys, samples)
+    # If 'samples' is None, plot all runs (explicit)
+    else:
+        print(f"No sampling requested — plotting all {len(run_keys)} runs.")
+
+    for run_key in run_keys:
+        run_data = all_logs[run_key]
         qpos_traj = run_data["qpos"]  # shape (T, nq)
 
         xyz = np.zeros((qpos_traj.shape[0], 3))

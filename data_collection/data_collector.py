@@ -10,6 +10,10 @@ def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
     from datetime import datetime
     from main import main
 
+    def tprint(*args, **kwargs):
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{ts}]", *args, **kwargs)
+
     os.environ["OMP_NUM_THREADS"] = "1"
 
     # Individual directory for each worker
@@ -37,8 +41,8 @@ def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
             sys.stdout = log_file
             sys.stderr = log_file
 
-            print(f"[Worker {worker_id}] starting with {len(run_indices)} runs")
-            print(f"[Worker {worker_id}] PID: {os.getpid()}")
+            tprint(f"[Worker {worker_id}] starting with {len(run_indices)} runs")
+            tprint(f"[Worker {worker_id}] PID: {os.getpid()}")
             sys.stdout.flush()
 
             all_logs = {}
@@ -59,26 +63,26 @@ def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
                         )
                         all_logs[run_timestamp] = logs
                         success = True
-                        print(f"[Worker {worker_id}] Finished run {run_index}")
+                        tprint(f"[Worker {worker_id}] Finished run {run_index}")
                         sys.stdout.flush()
 
                     except Exception as e:
                         retry_count += 1
                         error_msg = f"[Worker {worker_id}] Run {run_index} attempt {retry_count} failed: {type(e).__name__}: {e}"
-                        print(error_msg)
+                        tprint(error_msg)
                         print(traceback.format_exc())
                         sys.stdout.flush()
                         
                         if retry_count >= 10:
                             raise RuntimeError(f"Run {run_index} failed after 10 attempts: {e}")
 
-            print(f"[Worker {worker_id}] completed all assigned runs")
+            tprint(f"[Worker {worker_id}] completed all assigned runs")
             sys.stdout.flush()
 
     except Exception as e:
         error_msg = f"[Worker {worker_id}] FATAL ERROR: {type(e).__name__}: {e}"
-        print(error_msg)
-        print(traceback.format_exc())
+        tprint(error_msg)
+        tprint(traceback.format_exc())
         sys.stdout.flush()
         
         raise  # Re-raise so ProcessPoolExecutor can see it
@@ -98,6 +102,11 @@ def run_data_collector(model_name, data_config_path="data_collection/data_config
     import os
     from utils import save_yaml
     from data_collection import save_npz
+    from datetime import datetime
+
+    def tprint(*args, **kwargs):
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{ts}]", *args, **kwargs)
 
     # Load data_collector config
     with open(data_config_path, "r") as f:
@@ -129,10 +138,10 @@ def run_data_collector(model_name, data_config_path="data_collection/data_config
     start_time = time.time()
     all_logs = {}
 
-    print(f"Launching {n_workers} workers for {n_runs} runs")
+    tprint(f"Launching {n_workers} workers for {n_runs} runs")
 
     ### === PHASE 1: First iteration (1 job per worker) === ###
-    print("\n--- Phase 1: Running first iteration for each worker sequentially ---")
+    tprint("--- Phase 1: Running first iteration for each worker sequentially ---")
     first_runs_per_worker = [runs[0] for runs in run_indices_per_worker if runs]  # take the first run
     for worker_id, run_index in enumerate(first_runs_per_worker):
         logs = worker(
@@ -146,7 +155,7 @@ def run_data_collector(model_name, data_config_path="data_collection/data_config
         all_logs.update(logs)
 
     ### === PHASE 2: Remaining runs asynchronously === ###
-    print("\n--- Phase 2: Running remaining jobs asynchronously ---")
+    tprint("--- Phase 2: Running remaining jobs asynchronously ---")
     remaining_indices_per_worker = [
         runs[1:] if len(runs) > 1 else [] for runs in run_indices_per_worker
     ]
@@ -177,30 +186,30 @@ def run_data_collector(model_name, data_config_path="data_collection/data_config
                 try:
                     logs = future.result()  # Returns log from main()
                     all_logs.update(logs)   # Add to all_logs
-                    print(f"Collected logs. Total runs so far: {len(all_logs)}/{n_runs}")
+                    tprint(f"Collected logs. Total runs so far: {len(all_logs)}/{n_runs}")
 
                 except Exception as e:
                     error_msg = f"ERROR: A worker failed with {type(e).__name__}: {e}"
-                    print(error_msg)
-                    print(f"Full traceback:")
+                    tprint(error_msg)
+                    tprint(f"Full traceback:")
                     import traceback
                     traceback.print_exc()
-                    print(f"Continuing to collect results from other workers...")
+                    tprint(f"Continuing to collect results from other workers...")
 
     elapsed = time.time() - start_time
 
     # Save all_logs when done
     save_npz(f"{timestamp}_{model_name}_logs.npz", data=all_logs, output_dir=output_dir)
 
-    print("\n=== Data collection finished ===")
-    print(f"Total elapsed time: {elapsed:.2f} seconds")
-    print(f"Saved to: {output_dir}")
+    tprint("=== Data collection finished ===")
+    tprint(f"Total elapsed time: {elapsed:.2f} seconds")
+    tprint(f"Saved to: {output_dir}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run a model by name")
     parser.add_argument("model", type=str, help="Name of the model to run")
     args = parser.parse_args()
 
-    print(f"\nStarting data collection for model: {args.model}")
+    print(f"Starting data collection for model: {args.model}")
     run_data_collector(args.model)
-    print("\nDone.")
+    print("Done.")
