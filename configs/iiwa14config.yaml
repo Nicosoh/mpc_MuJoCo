@@ -30,7 +30,7 @@ mpc:
   xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 3.05433, # 170, 120, 170, 120, 170, 120, 175 deg
           0.49451, 0.49451, 0.58177667, 0.43633333, 0.75631, 0.78539667, 0.78539667] # 85, 85, 100, 75, 130, 135, 135 deg/s  
   N_horizon: 10
-  use_RTI: false
+  use_RTI: true
   mpc_timestep: 0.01
   x0_q:
   - 2.2336594867603754
@@ -49,8 +49,8 @@ mpc:
   - -0.6961567233723367
   - 0.6823318551860205      # Inital joint velocity if random not true
   x0_q_random: true # If true, x0 above will not be used
-  x0_range: [[[0.5, 0.1, 0.05], [0.7, 0.3, 0.2]], # Zone 0
-            [[0.5, -0.3, 0.05], [0.7, -0.1, 0.2]]] # Zone 1
+  x0_range: [[[0.5, 0.1, 0.05], [0.7, 0.3, 0.4]], # Zone 0
+            [[0.5, -0.3, 0.05], [0.7, -0.1, 0.4]]] # Zone 1
   x0_q_sampling: uniform # Only uniform for now
   yref_q:
   - -1.85035635014263
@@ -71,7 +71,7 @@ mpc:
   # Q_dot_mat: [500, 500, 375, 375, 125, 125, 125]
   R_mat: [0.0001, 0.0001, 0.0001, 0.0001, 0.001, 0.0001, 0.0001]
   early_termination_cost: true # Enable early termination based on cost
-  termination_cost: 0.05 # Tolerance for early termination cost
+  termination_cost: 1.0 # Tolerance for early termination cost
   early_termination_state: false # Enable early termination based on state
   termination_state: 0.01 # Tolerance for early termination state
   solve_ocp: false # Enable if only a single step is required
