@@ -2,9 +2,9 @@
 
 #SBATCH --job-name=VI_train
 #SBATCH --partition=compute
-#SBATCH --time=23:00:00
+#SBATCH --time=24:00:00
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=32
+#SBATCH --cpus-per-task=20
 #SBATCH --gpus-per-task=0
 #SBATCH --ntasks-per-node=1
 #SBATCH --mem-per-cpu=1024MB

@@ -197,7 +197,9 @@ class InverseKinematicsSolver:
                     f"  Failed checks:\n"
                     f"  - {reason_str}"
                 )
-
+            
+            attempt += 1
+        
         raise ValueError(
             f"Failed to load valid {q_name} configuration in {max_attempts} attempts.\n"
             f"Last sampled q: {q}"
