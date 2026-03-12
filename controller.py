@@ -217,7 +217,7 @@ class BaseMPCController:
         total_cost = stage_cost + terminal_cost
 
         self.check_solver_cost(total_cost)
-        import pdb; pdb.set_trace()
+
         return stage_cost, terminal_cost, total_cost
     
     def build_references(self, X, U, yref_now):
@@ -701,7 +701,7 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
         # Export trained NN model
         self.l4c_model = export_torch_model(config, self.worker_id)
         # Evaluate NN symbolically
-        import pdb; pdb.set_trace()
+
         x_aug = ca.transpose(ca.vertcat(model.x, ocp.model.p))
         y_sym = ca.transpose(self.l4c_model(x_aug))
         ocp.model.cost_y_expr_e = y_sym
