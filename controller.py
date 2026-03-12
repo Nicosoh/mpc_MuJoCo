@@ -217,7 +217,7 @@ class BaseMPCController:
         total_cost = stage_cost + terminal_cost
 
         self.check_solver_cost(total_cost)
-
+        import pdb; pdb.set_trace()
         return stage_cost, terminal_cost, total_cost
     
     def build_references(self, X, U, yref_now):
@@ -687,10 +687,6 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
         super().__init__(config, collision_config, worker_id=worker_id)
     
     def define_terminal_cost(self, ocp, model, config):
-        ocp.cost.cost_type_e = 'NONLINEAR_LS'               # Terminal cost
-        ocp.cost.W_e = np.ones((1, 1))                      # Weights set to 1, meaning no scaling for the NN output
-        ocp.cost.yref_e = np.zeros((1, ))                   # Set terminal reference to zero for NN output
-
         # Extract joint velocities
         nx = model.x.rows()
         self.ny_e = self.ee_expr.shape[0]+ nx//2
@@ -705,8 +701,28 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
         # Export trained NN model
         self.l4c_model = export_torch_model(config, self.worker_id)
         # Evaluate NN symbolically
-        y_sym = self.l4c_model(ca.transpose(vertcat(model.x, ocp.model.p)))
+        import pdb; pdb.set_trace()
+        x_aug = ca.transpose(ca.vertcat(model.x, ocp.model.p))
+        y_sym = ca.transpose(self.l4c_model(x_aug))
         ocp.model.cost_y_expr_e = y_sym
+
+        # Set cost type, weights and yref
+        ocp.cost.cost_type_e = 'CONVEX_OVER_NONLINEAR'               # Terminal cost
+        # ocp.cost.W_e = np.eye(y_sym.shape[0])                      # Weights set to 1, meaning no scaling for the NN output
+        ocp.cost.yref_e = np.zeros((y_sym.shape[0], ))                   # Set terminal reference to zero for NN output
+        # the outer convex function would just be the identity.
+        # CasADi expression for the outer loss function :math:`\psi(r - yref, t, p)`, terminal;
+        # ocp.model.cost_psi_expr_e = 
+        # CasADi symbolic input variable for the argument :math:`r` to the outer loss function :math:`\psi(r, t, p)`, terminal;
+        # ocp.model.cost_r_in_psi_expr_e = 
+
+        r = ca.SX.sym("r")
+        #============================
+        ocp.model.cost_r_in_psi_expr_e = r
+
+        # identity convex function
+        ocp.model.cost_psi_expr_e = r
+        #==============================
         # Link shared library
         ocp.solver_options.model_external_shared_lib_dir = self.l4c_model.shared_lib_dir
         ocp.solver_options.model_external_shared_lib_name = self.l4c_model.name
@@ -724,7 +740,8 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
         yN = np.asarray(self.l4c_model(xN_p)).squeeze()
 
         # NONLINEAR_LS terminal cost
-        terminal_cost = 0.5 * yN**2 
+        # terminal_cost = np.sum(0.5 * yN**2)
+        terminal_cost = yN
         return terminal_cost
 
 @register_controller

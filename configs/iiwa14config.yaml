@@ -3,7 +3,7 @@
 # ----------------------------------------------------------------------------------------
 mujoco:
   sim_timestep: 0.001 # seconds
-  sim_duration: 3.0 # seconds
+  sim_duration: 5.0 # seconds
   sim_framerate: 30  # Hz
   render: true # Render simulation
   verbose: false # Print debug information
@@ -21,6 +21,7 @@ pin:
 mpc:
   json_name: "main_controller"
   controller_name: "ManipulatorMPCController_eeTracker_point"
+  # controller_name: "NNManipulatorMPCController_eeTracker_point"
   # Fmax: [320, 320, 176, 176, 110, 40, 40]
   Fmax: [320, 320, 176, 176, 110, 40, 0]
   # xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 3.05433, # 170, 120, 170, 120, 170, 120, 175 deg
@@ -65,7 +66,7 @@ mpc:
             [[0.5, 0.1, 0.05], [0.7, 0.3, 0.2]]] # Zone 1
   yref_q_sampling: uniform
   zone_probability: [0.5, 0.5]
-  terminal_cost: true
+  terminal_cost: false
   Q_mat: [5000, 5000, 5000] # State cost weights for ee tracking
   Q_dot_mat: [100, 100, 75, 75, 25, 25, 25] # Velocity state cost weights for joints
   # Q_dot_mat: [500, 500, 375, 375, 125, 125, 125]
@@ -155,7 +156,7 @@ VI:
       json_name: "GT_controller"
 
 NN:
-  model_name: "iiwa14ModelAcados"
+  model_name: "iiwa14Model"
   checkpoint_path: ""
 
 plots:
