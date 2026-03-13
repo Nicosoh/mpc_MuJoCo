@@ -26,8 +26,9 @@ def worker(worker_id, run_indices, model_name, output_dir, data_config, config):
     # Set unique seed combining time + worker_id for complete uniqueness
     # time.time() gives seconds since epoch, * 1000 for millisecond precision
     # worker_id * 10000 ensures different workers get different ranges
-    time_seed = int(time.time() * 1000) % (2**31 - 1)  # Keep within 32-bit range
-    run_seed = time_seed + worker_id * 10000
+    # time_seed = int(time.time() * 1000) % (2**31 - 1)  # Keep within 32-bit range
+    # run_seed = time_seed + worker_id * 10000
+    run_seed = worker_id
     random.seed(run_seed)
     np.random.seed(run_seed)
 
