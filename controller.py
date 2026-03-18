@@ -126,7 +126,7 @@ class BaseMPCController:
         # Create solver based on settings above
         solver_json = 'acados_ocp_' + self.config["mpc"]["json_name"] + str(self.worker_id) + '.json'
 
-        self.ocp_solver = AcadosOcpSolver(acados_ocp = ocp, json_file = solver_json, verbose=False, build=False, generate=False)
+        self.ocp_solver = AcadosOcpSolver(acados_ocp = ocp, json_file = solver_json, verbose=True, build=False, generate=False)
 
         self.update_initial_guess(self.x0)
 
@@ -216,7 +216,7 @@ class BaseMPCController:
 
         total_cost = stage_cost + terminal_cost
 
-        self.check_solver_cost(total_cost)
+        # self.check_solver_cost(total_cost)
 
         return stage_cost, terminal_cost, total_cost
     
@@ -688,8 +688,8 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
     
     def define_terminal_cost(self, ocp, model, config):
         ocp.cost.cost_type_e = 'NONLINEAR_LS'               # Terminal cost
-        ocp.cost.W_e = np.ones((1, 1))                      # Weights set to 1, meaning no scaling for the NN output
-        ocp.cost.yref_e = np.zeros((1, ))                   # Set terminal reference to zero for NN output
+        ocp.cost.W_e = np.eye(64)                     # Weights set to 1, meaning no scaling for the NN output
+        ocp.cost.yref_e = np.zeros((64, ))                   # Set terminal reference to zero for NN output
 
         # Extract joint velocities
         nx = model.x.rows()
@@ -704,12 +704,21 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
 
         # Export trained NN model
         self.l4c_model = export_torch_model(config, self.worker_id)
+        # Inputs can be numpy arrays
+        # casadi_converter.convert(input=np.ones((1,3)))
+
+        # # or CasADi expressions
+        # x = casadi.SX.sym('x',1,3)
+        # casadi_converter.convert(input=x)
         # Evaluate NN symbolically
-        y_sym = self.l4c_model(ca.transpose(vertcat(model.x, ocp.model.p)))
-        ocp.model.cost_y_expr_e = y_sym
+        x = ca.transpose(vertcat(model.x, ocp.model.p))
+        # import pdb; pdb.set_trace()
+        self.l4c_model.convert(x = x)
+
+        ocp.model.cost_y_expr_e = ca.transpose(self.l4c_model["output"])
         # Link shared library
-        ocp.solver_options.model_external_shared_lib_dir = self.l4c_model.shared_lib_dir
-        ocp.solver_options.model_external_shared_lib_name = self.l4c_model.name
+        # ocp.solver_options.model_external_shared_lib_dir = self.l4c_model.shared_lib_dir
+        # ocp.solver_options.model_external_shared_lib_name = self.l4c_model.name
 
     def compute_terminal_cost(self, X, terminal_ref):
         # Terminal state (nx,)
@@ -721,8 +730,8 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
         xN_p = np.concatenate([X[self.N], self.p])       # Combine ee position, joint velocities, and parameters shape: (7,)
 
         # Evaluate NN numerically
-        yN = np.asarray(self.l4c_model(xN_p)).squeeze()
-
+        # yN = np.asarray(self.l4c_model['output'](xN_p)).squeeze()
+        yN=0
         # NONLINEAR_LS terminal cost
         terminal_cost = 0.5 * yN**2 
         return terminal_cost
@@ -743,5 +752,5 @@ class NNManipulatorMPCController_eeTracker_point(NNManipulatorMPCController_eeTr
 
         # Terminal
         if self.terminal_cost:
-            self.ocp_solver.cost_set(self.N, "yref", np.zeros((1,)), api='new')                  # Terminal reference (only x)
+            self.ocp_solver.cost_set(self.N, "yref", np.zeros((64,)), api='new')                  # Terminal reference (only x)
             self.ocp_solver.set(self.N, "p", self.p)                                             # Modify Goal/obstacle position

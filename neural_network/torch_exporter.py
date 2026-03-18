@@ -5,6 +5,9 @@ import l4casadi as l4c
 from configparser import ConfigParser
 
 from neural_network.models import MODEL_REGISTRY
+import do_mpc 
+import onnx
+import casadi as ca
 
 def export_torch_model(config, worker_id):
     try:
@@ -26,9 +29,15 @@ def export_torch_model(config, worker_id):
     NNmodel.load_state_dict(state_dict)
     NNmodel.eval()
 
-    # Wrap for CasADi
-    name = "l4casadi_f" + str(worker_id)
+    # onnx_program = torch.onnx.export(NNmodel, input, dynamo=True)
+    torch.onnx.export(NNmodel,(torch.ones(1, 17),),"image_classifier_model.onnx", input_names=["x"], output_names=["output"])
 
-    l4c_model = l4c.L4CasADi(NNmodel, device=device, name=name)
+    onnx_NNmodel = onnx.load("image_classifier_model.onnx")
 
+    l4c_model = do_mpc.sysid.ONNXConversion(onnx_NNmodel)
+
+    # # Wrap for CasADi
+    # name = "l4casadi_f" + str(worker_id)
+
+    # l4c_model = l4c.L4CasADi(NNmodel, device=device, name=name, scripting=False)
     return l4c_model

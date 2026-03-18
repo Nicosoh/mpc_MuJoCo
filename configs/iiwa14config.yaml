@@ -20,7 +20,8 @@ pin:
 
 mpc:
   json_name: "main_controller"
-  controller_name: "ManipulatorMPCController_eeTracker_point"
+  # controller_name: "ManipulatorMPCController_eeTracker_point"
+  controller_name: "NNManipulatorMPCController_eeTracker_point"
   # Fmax: [320, 320, 176, 176, 110, 40, 40]
   Fmax: [320, 320, 176, 176, 110, 40, 0]
   # xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 3.05433, # 170, 120, 170, 120, 170, 120, 175 deg
@@ -101,7 +102,7 @@ IK:
   safety_distance: 0.05 # minimum distance to maintain from obstacles
 
 collision:
-  collision_avoidance_obstacle: true
+  collision_avoidance_obstacle: false
   collision_avoidance_ground: true
 
   srdf_path: "models_xml/kuka_iiwa_14/iiwa14.srdf"
@@ -156,7 +157,7 @@ VI:
 
 NN:
   model_name: "iiwa14ModelAcados"
-  checkpoint_path: ""
+  checkpoint_path: "neural_network/output/2026-03-16_14-07-11_train_model/model_epoch_16.pt"
 
 plots:
   EndEffector X Position: ["xyzpos", 0, "m"]
