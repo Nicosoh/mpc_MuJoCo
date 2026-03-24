@@ -41,7 +41,8 @@ ipython = ">=9.10.0,<10"
 tqdm = "*"
 torch = { version = "==2.2.2", index = "https://download.pytorch.org/whl/cpu" }
 torchinfo = ">=1.8.0, <2"
-l4casadi = { git = "https://github.com/Nicosoh/l4casadi.git" }
+l4casadi = { path = "/home/nsoh/Documents/test/mpc_MuJoCo/external/l4casadi" }
+acados-template = { path = "/home/nsoh/Documents/test/mpc_MuJoCo/external/acados/interfaces/acados_template", editable = true }
 
 [pypi-options]
 no-build-isolation = ["l4casadi"]
@@ -72,17 +73,23 @@ CMAKE_PREFIX_PATH = "$PWD/external/acados:$CMAKE_PREFIX_PATH"
 PKG_CONFIG_PATH = "$PWD/external/acados/lib/pkgconfig:$PKG_CONFIG_PATH"
 
 [tasks]
-# Clone acados with submodules
+# Clone, build, install acados
 acados_clone = "git clone --recursive https://github.com/acados/acados.git external/acados"
 acados_checkout = "cd external/acados && git checkout dc5ca937b88ebfb8784aae5822c8918424f8f27f"
-
 acados_build   = "cmake -S external/acados -B build/acados -DCMAKE_INSTALL_PREFIX=$PWD/external/acados -DCMAKE_BUILD_TYPE=Release -DBLASFEO_TARGET=X64_AUTOMATIC -DHPIPM_TARGET=GENERIC -DACADOS_EXAMPLES=OFF -DACADOS_UNIT_TESTS=OFF -DACADOS_NUM_THREADS=1 -DACADOS_WITH_OPENMP=ON"
 acados_install = "make -C build/acados -j4 install"
-
-# Install the Python interface (editable)
 acados_python = "pixi add --pypi \"acados_template @ file:///$PWD/external/acados/interfaces/acados_template\" --editable"
 
 acados_full = "pixi run acados_clone && pixi run acados_checkout && pixi run acados_build && pixi run acados_install && pixi run acados_python"
+
+# Clone, install l4casadi from source
+l4casadi_clone = "git clone https://github.com/Nicosoh/l4casadi.git external/l4casadi"
+l4casadi_python = "pixi add --pypi \"l4casadi @ file:///$PWD/external/l4casadi\""
+
+l4casadi_full = "pixi run l4casadi_clone && pixi run l4casadi_python"
+
+# Full packages install
+setup_full = "pixi run l4casadi_full && pixi run acados_full"
 
 # Run the minimal Python example
 minimal_example = "export DYLD_LIBRARY_PATH=\"$PWD/external/acados/lib:$DYLD_LIBRARY_PATH\" && python external/acados/examples/acados_python/getting_started/minimal_example_ocp.py"
