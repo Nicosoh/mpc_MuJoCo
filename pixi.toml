@@ -41,11 +41,7 @@ ipython = ">=9.10.0,<10"
 tqdm = "*"
 torch = { version = "==2.2.2", index = "https://download.pytorch.org/whl/cpu" }
 torchinfo = ">=1.8.0, <2"
-l4casadi = { path = "/home/nsoh/Documents/test/mpc_MuJoCo/external/l4casadi" }
-acados-template = { path = "/home/nsoh/Documents/test/mpc_MuJoCo/external/acados/interfaces/acados_template", editable = true }
-
-[pypi-options]
-no-build-isolation = ["l4casadi"]
+acados-template = { path = "/home/nsoh/Documents/mpc_MuJoCo/external/acados/interfaces/acados_template", editable = true }
 
 [target.linux-64.pypi-dependencies] # only for linux-64 as 2.10 causes errors.
 torch = { version = "==2.9.1", index = "https://download.pytorch.org/whl/cpu" }
@@ -56,6 +52,7 @@ ACADOS_SOURCE_DIR = "$PWD/external/acados"
 
 # Shared libraries (Linux uses LD_LIBRARY_PATH, macOS uses DYLD_LIBRARY_PATH)
 LD_LIBRARY_PATH   = "${PWD}/external/acados/lib:${LD_LIBRARY_PATH:-}"
+# LD_LIBRARY_PATH   = "${PWD}/.pixi/envs/default/lib:${PWD}/external/acados/lib:${LD_LIBRARY_PATH:-}"
 DYLD_LIBRARY_PATH = "${PWD}/external/acados/lib:${DYLD_LIBRARY_PATH:-}"
 
 # Add the Tera renderer (if downloaded) to PATH
@@ -84,7 +81,7 @@ acados_full = "pixi run acados_clone && pixi run acados_checkout && pixi run aca
 
 # Clone, install l4casadi from source
 l4casadi_clone = "git clone https://github.com/Nicosoh/l4casadi.git external/l4casadi"
-l4casadi_python = "pixi add --pypi \"l4casadi @ file:///$PWD/external/l4casadi\""
+l4casadi_python = "pip install external/l4casadi --no-build-isolation"
 
 l4casadi_full = "pixi run l4casadi_clone && pixi run l4casadi_python"
 
