@@ -406,6 +406,10 @@ class MujocoReplay:
         self._render_dt = 1.0 / self.render_fps
         self._accumulator = 0.0
         self.output_xyz = model_config["IK"]["output_xyz"]
+        self.ground_truth_controller = model_config["VI"]["ground_truth_controller"]
+
+        if self.ground_truth_controller:
+            self.GT_xyz_traj = logs_dict["GT_xyz_traj"]
 
         self.KEY_SPACE = 32
         self.KEY_LEFT  = 263
@@ -493,7 +497,27 @@ class MujocoReplay:
                 viewer.user_scn,
                 pos,
                 radius=0.01,
-                rgba=(0.0, 0.5, 1.0, 0.5)
+                rgba=(0.0, 0.5, 1.0, 0.3)
+            )
+    
+    def viz_GT_horizon(self, viewer):
+        horizon = self.GT_xyz_traj[self.frame]   # shape: [N_horizon, 3]
+
+        # Subsample indices along horizon
+        if len(horizon) <= 10:
+            indices = range(len(horizon))
+        else:
+            indices = np.linspace(0, len(horizon) - 1, 10).astype(int)
+
+        # Draw spheres
+        for i, idx in enumerate(indices):
+            pos = horizon[idx]
+
+            add_visual_sphere(
+                viewer.user_scn,
+                pos,
+                radius=0.01,
+                rgba=(0.5, 0.0, 1.0, 0.3)
             )
 
     # ---------- main loop ----------
@@ -517,6 +541,9 @@ class MujocoReplay:
                 self.advance(elapsed)
                 self.apply_state()
                 self.viz_horizon(viewer)
+
+                if self.ground_truth_controller:
+                    self.viz_GT_horizon(viewer)
 
                 if self.output_xyz:
                     add_visual_sphere(viewer.user_scn, self.model_config["mpc"]["yref"], 0.03, rgba=(0.0, 1.0, 0.0, 0.2))  # For the end goal (green)
