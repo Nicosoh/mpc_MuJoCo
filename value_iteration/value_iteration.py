@@ -89,13 +89,19 @@ def main():
         main_output_dir = os.path.join(base_dir, f"{main_timestamp}_{model_name}_VI")
         os.makedirs(main_output_dir, exist_ok=True)
         suffix = ""
+    
+    # Load Model config
+    with open(f"configs/{model_name}config.yaml", "r") as f:
+        model_config = yaml.safe_load(f)
 
     # Paths to save files to
     plt_save_path = os.path.join(main_output_dir, f"VI_plot{suffix}.png")
     vi_log_path   = os.path.join(main_output_dir, f"VI{suffix}.log")
-    yaml_save_path = os.path.join(main_output_dir, f"VI_config{suffix}.yaml")
+    VI_yaml_save_path = os.path.join(main_output_dir, f"VI_config{suffix}.yaml")
+    model_config_yaml_save_path = os.path.join(main_output_dir, f"Model_config{suffix}.yaml")
 
-    save_yaml(VI_config, yaml_save_path)
+    save_yaml(VI_config, VI_yaml_save_path)
+    save_yaml(model_config, model_config_yaml_save_path)
     
     with open(vi_log_path, "w") as f:
         f.write("=== VALUE ITERATION LOG (SUBPROCESS MODE) ===\n")

@@ -207,6 +207,6 @@ class iiwa14ModelAcados(iiwa14Model):                                           
         x = F.tanh(self.fc3(x))
         x = F.tanh(self.fc4(x))
         x = self.fc5(x)                                                     # Output layer without activation ("scaling" layer)
-        # x = torch.tensor(0.5, dtype=x.dtype, device=x.device) * x**2        # Least Squares which mimics acados cost
+        # x = torch.tensor(0.5, dtype=x.dtype, device=x.device) * torch.sum(x**2, dim=1, keepdim=True)        # Least Squares which mimics acados cost
 
         return x

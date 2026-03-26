@@ -90,7 +90,8 @@ class InverseKinematicsSolver:
         return x0_q_save
     
     def randomise_vel(self):
-        velocity_limit = np.array(self.config["IK"]["velocitylimit"])
+        xmax = np.array(self.config["mpc"]["xmax"])
+        velocity_limit = self.config["IK"]["velocity_sampling_factor"] * xmax[xmax.shape[0]//2:]
         if self.config["mpc"]["x0_q_random"]:
             return np.random.uniform(low=-velocity_limit,
                                         high=velocity_limit)
@@ -284,8 +285,6 @@ class InverseKinematicsSolver:
     def load_model(self):
         # Load model from XML
         base_dir = "models_xml"
-        # model_name = self.config["model"]["name"].lower()  # e.g., "two_dof_arm"
-        # filename = os.path.join(base_dir, f"{model_name}.xml")
         model_path = self.config["model"]["model_path"]
         filename = os.path.join(base_dir, model_path)
 
@@ -293,7 +292,8 @@ class InverseKinematicsSolver:
             # Load from MJCF
             self.robot = RobotWrapper.BuildFromMJCF(filename=filename)
             # Set velocitylimit
-            self.robot.model.velocityLimit = np.array(self.config["IK"]["velocitylimit"])
+            xmax = np.array(self.config["mpc"]["xmax"])
+            self.robot.model.velocityLimit = xmax[xmax.shape[0]//2:]
             if self.limit_accel:
                 self.accellimit = AccelerationLimit(self.robot.model, np.array(self.config["IK"]["accelerationlimit"]))
         except FileNotFoundError:
