@@ -383,25 +383,33 @@ def get_reference_for_horizon(traj, t, N, mpc_dt):
     return {"stage": yref_stage, "terminal": yref_terminal}
 
 class MujocoReplay:
-    def __init__(self, model_config, replay_config, logs_dict):
+    def __init__(self, model_config, replay_config, logs_dict, collision_config):
         self.model_config = model_config
         self.replay_config = replay_config
+        self.collision_config = collision_config
 
         self.model, self.data = load_scene_from_xml(self.model_config)                  # Create MuJoCo simulator object with loaded model
         self.model.opt.timestep = self.model_config["mpc"]["mpc_timestep"]     # Set simulation timestep
 
         self.qpos = logs_dict["qpos"]
         self.qvel = logs_dict["qvel"]
+        self.xyz_traj = logs_dict["xyz_traj"]
 
         self.nframes = len(self.qpos)
         self.frame = 0
         self.playing = True
         self.speed = replay_config["playback_speed"]
         self.loop = replay_config["loop"]
+        self.N_horizon = model_config["mpc"]["N_horizon"]
         self._last_time = None
         self.render_fps = self.replay_config["render_fps"]
         self._render_dt = 1.0 / self.render_fps
         self._accumulator = 0.0
+        self.output_xyz = model_config["IK"]["output_xyz"]
+        self.ground_truth_controller = model_config["VI"]["ground_truth_controller"]
+
+        if self.ground_truth_controller:
+            self.GT_xyz_traj = logs_dict["GT_xyz_traj"]
 
         self.KEY_SPACE = 32
         self.KEY_LEFT  = 263
@@ -471,6 +479,46 @@ class MujocoReplay:
             self.data.qvel[:] = 0
 
         mujoco.mj_forward(self.model, self.data)
+    
+    def viz_horizon(self, viewer):
+        horizon = self.xyz_traj[self.frame]   # shape: [N_horizon, 3]
+
+        # Subsample indices along horizon
+        if len(horizon) <= 10:
+            indices = range(len(horizon))
+        else:
+            indices = np.linspace(0, len(horizon) - 1, 10).astype(int)
+
+        # Draw spheres
+        for i, idx in enumerate(indices):
+            pos = horizon[idx]
+
+            add_visual_sphere(
+                viewer.user_scn,
+                pos,
+                radius=0.01,
+                rgba=(0.0, 0.5, 1.0, 0.3)
+            )
+    
+    def viz_GT_horizon(self, viewer):
+        horizon = self.GT_xyz_traj[self.frame]   # shape: [N_horizon, 3]
+
+        # Subsample indices along horizon
+        if len(horizon) <= 10:
+            indices = range(len(horizon))
+        else:
+            indices = np.linspace(0, len(horizon) - 1, 10).astype(int)
+
+        # Draw spheres
+        for i, idx in enumerate(indices):
+            pos = horizon[idx]
+
+            add_visual_sphere(
+                viewer.user_scn,
+                pos,
+                radius=0.01,
+                rgba=(0.5, 0.0, 1.0, 0.3)
+            )
 
     # ---------- main loop ----------
     def run(self):
@@ -488,8 +536,25 @@ class MujocoReplay:
                 elapsed = loop_start - self._last_time
                 self._last_time = loop_start
 
+                viewer.user_scn.ngeom = 0
+                
                 self.advance(elapsed)
                 self.apply_state()
+                self.viz_horizon(viewer)
+
+                if self.ground_truth_controller:
+                    self.viz_GT_horizon(viewer)
+
+                if self.output_xyz:
+                    add_visual_sphere(viewer.user_scn, self.model_config["mpc"]["yref"], 0.03, rgba=(0.0, 1.0, 0.0, 0.2))  # For the end goal (green)
+                    add_visual_sphere(viewer.user_scn, self.model_config["mpc"]["x0"], 0.03, rgba=(1.0, 1.0, 0.0, 0.2))  # For the start goal (yellow)
+                if self.collision_config is not None:
+                    # Add obstacle capsules to the scene (for now ignoring that over time it can shift aka static obstacles)
+                    obstacles = self.collision_config["obstacles"]
+
+                    for obs_name, obs in obstacles.items():
+                        add_visual_capsule(viewer.user_scn, p1=obs["from"], p2=obs["to"], radius=obs["radius"], rgba=(0.8, 0.1, 0.1, 1))
+
                 viewer.sync()
 
                 # ---- render rate limiting ----

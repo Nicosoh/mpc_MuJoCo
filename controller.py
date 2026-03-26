@@ -555,8 +555,10 @@ class ManipulatorMPCController_eeTracker(ManipulatorMPCController):
         ocp.cost.yref  = np.zeros((ny, ))                               # Set stage references to match first entry of yref for all states and inputs
 
     def define_terminal_cost(self, ocp, model, config):
-        Q_mat = np.diag(self.config["mpc"]["Q_mat"])
-        Q_dot_mat = np.diag(self.config["mpc"]["Q_dot_mat"])
+        Q_mat_e = np.diag(self.config["mpc"]["Q_mat_e"])
+        # Q_mat = np.diag(self.config["mpc"]["Q_mat"])
+        Q_dot_mat_e = np.diag(self.config["mpc"]["Q_dot_mat_e"])
+        # Q_dot_mat = np.diag(self.config["mpc"]["Q_dot_mat"])
 
         nx = model.x.rows()
         self.ny_e = self.ee_expr.shape[0]+ nx//2
@@ -564,7 +566,7 @@ class ManipulatorMPCController_eeTracker(ManipulatorMPCController):
         q_dot = model.x[nx//2:]  # Joint velocities
 
         ocp.cost.cost_type_e = 'NONLINEAR_LS'                           # Terminal cost
-        ocp.cost.W_e = scipy.linalg.block_diag(Q_mat, Q_dot_mat)        # Terminal cost only inlcudes states
+        ocp.cost.W_e = scipy.linalg.block_diag(Q_mat_e, Q_dot_mat_e)        # Terminal cost only inlcudes states
         ocp.model.cost_y_expr_e = vertcat(self.ee_expr, q_dot)                    # Terminal cost only inlcudes states
         ocp.cost.yref_e = np.zeros((self.ny_e, ))                            # Set terminal reference to match first entry of yref for states only
     
@@ -649,9 +651,9 @@ class ManipulatorMPCController_eeTracker(ManipulatorMPCController):
             y_e = np.concatenate([ee_val, qdot_final])
 
             # --- Step 5: Compute terminal cost weights ---
-            Q_mat = np.diag(self.config["mpc"]["Q_mat"])
-            Q_dot_mat = np.diag(self.config["mpc"]["Q_dot_mat"])
-            W_e = scipy.linalg.block_diag(Q_mat, Q_dot_mat)
+            Q_mat_e = np.diag(self.config["mpc"]["Q_mat_e"])
+            Q_dot_mat_e = np.diag(self.config["mpc"]["Q_dot_mat_e"])
+            W_e = scipy.linalg.block_diag(Q_mat_e, Q_dot_mat_e)
 
             # --- Step 6: Compute error to terminal reference ---
             e = y_e - terminal_ref  # terminal_ref must match shape of y_e
@@ -687,6 +689,10 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
         super().__init__(config, collision_config, worker_id=worker_id)
     
     def define_terminal_cost(self, ocp, model, config):
+        ocp.cost.cost_type_e = 'NONLINEAR_LS'               # Terminal cost
+        ocp.cost.W_e = np.eye(64)                      # Weights set to 1, meaning no scaling for the NN output
+        ocp.cost.yref_e = np.zeros((64, ))                   # Set terminal reference to zero for NN output
+
         # Extract joint velocities
         nx = model.x.rows()
         self.ny_e = self.ee_expr.shape[0]+ nx//2
@@ -701,28 +707,8 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
         # Export trained NN model
         self.l4c_model = export_torch_model(config, self.worker_id)
         # Evaluate NN symbolically
-
-        x_aug = ca.transpose(ca.vertcat(model.x, ocp.model.p))
-        y_sym = ca.transpose(self.l4c_model(x_aug))
-        ocp.model.cost_y_expr_e = y_sym
-
-        # Set cost type, weights and yref
-        ocp.cost.cost_type_e = 'CONVEX_OVER_NONLINEAR'               # Terminal cost
-        # ocp.cost.W_e = np.eye(y_sym.shape[0])                      # Weights set to 1, meaning no scaling for the NN output
-        ocp.cost.yref_e = np.zeros((y_sym.shape[0], ))                   # Set terminal reference to zero for NN output
-        # the outer convex function would just be the identity.
-        # CasADi expression for the outer loss function :math:`\psi(r - yref, t, p)`, terminal;
-        # ocp.model.cost_psi_expr_e = 
-        # CasADi symbolic input variable for the argument :math:`r` to the outer loss function :math:`\psi(r, t, p)`, terminal;
-        # ocp.model.cost_r_in_psi_expr_e = 
-
-        r = ca.SX.sym("r")
-        #============================
-        ocp.model.cost_r_in_psi_expr_e = r
-
-        # identity convex function
-        ocp.model.cost_psi_expr_e = r
-        #==============================
+        y_sym = self.l4c_model(ca.transpose(vertcat(model.x, ocp.model.p)))
+        ocp.model.cost_y_expr_e = ca.transpose(y_sym)
         # Link shared library
         ocp.solver_options.model_external_shared_lib_dir = self.l4c_model.shared_lib_dir
         ocp.solver_options.model_external_shared_lib_name = self.l4c_model.name
@@ -740,8 +726,7 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
         yN = np.asarray(self.l4c_model(xN_p)).squeeze()
 
         # NONLINEAR_LS terminal cost
-        # terminal_cost = np.sum(0.5 * yN**2)
-        terminal_cost = yN
+        terminal_cost = 0.5 * np.sum(yN**2)
         return terminal_cost
 
 @register_controller
@@ -760,5 +745,5 @@ class NNManipulatorMPCController_eeTracker_point(NNManipulatorMPCController_eeTr
 
         # Terminal
         if self.terminal_cost:
-            self.ocp_solver.cost_set(self.N, "yref", np.zeros((1,)), api='new')                  # Terminal reference (only x)
+            self.ocp_solver.cost_set(self.N, "yref", np.zeros((64,)), api='new')                  # Terminal reference (only x)
             self.ocp_solver.set(self.N, "p", self.p)                                             # Modify Goal/obstacle position

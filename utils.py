@@ -863,11 +863,37 @@ def capsule_plane_distance():
 
     return f
 
+def capsule_plane_signed_distance():
+    a = ca.MX.sym('a', 3)
+    b = ca.MX.sym('b', 3)
+    n = ca.MX.sym('n', 3)
+    d = ca.MX.sym('d')
+    r = ca.MX.sym('r')
+
+    da = ca.dot(n, a) - d
+    db = ca.dot(n, b) - d
+
+    # Closest endpoint to plane (signed)
+    # closest = ca.if_else(da < db, da, db)
+    closest = ca.fmin(da, db)
+
+    # Signed distance (can be negative = penetration)
+    signed_dist = closest - r
+
+    f = ca.Function(
+        'capsule_plane_signed_distance',
+        [a, b, n, d, r],
+        [signed_dist]
+    )
+
+    return f
+
 def build_ground_collision_constraints(robot_sys, links, ground_plane, collision_pairs):
     constraints = []
 
     for link_name, obs_name in collision_pairs:
-        cap_plane_dist = capsule_plane_distance()    # ca function
+        # cap_plane_dist = capsule_plane_distance()    # ca function
+        cap_plane_dist = capsule_plane_signed_distance()
 
         link = links[link_name]
 

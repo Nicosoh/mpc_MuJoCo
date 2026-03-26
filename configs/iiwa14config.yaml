@@ -25,54 +25,68 @@ mpc:
   # Fmax: [320, 320, 176, 176, 110, 40, 40]
   Fmax: [320, 320, 176, 176, 110, 40, 0]
   # xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 3.05433, # 170, 120, 170, 120, 170, 120, 175 deg
-  #         1.48353, 1.48353, 1.74533, 1.309, 2.26893, 2.35619, 2.35619] # 85, 85, 100, 75, 130, 135, 135 deg/s  
+  #         1.48353, 1.48353, 1.74533, 1.309, 2.26893, 2.35619, 0.0] # 85, 85, 100, 75, 130, 135, 135 deg/s  
   # xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 3.05433, # 170, 120, 170, 120, 170, 120, 175 deg
-  #         0.741765, 0.741765, 0.872665, 0.6545 , 1.134465, 1.178095, 1.178095] # 42.5, 42.5, 50, 37.5, 65, 67.5, 67.5 deg/s
+  #         0.741765, 0.741765, 0.872665, 0.6545 , 1.134465, 1.178095, 0.0] # 42.5, 42.5, 50, 37.5, 65, 67.5, 67.5 deg/s
   xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 3.05433, # 170, 120, 170, 120, 170, 120, 175 deg
-          0.49451, 0.49451, 0.58177667, 0.43633333, 0.75631, 0.78539667, 0.78539667] # 85, 85, 100, 75, 130, 135, 135 deg/s  
-  N_horizon: 10
+          0.49451, 0.49451, 0.58177667, 0.43633333, 0.75631, 0.78539667, 0.0] # deg/s
+  N_horizon: 100
   use_RTI: true
   mpc_timestep: 0.01
   x0_q:
-  - 2.2336594867603754
-  - -1.2398713585640926
-  - -2.447901147648798
-  - -1.4186096594367918
-  - -2.4435936844294397
-  - -0.1718573151692402
-  - -2.630778054021795
+  - -1.4481008425066515
+  - 1.9826802288426673
+  - 1.5017320916015091
+  - -1.5730459458424488
+  - 1.3497983663503161
+  - -0.5719489082308593
+  - 1.785567059700985
   x0_v:
-  - 0.23386238848315588
-  - 0.7045076025415209
-  - 0.8948015852460431
-  - -0.9882637748940568
-  - 0.7932991218309093
-  - -0.6961567233723367
-  - 0.6823318551860205      # Inital joint velocity if random not true
+  - -0.7653155880685163
+  - 0.4918821577611352
+  - -0.34740459269257085
+  - 0.7615723066944275
+  - -0.11675858722638699
+  - -0.1706550225266461
+  - 0.0                  # Inital joint velocity if random not true
   x0_q_random: true # If true, x0 above will not be used
-  x0_range: [[[0.5, 0.2, 0.05], [0.7, 0.3, 0.4]], # Zone 0
-            [[0.5, -0.3, 0.05], [0.7, -0.2, 0.4]]] # Zone 1
+  x0_range: [[[0.5, 0.15, 0.05], [0.7, 0.35, 0.25]], # Zone 1
+            [[0.5, 0.15, 0.05], [0.7, 0.35, 0.25]], # Zone 1
+            [[0.5, 0.15, 0.25], [0.7, 0.35, 0.45]], # Zone 2
+            [[0.5, -0.35, 0.05], [0.7, -0.15, 0.25]], # Zone 3
+            [[0.5, -0.35, 0.05], [0.7, -0.15, 0.25]], # Zone 3
+            [[0.5, -0.35, 0.25], [0.7, -0.15, 0.45]]] # Zone 4
+  # x0_range: [[0.3, -0.5, 0.0], [0.7, 0.0, 0.1]] # Zone 0
   x0_q_sampling: uniform # Only uniform for now
   yref_q:
-  - -1.85035635014263
-  - -2.0268714592974257
-  - -1.621914795706807
-  - 1.7261549688872626
-  - -0.39566560596073863
-  - 1.0604356090425728
-  - -2.3767592325473874
+  - 0.21745224081726988
+  - 1.1765426453673
+  - -2.7173168570179205
+  - 1.3650702233595222
+  - -2.108550052545243
+  - -0.3824777340243959
+  - -1.7324506978771435
   yref_q_random: true
-  yref_range: [[[0.5, -0.3, 0.05], [0.7, -0.2, 0.2]], # Zone 0
-            [[0.5, 0.2, 0.05], [0.7, 0.3, 0.2]]] # Zone 1
+  yref_range: [[[0.5, -0.35, 0.05], [0.7, -0.15, 0.25]], # Zone 3
+              [[0.5, -0.35, 0.25], [0.7, -0.15, 0.45]], # Zone 4
+              [[0.5, -0.35, 0.05], [0.7, -0.15, 0.25]], # Zone 3
+              [[0.5, 0.15, 0.05], [0.7, 0.35, 0.25]], # Zone 1
+              [[0.5, 0.15, 0.25], [0.7, 0.35, 0.45]], # Zone 2
+              [[0.5, 0.15, 0.05], [0.7, 0.35, 0.25]]] # Zone 1
+  # yref_range: [[0.3, 0.0, 0.0], [0.7, 0.5, 0.1]] # Zone 0
   yref_q_sampling: uniform
-  zone_probability: [0.5, 0.5]
+  zone_probability: [0.1, 0.2, 0.2, 0.1, 0.2, 0.2]
+  # zone_probability: [1.0]
   terminal_cost: false
-  Q_mat: [5000, 5000, 5000] # State cost weights for ee tracking
-  Q_dot_mat: [100, 100, 75, 75, 25, 25, 25] # Velocity state cost weights for joints
+  Q_mat: [500, 500, 500] # State cost weights for ee stage tracking
+  Q_mat_e: [5000, 5000, 5000] # State cost weights for ee terminal tracking
+  # Q_dot_mat: [1, 1, 0.75, 0.75, 0.25, 0.25, 0.25] # Velocity state cost weights for joints
+  Q_dot_mat: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0] # Velocity state stage cost weights for joints
+  Q_dot_mat_e: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0] # Velocity state terminal cost weights for joints
   # Q_dot_mat: [500, 500, 375, 375, 125, 125, 125]
-  R_mat: [0.0001, 0.0001, 0.0001, 0.0001, 0.001, 0.0001, 0.0001]
+  R_mat: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0]
   early_termination_cost: true # Enable early termination based on cost
-  termination_cost: 8.0 # Tolerance for early termination cost
+  termination_cost: 1.0 # Tolerance for early termination cost
   early_termination_state: false # Enable early termination based on state
   termination_state: 0.01 # Tolerance for early termination state
   solve_ocp: false # Enable if only a single step is required
@@ -85,7 +99,7 @@ mpc:
   qp_solver_warm_start: 1
 
 data:
-  save_yaml: false # only work in data collection mode
+  save_yaml: true # only work in data collection mode
   save_data: true
 
 IK:
@@ -96,7 +110,7 @@ IK:
   visualize_IK: false
   max_iterations: 100000          # max iters before considering goal not reachable
   velocity_threshold: 0.001    # min velocity from solve_ik before considering goal not reachable
-  velocitylimit: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0] # rad/s
+  velocity_sampling_factor: 0.7 # Multiple of velocity limit as defined above in xmax for random sampling
   limit_acceleration: false
   accelerationlimit: [50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0] # rad/s^2\
   safety_distance: 0.05 # minimum distance to maintain from obstacles
@@ -131,9 +145,9 @@ collision:
 
   obstacles: # Only if obstacles_random: true and will be replaced
     obs1:
-      from: [0.2, 0.0, 0.2]
-      to:   [1.0, 0.0, 0.2]
-      radius: 0.05
+      from: [0.25, 0.0, 0.15]
+      to:   [0.7, 0.0, 0.15]
+      radius: 0.1
 
   ground_plane: [0, 0, 1, 0]
 
@@ -156,7 +170,7 @@ VI:
       json_name: "GT_controller"
 
 NN:
-  model_name: "iiwa14Model"
+  model_name: "iiwa14ModelAcados"
   checkpoint_path: ""
 
 plots:

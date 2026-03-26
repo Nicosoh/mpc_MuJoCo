@@ -52,10 +52,16 @@ def main(run_folder):
 
     logs_dict = load_npz(npz_path)["default"]
 
+    # Load collision_config
+    if model_config["collision"]["collision_avoidance_obstacle"] or model_config["collision"]["collision_avoidance_ground"]:                                                      # If enabled in config
+        collision_config, model_config = load_collision_config(model_config)                                        # Load obstacles
+    else:
+        collision_config = None
+
     # ----------------------------
     # Run replay
     # ----------------------------
-    replay = MujocoReplay(model_config, replay_config, logs_dict)
+    replay = MujocoReplay(model_config, replay_config, logs_dict, collision_config)
     replay.run()
 
 
