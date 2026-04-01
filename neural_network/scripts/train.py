@@ -106,6 +106,8 @@ def train_model(config, run_dir, data_path=None, seed=42):
     for epoch in range(num_epochs):
         model.train()
         total_loss = 0.0
+        total_loss1 = 0.0
+        total_loss2 = 0.0
 
         for xb, xs, yb, ys in train_loader:
             xb = xb.to(device)
@@ -114,16 +116,20 @@ def train_model(config, run_dir, data_path=None, seed=42):
             optimizer.zero_grad()
             preds_main = model(xb)
             preds_stationary = model(xs.to(device))
-            loss = criterion(preds_main, yb, preds_stationary, ys.to(device))
+            loss, loss1, loss2 = criterion(preds_main, yb, preds_stationary, ys.to(device))
             loss.backward()
             optimizer.step()
 
             total_loss += loss.item() * xb.size(0)
+            total_loss1 += loss1.item() * xb.size(0)
+            total_loss2 += criterion.alpha * loss2.item() * xb.size(0)
 
         avg_train_loss = total_loss / len(train_loader.dataset)
+        avg_loss1 = total_loss1 / len(train_loader.dataset)
+        avg_loss2 = total_loss2 / len(train_loader.dataset)
         train_losses.append((epoch+1, avg_train_loss, optimizer.param_groups[0]['lr']))
         # Update the tqdm bar postfix with avg loss
-        pbar.write(f"\n[Train @ epoch {epoch+1}]  Train Loss = {avg_train_loss}\n")
+        pbar.write(f"\n[Train @ epoch {epoch+1}]  Train Loss = {avg_train_loss}\n, Ratio = {avg_loss2 / (avg_loss1 + 1e-8)}\n")
 
         # === Validation every eval_interval ===
         if (epoch + 1) % eval_interval == 0:
@@ -136,7 +142,7 @@ def train_model(config, run_dir, data_path=None, seed=42):
                     yb = yb.to(device)
                     preds_main = model(xb)
                     preds_stationary = model(xs.to(device))
-                    loss = criterion(preds_main, yb, preds_stationary, ys.to(device))
+                    loss, _, _ = criterion(preds_main, yb, preds_stationary, ys.to(device))
                     val_loss += loss.item() * xb.size(0)
 
             avg_val_loss = val_loss / len(val_loader.dataset)
