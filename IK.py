@@ -209,8 +209,9 @@ class InverseKinematicsSolver:
     def load_q(self, q_name: str):
         if self.config["mpc"][f"{q_name}_random"]:
             # Random initial configuration sampled from joint limits
-            return np.random.uniform(low=self.robot.model.lowerPositionLimit,
-                                        high=self.robot.model.upperPositionLimit)
+            joint_sampling_factor = self.config["IK"]["joint_sampling_factor"]
+            return np.random.uniform(low=self.robot.model.lowerPositionLimit * joint_sampling_factor,
+                                        high=self.robot.model.upperPositionLimit * joint_sampling_factor)
         else:
             q = np.array(self.config["mpc"][f"{q_name}"])
 

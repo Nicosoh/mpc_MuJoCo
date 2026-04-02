@@ -111,6 +111,7 @@ IK:
   max_iterations: 100000          # max iters before considering goal not reachable
   velocity_threshold: 0.001    # min velocity from solve_ik before considering goal not reachable
   velocity_sampling_factor: 0.7 # Multiple of velocity limit as defined above in xmax for random sampling
+  joint_sampling_factor: 0.7 # Multiple of joint limit as defined above in xmax for random sampling
   limit_acceleration: false
   accelerationlimit: [50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0] # rad/s^2\
   safety_distance: 0.05 # minimum distance to maintain from obstacles

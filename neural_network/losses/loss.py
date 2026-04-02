@@ -24,4 +24,6 @@ class StationaryLoss(nn.Module):
         loss2 = self.mse(pred_stationary, y_stationary)
 
         # 3. Combined loss
-        return loss1 + self.alpha * loss2
+        total_loss = loss1 + self.alpha * loss2
+
+        return total_loss, loss1, loss2
