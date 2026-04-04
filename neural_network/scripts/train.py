@@ -94,6 +94,7 @@ def train_model(config, run_dir, data_path=None, seed=42):
     train_losses = []
     val_losses = []
     best_val_loss = float("inf")
+    stationary_ratios = []
 
     # === Variables ===
     vals_since_improvement = 0
@@ -127,9 +128,13 @@ def train_model(config, run_dir, data_path=None, seed=42):
         avg_train_loss = total_loss / len(train_loader.dataset)
         avg_loss1 = total_loss1 / len(train_loader.dataset)
         avg_loss2 = total_loss2 / len(train_loader.dataset)
+        stationary_ratio = avg_loss2 / (avg_loss1 + 1e-8)
+
         train_losses.append((epoch+1, avg_train_loss, optimizer.param_groups[0]['lr']))
+        stationary_ratios.append(stationary_ratio)
+
         # Update the tqdm bar postfix with avg loss
-        pbar.write(f"\n[Train @ epoch {epoch+1}]  Train Loss = {avg_train_loss}\n, Ratio = {avg_loss2 / (avg_loss1 + 1e-8)}\n")
+        pbar.write(f"\n[Train @ epoch {epoch+1}]  Train Loss = {avg_train_loss}\n, Ratio = {stationary_ratio}\n")
 
         # === Validation every eval_interval ===
         if (epoch + 1) % eval_interval == 0:
@@ -210,5 +215,6 @@ def train_model(config, run_dir, data_path=None, seed=42):
         show_plot = True
 
     plot_loss(train_losses, val_losses, run_dir=run_dir, show_plot=show_plot)
+    stationary_ratios_mean = float(np.mean(stationary_ratios))
 
-    return train_losses[-1][1] # Return last epoch's train loss
+    return train_losses[-1][1], stationary_ratios_mean # Return last epoch's train loss and mean stationary ratio
