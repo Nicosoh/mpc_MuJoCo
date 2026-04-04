@@ -109,6 +109,13 @@ def main(model_name, data_collection=False, output_dir=None, timestamp=None, dat
         print(f"\nTotal execution time: {elapsed:.2f} seconds")
 
         if data_collection: #quit here if data collection
+            # List of keys you want to keep
+            keys_to_keep = ['qpos', 'qvel', 'total_cost', 'yref_xyz', 'yref_q', 'terminal_cost', 'GT_cost']
+
+            # Delete everything else
+            for key in list(simulator.logs.keys()):  # use list() to avoid runtime dict size change
+                if key not in keys_to_keep:
+                    del simulator.logs[key]
             return simulator.logs
         elif config["mpc"]["solve_ocp"]: #quit here if only solving for single OCP
              return ocp_plot(simulator, run_dir, config)
