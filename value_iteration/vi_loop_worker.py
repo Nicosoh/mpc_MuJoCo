@@ -132,7 +132,7 @@ def run_vi_loop(loop_num, main_output_dir, model_name, data_config_path,
         # Training
         # -----------------
         log_worker(worker_log_path, "Starting model training")
-        train_loss = train_model(
+        train_loss, stationary_ratio_mean = train_model(
             train_config,
             run_dir=training_dir,
             data_path=data_npz_path,
@@ -179,6 +179,7 @@ def run_vi_loop(loop_num, main_output_dir, model_name, data_config_path,
             "mse_std": mse_std,
             "success": True,
             "train_loss": train_loss,
+            "stationary_ratio_mean": stationary_ratio_mean
         }
         
         # Save metrics
@@ -186,7 +187,7 @@ def run_vi_loop(loop_num, main_output_dir, model_name, data_config_path,
             json.dump(metrics, f, indent=2)
         
         log_worker(worker_log_path, f"Loop completed successfully")
-        log_worker(worker_log_path, f"Metrics: GT={gt_mean:.4f}, CTRL={ctrl_mean:.4f}, MSE={mse_mean:.4e}")
+        log_worker(worker_log_path, f"Metrics: GT={gt_mean:.4f}, CTRL={ctrl_mean:.4f}, MSE={mse_mean:.4e}, Stationary Ratio={stationary_ratio_mean:.4f}")
             
     except Exception as e:
         log_worker(worker_log_path, f"ERROR: {e}")
@@ -201,7 +202,8 @@ def run_vi_loop(loop_num, main_output_dir, model_name, data_config_path,
             "mse_std": None,
             "success": False,
             "error": str(e),
-            "train_loss": None
+            "train_loss": None,
+            "stationary_ratio_mean": None
         }
         with open(metrics_path, "w") as f:
             json.dump(metrics, f, indent=2)

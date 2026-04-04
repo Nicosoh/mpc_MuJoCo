@@ -19,11 +19,12 @@ def main():
         with open(vi_log_path, "a") as f:
             f.write(line)
     
-    def update_plot(x, ground_truth, controller, MSE, MSE_std, train_loss):
+    def update_plot(x, ground_truth, controller, MSE, MSE_std, train_loss, stationary_ratios):
         """Update and save plot with current metrics in separate subplots."""
         ax1.clear()
         ax2.clear()
         ax3.clear()  # new subplot for train loss
+        ax4.clear()  # new subplot for stationary ratio
         
         # Top subplot: ground truth vs controller
         ax1.plot(x, ground_truth, label="Ground Truth", linewidth=0.8)
@@ -53,6 +54,14 @@ def main():
         ax3.set_ylabel("Train Loss")
         ax3.grid(True, which="both", linestyle=":", alpha=0.4)
         ax3.legend(loc='upper right')
+
+        # New subplot: stationary ratio
+        stationary_ratios = np.array(stationary_ratios)
+        ax4.plot(x, stationary_ratios, label="Stationary Ratio", color='m', linewidth=0.8)
+        ax4.set_xlabel("Value Iteration Loop")
+        ax4.set_ylabel("Stationary Ratio")
+        ax4.grid(True, which="both", linestyle=":", alpha=0.4)
+        ax4.legend(loc='upper right')
         
         fig.tight_layout()
         plt.savefig(plt_save_path, dpi=400, bbox_inches='tight')
@@ -111,7 +120,7 @@ def main():
         f.write("=" * 50 + "\n\n")
     
     # Setup plot
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(8, 6), sharex=True)
     
     x = []
     ground_truth = []
@@ -119,6 +128,7 @@ def main():
     MSE = []
     MSE_std = []
     train_loss = []
+    stationary_ratios = []
     
     # Absolute path to the worker script
     vi_loop_worker_path = os.path.join(os.path.dirname(__file__), "vi_loop_worker.py")
@@ -168,15 +178,16 @@ def main():
                     MSE.append(metrics["mse"])
                     MSE_std.append(metrics["mse_std"])
                     train_loss.append(metrics["train_loss"])
-                    
-                    log_vi(f"Metrics: GT={metrics['gt_cost']:.4f}, CTRL={metrics['ctrl_cost']:.4f}, MSE={metrics['mse']:.4e}, TR_loss={metrics['train_loss']:.4f}")
+                    stationary_ratios.append(metrics["stationary_ratio_mean"])
+
+                    log_vi(f"Metrics: GT={metrics['gt_cost']:.4f}, CTRL={metrics['ctrl_cost']:.4f}, MSE={metrics['mse']:.4e}, TR_loss={metrics['train_loss']:.4f}, Stationary Ratio={metrics['stationary_ratio_mean']:.4f}")
                 else:
                     log_vi(f"ERROR: {metrics.get('error', 'Unknown error')}")
             else:
                 log_vi(f"ERROR: No metrics file found at {metrics_path}")
             
             # Update plot after each loop
-            update_plot(x, ground_truth, controller, MSE, MSE_std, train_loss)
+            update_plot(x, ground_truth, controller, MSE, MSE_std, train_loss, stationary_ratios)
             
         except Exception as e:
             log_vi(f"ERROR spawning/running loop worker: {e}")
