@@ -2,55 +2,75 @@ import matplotlib.pyplot as plt
 import os
 import torch
 
-def plot_loss(train_losses, val_losses, run_dir, show_plot=True):
-    """
-    Plots training and validation loss curves, distinguishing different learning rates.
-
-    Args:
-        train_losses (list of float): Loss per epoch for training
-        val_losses (list of (epoch, loss, lr)): Validation loss entries
-        run_dir (str): Directory to save the plot
-    """
+def plot_loss(train_losses, val_losses, stationary_ratios, run_dir, show_plot=True):
     save_path = os.path.join(run_dir, "loss_plot.jpg")
-    plt.figure(figsize=(10, 6))
 
-    # --- Plot training loss by learning rate ---
+    # 🔹 Create subplots
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+
+    # =========================
+    # 🔹 Top plot: Loss curves
+    # =========================
+
+    # --- Training loss ---
     if len(train_losses) > 0:
         unique_lrs = sorted(set(lr for _, _, lr in train_losses))
         for lr in unique_lrs:
             lr_epochs = [e for (e, _, l) in train_losses if l == lr]
             lr_values = [v for (_, v, l) in train_losses if l == lr]
-            plt.plot(lr_epochs, lr_values, linewidth=1, label=f'Train Loss (LR={lr:.1e})')
-            plt.text(lr_epochs[-1], lr_values[-1], f'Train LR={lr:.1e}', fontsize=6, 
-                     verticalalignment='bottom', horizontalalignment='left', rotation = 90)
+            ax1.plot(lr_epochs, lr_values, linewidth=1, label=f'Train (LR={lr:.1e})')
+            ax1.text(lr_epochs[-1], lr_values[-1], f'{lr:.1e}', fontsize=6,
+                     verticalalignment='bottom', horizontalalignment='left', rotation=90)
 
-    # --- Plot validation loss by learning rate ---
+    # --- Validation loss ---
     if len(val_losses) > 0:
-        # Get unique learning rates
         unique_lrs = sorted(set(lr for _, _, lr in val_losses))
-
         for lr in unique_lrs:
             lr_epochs = [e for (e, _, l) in val_losses if l == lr]
             lr_values = [v for (_, v, l) in val_losses if l == lr]
-            plt.plot(lr_epochs, lr_values, linewidth=1, label=f'Val Loss (LR={lr:.1e})')
-            plt.text(lr_epochs[-1], lr_values[-1], f'Val LR={lr:.1e}', fontsize=6, 
-                     verticalalignment='bottom', horizontalalignment='left', rotation = 90)
+            ax1.plot(lr_epochs, lr_values, linestyle='--', linewidth=1, label=f'Val (LR={lr:.1e})')
+            ax1.text(lr_epochs[-1], lr_values[-1], f'{lr:.1e}', fontsize=6,
+                     verticalalignment='bottom', horizontalalignment='left', rotation=90)
 
-    # --- Labels and title ---
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.yscale('log')
-    plt.title("Training & Validation Loss")
-    plt.grid(True)
+    ax1.set_ylabel("Loss")
+    ax1.set_yscale('log')
+    ax1.set_title("Training & Validation Loss")
+    ax1.grid(True)
+    ax1.legend(fontsize=8)
 
-    # --- Save if requested ---
+    # =========================
+    # 🔹 Bottom plot: Stationary ratio
+    # =========================
+
+    if len(stationary_ratios) > 0 and len(train_losses) > 0:
+        # Use unique sorted epochs from training data
+        epochs = sorted(set(e for (e, _, _) in train_losses))
+
+        # Match lengths safely
+        min_len = min(len(epochs), len(stationary_ratios))
+        epochs = epochs[:min_len]
+        values = stationary_ratios[:min_len]
+
+        ax2.plot(epochs, values, color='purple', linewidth=1.5, label='Stationary Ratio')
+        ax2.set_ylabel("Stationary Ratio")
+        ax2.set_xlabel("Epoch")
+        ax2.set_ylim(0, 1)  # optional but recommended
+        ax2.grid(True)
+        ax2.legend()
+
+    # =========================
+    # 🔹 Save & show
+    # =========================
+
+    plt.tight_layout()
+
     if save_path is not None:
         plt.savefig(save_path, dpi=200, bbox_inches='tight')
         print(f"Loss plot saved to {save_path}")
 
     if show_plot:
         plt.show()
-    
+
     plt.close()
 
 # def run_scaling(X=None, y=None, scaling_type=None, scaling_params=None,

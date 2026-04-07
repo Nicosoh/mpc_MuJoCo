@@ -14,7 +14,7 @@
         </default>
       </default>
       <default class="joint3">
-        <joint range="-3.05433 3.05433"/>
+        <joint range="-0 0"/>
       </default>
       <default class="visual">
         <geom type="mesh" contype="0" conaffinity="0" group="2" material="gray"/>
@@ -96,7 +96,7 @@
                   <geom class="visual" mesh="link_6_grey"/>
                   <body name="link7" pos="0 0.081 0" quat="0 0 1 1">
                     <inertial mass="1.2" pos="0 0 0.02" diaginertia="0.001 0.001 0.001"/>
-                    <joint name="joint7" class="joint3"/>
+                    <!-- <joint name="joint7" class="joint3"/> -->
                     <geom class="visual" mesh="link_7"/>
                     <geom class="collision" name="collision_capsule7" type="capsule" fromto="0 0 0.0 0 0 0.005" size="0.06" rgba="0.0 0.0 1.0 0.2"/>
                     <site pos="0 0 0" name="c31" group="1"/>
@@ -131,10 +131,10 @@
     <general name="actuator4" joint="joint4" class="joint2" ctrlrange="-176 176"/>
     <general name="actuator5" joint="joint5" class="joint1" ctrlrange="-110 110"/>
     <general name="actuator6" joint="joint6" class="joint2" ctrlrange="-40 40"/>
-    <general name="actuator7" joint="joint7" class="joint3" ctrlrange="-40 40"/>
+    <!-- <general name="actuator7" joint="joint7" class="joint3" ctrlrange="-0 0"/> -->
   </actuator>
 
   <keyframe>
-    <key name="home" qpos="0 0.785398 0 -1.5708 0 0 0" ctrl="0 0.785398 0 -1.5708 0 0 0"/>
+    <key name="home" qpos="0 0.785398 0 -1.5708 0 0" ctrl="0 0.785398 0 -1.5708 0 0"/>
   </keyframe>
 </mujoco>

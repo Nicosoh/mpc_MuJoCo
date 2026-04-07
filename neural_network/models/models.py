@@ -177,8 +177,8 @@ class iiwa14Model(nn.Module):                                            # Witho
     def __init__(self, train_config):
         super().__init__()
 
-        self.fc0 = ScaleLayer(17)
-        self.fc1 = nn.Linear(17, 64)
+        self.fc0 = ScaleLayer(15)
+        self.fc1 = nn.Linear(15, 64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, 64)
         self.fc4 = nn.Linear(64, 64)

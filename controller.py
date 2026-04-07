@@ -578,26 +578,32 @@ class ManipulatorMPCController_eeTracker(ManipulatorMPCController):
     #     self.ee_fun = ca.Function("ee_fun", [q_syms], [self.ee_expr])  # FK function, To evaluate numerically
 
     def build_FK_function(self, nx):
-        # Get end-effector expression from robot system
-        self.ee_expr = getattr(self.robot_sys, "attachment_site")
+        # # Get end-effector expression from robot system
+        # self.ee_expr = getattr(self.robot_sys, "attachment_site")
 
-        # Full joint vector (nx/2 positional states)
-        nq = nx // 2
-        q_full = ca.SX.sym("q", nq)
+        # # Full joint vector (nx/2 positional states)
+        # nq = nx // 2
+        # q_full = ca.SX.sym("q", nq)
 
-        # Get original symbolic variables inside expression
-        q_syms_list = ca.symvar(self.ee_expr)
+        # # Get original symbolic variables inside expression
+        # q_syms_list = ca.symvar(self.ee_expr)
 
-        # Sort to ensure deterministic order (important!)
-        q_syms_list = sorted(q_syms_list, key=lambda s: s.name())
+        # # Sort to ensure deterministic order (important!)
+        # q_syms_list = sorted(q_syms_list, key=lambda s: s.name())
 
-        # Substitute each original joint symbol with q_full[i]
-        expr = self.ee_expr
-        for i, q_old in enumerate(q_syms_list):
-            expr = ca.substitute(expr, q_old, q_full[i])
+        # # Substitute each original joint symbol with q_full[i]
+        # expr = self.ee_expr
+        # for i, q_old in enumerate(q_syms_list):
+        #     expr = ca.substitute(expr, q_old, q_full[i])
 
-        # Build function with full joint vector
-        self.ee_fun = ca.Function("ee_fun", [q_full], [expr])
+        # # Build function with full joint vector
+        # self.ee_fun = ca.Function("ee_fun", [q_full], [expr])
+
+        # Create FK function from attachment_site SX
+        self.ee_expr = getattr(self.robot_sys, "attachment_site")           # To feed to acados
+        q_syms_list = ca.symvar(self.ee_expr)        # list of symbolic joints
+        q_syms = ca.vertcat(*q_syms_list)      # stack into SX vector
+        self.ee_fun = ca.Function("ee_fun", [q_syms], [self.ee_expr])  # FK function, To evaluate numerically
 
     def compute_stage_cost(self, X, U, stage_ref):
         # --- Step 1: Prepare cost weights ---
