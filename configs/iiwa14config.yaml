@@ -15,40 +15,43 @@ model:
   model_path: 'kuka_iiwa_14/iiwa14.xml'
 
 pin:
-  nu: 7 # Number of control inputs
-  actuated_joints: [0, 1, 2, 3, 4, 5, 6] # all 7 joints
+  nu: 6 # Number of control inputs
+  actuated_joints: [0, 1, 2, 3, 4, 5] # all 7 joints
 
 mpc:
   json_name: "main_controller"
   controller_name: "ManipulatorMPCController_eeTracker_point"
   # controller_name: "NNManipulatorMPCController_eeTracker_point"
   # Fmax: [320, 320, 176, 176, 110, 40, 40]
-  Fmax: [320, 320, 176, 176, 110, 40, 0]
+  # Fmax: [320, 320, 176, 176, 110, 40, 0]
+  Fmax: [320, 320, 176, 176, 110, 40]
   # xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 3.05433, # 170, 120, 170, 120, 170, 120, 175 deg
   #         1.48353, 1.48353, 1.74533, 1.309, 2.26893, 2.35619, 0.0] # 85, 85, 100, 75, 130, 135, 135 deg/s  
   # xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 3.05433, # 170, 120, 170, 120, 170, 120, 175 deg
   #         0.741765, 0.741765, 0.872665, 0.6545 , 1.134465, 1.178095, 0.0] # 42.5, 42.5, 50, 37.5, 65, 67.5, 67.5 deg/s
-  xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 3.05433, # 170, 120, 170, 120, 170, 120, 175 deg
-          0.49451, 0.49451, 0.58177667, 0.43633333, 0.75631, 0.78539667, 0.0] # deg/s
-  N_horizon: 100
-  use_RTI: true
-  mpc_timestep: 0.01
+  # xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, 3.05433, # 170, 120, 170, 120, 170, 120, 175 deg
+  #         0.49451, 0.49451, 0.58177667, 0.43633333, 0.75631, 0.78539667, 0.0] # deg/s
+  xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, # 170, 120, 170, 120, 170, 120, 175 deg
+          0.49451, 0.49451, 0.58177667, 0.43633333, 0.75631, 0.78539667] # deg/s
+  N_horizon: 10
+  use_RTI: false
+  mpc_timestep: 0.05
   x0_q:
-  - -1.4481008425066515
-  - 1.9826802288426673
-  - 1.5017320916015091
-  - -1.5730459458424488
-  - 1.3497983663503161
-  - -0.5719489082308593
-  - 1.785567059700985
+  - 0.9100527419267457
+  - 1.1672524727168572
+  - -0.7202641595150625
+  - -1.2476730243552225
+  - -1.906907999323329
+  - -0.45779639784887194
+  - 1.1371422555499775
   x0_v:
-  - -0.7653155880685163
-  - 0.4918821577611352
-  - -0.34740459269257085
-  - 0.7615723066944275
-  - -0.11675858722638699
-  - -0.1706550225266461
-  - 0.0                  # Inital joint velocity if random not true
+  - -0.26535153612189233
+  - -0.07171537031566899
+  - -0.27564719800747456
+  - -0.10036129697145835
+  - -0.3285743926023927
+  - -0.4080046315186353
+  - 0.0               # Inital joint velocity if random not true
   x0_q_random: true # If true, x0 above will not be used
   x0_range: [[[0.5, 0.15, 0.05], [0.7, 0.35, 0.25]], # Zone 1
             [[0.5, 0.15, 0.05], [0.7, 0.35, 0.25]], # Zone 1
@@ -59,13 +62,13 @@ mpc:
   # x0_range: [[0.3, -0.5, 0.0], [0.7, 0.0, 0.1]] # Zone 0
   x0_q_sampling: uniform # Only uniform for now
   yref_q:
-  - 0.21745224081726988
-  - 1.1765426453673
-  - -2.7173168570179205
-  - 1.3650702233595222
-  - -2.108550052545243
-  - -0.3824777340243959
-  - -1.7324506978771435
+  - -0.5676220279805984
+  - 1.1817018590032924
+  - 0.3820380411641766
+  - -0.8720686095742136
+  - -0.24114820579538887
+  - 1.3135459022850853
+  - 2.0108846115977492
   yref_q_random: true
   yref_range: [[[0.5, -0.35, 0.05], [0.7, -0.15, 0.25]], # Zone 3
               [[0.5, -0.35, 0.25], [0.7, -0.15, 0.45]], # Zone 4
@@ -81,12 +84,13 @@ mpc:
   Q_mat: [500, 500, 500] # State cost weights for ee stage tracking
   Q_mat_e: [5000, 5000, 5000] # State cost weights for ee terminal tracking
   # Q_dot_mat: [1, 1, 0.75, 0.75, 0.25, 0.25, 0.25] # Velocity state cost weights for joints
-  Q_dot_mat: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0] # Velocity state stage cost weights for joints
-  Q_dot_mat_e: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0] # Velocity state terminal cost weights for joints
+  # Q_dot_mat: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001] # Velocity state stage cost weights for joints
+  Q_dot_mat: [50, 50, 30, 30, 10, 10] # Velocity state stage cost weights for joints
+  Q_dot_mat_e: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001] # Velocity state terminal cost weights for joints
   # Q_dot_mat: [500, 500, 375, 375, 125, 125, 125]
-  R_mat: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0]
+  R_mat: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001]
   early_termination_cost: true # Enable early termination based on cost
-  termination_cost: 1.0 # Tolerance for early termination cost
+  termination_cost: 0.1 # Tolerance for early termination cost
   early_termination_state: false # Enable early termination based on state
   termination_state: 0.01 # Tolerance for early termination state
   solve_ocp: false # Enable if only a single step is required
@@ -113,12 +117,12 @@ IK:
   velocity_sampling_factor: 0.7 # Multiple of velocity limit as defined above in xmax for random sampling
   joint_sampling_factor: 0.7 # Multiple of joint limit as defined above in xmax for random sampling
   limit_acceleration: false
-  accelerationlimit: [50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0] # rad/s^2\
+  accelerationlimit: [50.0, 50.0, 50.0, 50.0, 50.0, 50.0] # rad/s^2\
   safety_distance: 0.05 # minimum distance to maintain from obstacles
 
 collision:
-  collision_avoidance_obstacle: true
-  collision_avoidance_ground: true
+  collision_avoidance_obstacle: false
+  collision_avoidance_ground: false
 
   srdf_path: "models_xml/kuka_iiwa_14/iiwa14.srdf"
   links:  # Frames from pinocchio model
@@ -184,23 +188,23 @@ plots:
   Joint 4 Angle: ["qpos", 3, "rad"]
   Joint 5 Angle: ["qpos", 4, "rad"]
   Joint 6 Angle: ["qpos", 5, "rad"]
-  Joint 7 Angle: ["qpos", 6, "rad"]
+  # Joint 7 Angle: ["qpos", 6, "rad"]
   Joint 1 Angular Velocity: ["qvel", 0, "rad/s"]
   Joint 2 Angular Velocity: ["qvel", 1, "rad/s"]
   Joint 3 Angular Velocity: ["qvel", 2, "rad/s"]
   Joint 4 Angular Velocity: ["qvel", 3, "rad/s"]
   Joint 5 Angular Velocity: ["qvel", 4, "rad/s"]
   Joint 6 Angular Velocity: ["qvel", 5, "rad/s"]
-  Joint 7 Angular Velocity: ["qvel", 6, "rad/s"]
+  # Joint 7 Angular Velocity: ["qvel", 6, "rad/s"]
   Control Input 1: ["ctrl", 0, "N"]
   Control Input 2: ["ctrl", 1, "N"]
   Control Input 3: ["ctrl", 2, "N"]
   Control Input 4: ["ctrl", 3, "N"]
   Control Input 5: ["ctrl", 4, "N"]
   Control Input 6: ["ctrl", 5, "N"]
-  Control Input 7: ["ctrl", 6, "N"]
-  Squared Distance 1: ["sq_dist", 0, "m^2"]
-  Squared Distance 2: ["sq_dist", 1, "m^2"]
-  Squared Distance 3: ["sq_dist", 2, "m^2"]
-  Distance 1: ["sq_dist", 3, "m"]
-  Distance 2: ["sq_dist", 4, "m"]
+  # Control Input 7: ["ctrl", 6, "N"]
+  # Squared Distance 1: ["sq_dist", 0, "m^2"]
+  # Squared Distance 2: ["sq_dist", 1, "m^2"]
+  # Squared Distance 3: ["sq_dist", 2, "m^2"]
+  # Distance 1: ["sq_dist", 0, "m"]
+  # Distance 2: ["sq_dist", 1, "m"]

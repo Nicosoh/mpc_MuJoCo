@@ -120,7 +120,7 @@ def main():
         f.write("=" * 50 + "\n\n")
     
     # Setup plot
-    fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(8, 6), sharex=True)
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(8, 8), sharex=True)
     
     x = []
     ground_truth = []

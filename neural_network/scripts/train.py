@@ -214,7 +214,8 @@ def train_model(config, run_dir, data_path=None, seed=42):
     else:
         show_plot = True
 
-    plot_loss(train_losses, val_losses, run_dir=run_dir, show_plot=show_plot)
     stationary_ratios_mean = float(np.mean(stationary_ratios))
+
+    plot_loss(train_losses, val_losses, stationary_ratios, run_dir=run_dir, show_plot=show_plot)
 
     return train_losses[-1][1], stationary_ratios_mean # Return last epoch's train loss and mean stationary ratio
