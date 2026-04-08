@@ -141,7 +141,7 @@ class TwoDofArmModel(nn.Module):                                            # Wi
         self.fc1 = nn.Linear(7, 64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, 64)
-        self.fc4 = nn.Linear(64, 1)
+        self.fc4 = nn.Linear(64, 64)
 
     def forward(self, x):
         x = self.fc0(x)                                                     # Linear transformation without activation ("scaling" layer)
@@ -149,7 +149,7 @@ class TwoDofArmModel(nn.Module):                                            # Wi
         x = F.tanh(self.fc2(x))
         x = F.tanh(self.fc3(x))
         x = self.fc4(x)                                                     # Output layer without activation ("scaling" layer)
-        x = torch.tensor(0.5, dtype=x.dtype, device=x.device) * x**2        # Least Squares which mimics acados cost
+        x = torch.tensor(0.5, dtype=x.dtype, device=x.device) * torch.sum(x**2, dim=1, keepdim=True)        # Least Squares which mimics acados cost
 
         return x
 

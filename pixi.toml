@@ -36,6 +36,7 @@ meshcat-shapes = ">=1.0.0,<2"
 loop-rate-limiters = ">=1.2.0,<2"
 scikit-build = ">=0.17"
 ipython = ">=9.10.0,<10"
+optuna = ">=4.8.0,<5"
 
 [pypi-dependencies]
 tqdm = "*"
@@ -51,8 +52,8 @@ torch = { version = "==2.9.1", index = "https://download.pytorch.org/whl/cpu" }
 ACADOS_SOURCE_DIR = "$PWD/external/acados"
 
 # Shared libraries (Linux uses LD_LIBRARY_PATH, macOS uses DYLD_LIBRARY_PATH)
-LD_LIBRARY_PATH   = "${PWD}/external/acados/lib:${LD_LIBRARY_PATH:-}"
-# LD_LIBRARY_PATH   = "${PWD}/.pixi/envs/default/lib:${PWD}/external/acados/lib:${LD_LIBRARY_PATH:-}"
+# LD_LIBRARY_PATH   = "${PWD}/external/acados/lib:${LD_LIBRARY_PATH:-}"
+LD_LIBRARY_PATH   = "${PWD}/.pixi/envs/default/lib:${PWD}/external/acados/lib:${LD_LIBRARY_PATH:-}"
 DYLD_LIBRARY_PATH = "${PWD}/external/acados/lib:${DYLD_LIBRARY_PATH:-}"
 
 # Add the Tera renderer (if downloaded) to PATH
