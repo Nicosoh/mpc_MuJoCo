@@ -5,7 +5,7 @@ mujoco:
   urdf_available: false
   model_path: "models_xml/2dof_arm.xml"
   sim_timestep: 0.001 # seconds
-  sim_duration: 1.5 # seconds
+  sim_duration: 5.0 # seconds
   sim_framerate: 30  # Hz
   render: true # Render simulation
   verbose: false # Print debug information
@@ -79,7 +79,7 @@ IK:
   visualize_IK: false
   max_iterations: 100000          # max iters before considering goal not reachable
   velocity_threshold: 0.001    # min velocity from solve_ik before considering goal not reachable
-  velocity_sampling_factor: 0.7 # Multiple of velocity limit as defined above in xmax for random sampling
+  velocity_sampling_factor: 1.0 # Multiple of velocity limit as defined above in xmax for random sampling
   joint_sampling_factor: 1.0 # Multiple of joint limit as defined above in xmax for random sampling
   limit_acceleration: false
   accelerationlimit: [50.0, 50.0] # rad/s^2\
