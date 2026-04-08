@@ -484,10 +484,10 @@ class MujocoReplay:
         horizon = self.xyz_traj[self.frame]   # shape: [N_horizon, 3]
 
         # Subsample indices along horizon
-        if len(horizon) <= 10:
+        if len(horizon) <= 50:
             indices = range(len(horizon))
         else:
-            indices = np.linspace(0, len(horizon) - 1, 10).astype(int)
+            indices = np.linspace(0, len(horizon) - 1, 50).astype(int)
 
         # Draw spheres
         for i, idx in enumerate(indices):
@@ -504,10 +504,10 @@ class MujocoReplay:
         horizon = self.GT_xyz_traj[self.frame]   # shape: [N_horizon, 3]
 
         # Subsample indices along horizon
-        if len(horizon) <= 10:
+        if len(horizon) <= 50:
             indices = range(len(horizon))
         else:
-            indices = np.linspace(0, len(horizon) - 1, 10).astype(int)
+            indices = np.linspace(0, len(horizon) - 1, 50).astype(int)
 
         # Draw spheres
         for i, idx in enumerate(indices):
