@@ -6,7 +6,7 @@ mujoco:
   sim_duration: 5.0 # seconds
   sim_framerate: 30  # Hz
   render: true # Render simulation
-  verbose: true # Print debug information
+  verbose: false # Print debug information
   resolution: [480, 640]
 
 model:
@@ -33,9 +33,9 @@ mpc:
   #         0.49451, 0.49451, 0.58177667, 0.43633333, 0.75631, 0.78539667, 0.0] # deg/s
   xmax: [2.96706, 2.0944, 2.96706, 2.0944, 2.96706, 2.0944, # 170, 120, 170, 120, 170, 120, 175 deg
           0.49451, 0.49451, 0.58177667, 0.43633333, 0.75631, 0.78539667] # deg/s
-  N_horizon: 10
-  use_RTI: false
-  mpc_timestep: 0.05
+  N_horizon: 50
+  use_RTI: true
+  mpc_timestep: 0.02
   x0_q:
   - 0.9100527419267457
   - 1.1672524727168572
@@ -53,13 +53,13 @@ mpc:
   - -0.4080046315186353
   - 0.0               # Inital joint velocity if random not true
   x0_q_random: true # If true, x0 above will not be used
-  # x0_range: [[[0.5, 0.15, 0.05], [0.7, 0.35, 0.25]], # Zone 1
-  #           [[0.5, 0.15, 0.05], [0.7, 0.35, 0.25]], # Zone 1
-  #           [[0.5, 0.15, 0.25], [0.7, 0.35, 0.45]], # Zone 2
-  #           [[0.5, -0.35, 0.05], [0.7, -0.15, 0.25]], # Zone 3
-  #           [[0.5, -0.35, 0.05], [0.7, -0.15, 0.25]], # Zone 3
-  #           [[0.5, -0.35, 0.25], [0.7, -0.15, 0.45]]] # Zone 4
-  x0_range: [[0.3, 0.0, 0.0], [0.7, 0.5, 0.2]] # Zone 0
+  x0_range: [[[0.5, 0.15, 0.05], [0.7, 0.35, 0.25]], # Zone 1
+            [[0.5, 0.15, 0.05], [0.7, 0.35, 0.25]], # Zone 1
+            [[0.5, 0.15, 0.25], [0.7, 0.35, 0.45]], # Zone 2
+            [[0.5, -0.35, 0.05], [0.7, -0.15, 0.25]], # Zone 3
+            [[0.5, -0.35, 0.05], [0.7, -0.15, 0.25]], # Zone 3
+            [[0.5, -0.35, 0.25], [0.7, -0.15, 0.45]]] # Zone 4
+  # x0_range: [[0.3, 0.15, 0.05], [0.5, 0.35, 0.25]] # Zone 0
   x0_q_sampling: uniform # Only uniform for now
   yref_q:
   - -0.5676220279805984
@@ -70,22 +70,22 @@ mpc:
   - 1.3135459022850853
   - 2.0108846115977492
   yref_q_random: true
-  # yref_range: [[[0.5, -0.35, 0.05], [0.7, -0.15, 0.25]], # Zone 3
-  #             [[0.5, -0.35, 0.25], [0.7, -0.15, 0.45]], # Zone 4
-  #             [[0.5, -0.35, 0.05], [0.7, -0.15, 0.25]], # Zone 3
-  #             [[0.5, 0.15, 0.05], [0.7, 0.35, 0.25]], # Zone 1
-  #             [[0.5, 0.15, 0.25], [0.7, 0.35, 0.45]], # Zone 2
-  #             [[0.5, 0.15, 0.05], [0.7, 0.35, 0.25]]] # Zone 1
-  yref_range: [[0.3, -0.5, 0.0], [0.7, 0.0, 0.2]] # Zone 0s
+  yref_range: [[[0.5, -0.35, 0.05], [0.7, -0.15, 0.25]], # Zone 3
+              [[0.5, -0.35, 0.25], [0.7, -0.15, 0.45]], # Zone 4
+              [[0.5, -0.35, 0.05], [0.7, -0.15, 0.25]], # Zone 3
+              [[0.5, 0.15, 0.05], [0.7, 0.35, 0.25]], # Zone 1
+              [[0.5, 0.15, 0.25], [0.7, 0.35, 0.45]], # Zone 2
+              [[0.5, 0.15, 0.05], [0.7, 0.35, 0.25]]] # Zone 1
+  # yref_range: [[0.3, -0.35, 0.05], [0.5, -0.15, 0.25]] # Zone 0
   yref_q_sampling: uniform
-  # zone_probability: [0.1, 0.2, 0.2, 0.1, 0.2, 0.2]
-  zone_probability: [1.0]
+  zone_probability: [0.1, 0.2, 0.2, 0.1, 0.2, 0.2]
+  # zone_probability: [1.0]
   terminal_cost: false
   Q_mat: [500, 500, 500] # State cost weights for ee stage tracking
   Q_mat_e: [5000, 5000, 5000] # State cost weights for ee terminal tracking
   # Q_dot_mat: [1, 1, 0.75, 0.75, 0.25, 0.25, 0.25] # Velocity state cost weights for joints
-  # Q_dot_mat: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001] # Velocity state stage cost weights for joints
-  Q_dot_mat: [50, 50, 30, 30, 10, 10] # Velocity state stage cost weights for joints
+  Q_dot_mat: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001] # Velocity state stage cost weights for joints
+  # Q_dot_mat: [50, 50, 30, 30, 10, 10] # Velocity state stage cost weights for joints
   Q_dot_mat_e: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001] # Velocity state terminal cost weights for joints
   # Q_dot_mat: [500, 500, 375, 375, 125, 125, 125]
   R_mat: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001]
@@ -169,8 +169,8 @@ VI:
   changes:
     mpc:
       controller_name: "ManipulatorMPCController_eeTracker_point"
-      N_horizon: 25
-      mpc_timestep: 0.1 # seconds
+      N_horizon: 100
+      mpc_timestep: 0.02 # seconds
       terminal_cost: true
       json_name: "GT_controller"
 
