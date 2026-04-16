@@ -53,6 +53,7 @@ def plot_loss(train_losses, val_losses, stationary_ratios, run_dir, show_plot=Tr
 
         ax2.plot(epochs, values, color='purple', linewidth=1.5, label='Stationary Ratio')
         ax2.set_ylabel("Stationary Ratio")
+        ax2.set_yscale('log')
         ax2.set_xlabel("Epoch")
         ax2.set_ylim(0, 1)  # optional but recommended
         ax2.grid(True)
