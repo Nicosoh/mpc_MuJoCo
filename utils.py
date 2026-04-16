@@ -928,6 +928,7 @@ def plot_metrics(root_dir, plt_save_path):
     mse = []
     mse_std = []
     train_loss = []
+    stationary_ratio_mean = []
 
     # Scan directory
     for folder in os.listdir(root_dir):
@@ -949,6 +950,7 @@ def plot_metrics(root_dir, plt_save_path):
                     mse.append(data.get("mse", np.nan))
                     mse_std.append(data.get("mse_std", np.nan))
                     train_loss.append(data.get("train_loss", np.nan))
+                    stationary_ratio_mean.append(data.get("stationary_ratio_mean", np.nan))
 
     # ==========================
     # Sort everything by loop number
@@ -961,18 +963,20 @@ def plot_metrics(root_dir, plt_save_path):
     mse = np.array(mse)[sorted_idx]
     mse_std = np.array(mse_std)[sorted_idx]
     train_loss = np.array(train_loss)[sorted_idx]
+    stationary_ratio_mean = np.array(stationary_ratio_mean)[sorted_idx]
 
     # ==========================
     # Plot setup
     # ==========================
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(8, 10), sharex=True)
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(8, 10), sharex=True)
 
-    def update_plot(x, ground_truth, controller, MSE, MSE_std, train_loss):
+    def update_plot(x, ground_truth, controller, MSE, MSE_std, train_loss, stationary_ratio_mean):
         """Update and save plot with current metrics in separate subplots."""
         ax1.clear()
         ax2.clear()
         ax3.clear()
-        
+        ax4.clear()
+
         # Top subplot
         ax1.plot(x, ground_truth, label="Ground Truth", linewidth=0.8)
         ax1.plot(x, controller, label="Controller", linewidth=0.8)
@@ -1003,6 +1007,16 @@ def plot_metrics(root_dir, plt_save_path):
         ax3.set_ylabel("Train Loss")
         ax3.grid(True, which="both", linestyle=":", alpha=0.4)
         ax3.legend(loc='upper right')
+
+        # Bottom subplot
+        stationary_ratio_mean = np.array(stationary_ratio_mean)
+        ax4.plot(x, stationary_ratio_mean, label="Stationary Ratio Mean",
+                color='b', linewidth=0.8)
+        ax4.set_xlabel("Value Iteration Loop")
+        ax4.set_yscale("log")
+        ax4.set_ylabel("Stationary Ratio Mean")
+        ax4.grid(True, which="both", linestyle=":", alpha=0.4)
+        ax4.legend(loc='upper right')
         
         fig.tight_layout()
         plt.savefig(plt_save_path, dpi=400, bbox_inches='tight')
@@ -1011,5 +1025,5 @@ def plot_metrics(root_dir, plt_save_path):
     # ==========================
     # Run plotting
     # ==========================
-    update_plot(loops, gt_cost, ctrl_cost, mse, mse_std, train_loss)
+    update_plot(loops, gt_cost, ctrl_cost, mse, mse_std, train_loss, stationary_ratio_mean)
     plt.close(fig)
