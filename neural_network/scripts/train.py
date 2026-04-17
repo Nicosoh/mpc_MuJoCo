@@ -91,7 +91,10 @@ def train_model(config, run_dir, data_path=None, seed=42):
     else:
         def init_weights(m):
             if isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('tanh'))
+                if m is model.fc_out:  # explicitly final layer
+                    nn.init.xavier_uniform_(m.weight)
+                else:
+                    nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('tanh'))
                 nn.init.zeros_(m.bias)
 
         model.apply(init_weights)
