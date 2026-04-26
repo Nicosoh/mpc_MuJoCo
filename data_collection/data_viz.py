@@ -39,7 +39,7 @@ def main(model_name, data_path, run, samples):
     plot_traj(all_logs, save_dir=plots_dir, samples=samples, config=config, run_filter=run)
     plot_dist(all_logs, save_dir=plots_dir,  config=config)
 
-def plot_traj_xyz(all_logs, config, samples,frame_name, save_dir=None):
+def plot_traj_xyz(all_logs, config, samples, frame_name, save_dir=None):
     base_dir = "models_xml"
     model_path = config["model"]["model_path"]
     filename = os.path.join(base_dir, model_path)
@@ -165,47 +165,62 @@ def plot_traj(
     base_cmap = plt.get_cmap("plasma")
 
     # Normalize for color mapping
-    max_t = max(all_logs[run_key]["qpos_traj"].shape[0] for run_key in run_keys)
+    max_t = max(all_logs[run_key]["qpos"].shape[0] for run_key in run_keys)
     norm = mpl.colors.Normalize(vmin=0, vmax=max_t - 1)
 
-    plot_trajectory_group(
-        all_logs=all_logs,
-        run_keys=run_keys,
-        var_dict=qpos_plots,      # {name: (idx, unit)}
-        var_source="qpos_traj",
-        true_source="qpos",
-        save_dir=save_dir,
-        base_cmap=base_cmap,
-        norm=norm,
-        tstep=tstep,
-        hstep=hstep,
-    )
+    # === QPOS TRAJ ===
+    if any("qpos_traj" in all_logs[r] for r in run_keys):
+        valid_runs = [r for r in run_keys if "qpos_traj" in all_logs[r]]
+        plot_trajectory_group(
+            all_logs=all_logs,
+            run_keys=valid_runs,
+            var_dict=qpos_plots,
+            var_source="qpos_traj",
+            true_source="qpos",
+            save_dir=save_dir,
+            base_cmap=base_cmap,
+            norm=norm,
+            tstep=tstep,
+            hstep=hstep,
+        )
+    else:
+        print("Skipping qpos_traj — not found in any run.")
 
-    plot_trajectory_group(
-        all_logs=all_logs,
-        run_keys=run_keys,
-        var_dict=qvel_plots,     # {name: (idx, unit)}
-        var_source="qvel_traj",
-        true_source="qvel",
-        save_dir=save_dir,
-        base_cmap=base_cmap,
-        norm=norm,
-        tstep=tstep,
-        hstep=hstep,
-    )
+    # === QVEL TRAJ ===
+    if any("qvel_traj" in all_logs[r] for r in run_keys):
+        valid_runs = [r for r in run_keys if "qvel_traj" in all_logs[r]]
+        plot_trajectory_group(
+            all_logs=all_logs,
+            run_keys=valid_runs,
+            var_dict=qvel_plots,
+            var_source="qvel_traj",
+            true_source="qvel",
+            save_dir=save_dir,
+            base_cmap=base_cmap,
+            norm=norm,
+            tstep=tstep,
+            hstep=hstep,
+        )
+    else:
+        print("Skipping qvel_traj — not found in any run.")
 
-    plot_trajectory_group(
-        all_logs=all_logs,
-        run_keys=run_keys,
-        var_dict=input_plots,     # {name: (idx, unit)}
-        var_source="u_traj",
-        true_source="u_applied",
-        save_dir=save_dir,
-        base_cmap=base_cmap,
-        norm=norm,
-        tstep=tstep,
-        hstep=hstep,
-    )
+    # === INPUT TRAJ ===
+    if any("u_traj" in all_logs[r] for r in run_keys):
+        valid_runs = [r for r in run_keys if "u_traj" in all_logs[r]]
+        plot_trajectory_group(
+            all_logs=all_logs,
+            run_keys=valid_runs,
+            var_dict=input_plots,
+            var_source="u_traj",
+            true_source="u_applied",
+            save_dir=save_dir,
+            base_cmap=base_cmap,
+            norm=norm,
+            tstep=tstep,
+            hstep=hstep,
+        )
+    else:
+        print("Skipping u_traj — not found in any run.")
     
     # === PLOT COST OVER TIME ===
     fig_cost, ax_cost = plt.subplots(figsize=(10, 4))
@@ -222,23 +237,42 @@ def plot_traj(
     cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
     fig_cost.tight_layout()
     fig_cost.savefig(os.path.join(save_dir, "Cost_over_time.png"))
-
-    # === PLOT INPUT OVER TIME ===
+    
     fig_input, ax_input = plt.subplots(figsize=(10, 4))
-    for run_key in run_keys:
-        u_applied = all_logs[run_key]["u_applied"]  # shape: (timesteps, input_dim)
-        timesteps = np.arange(u_applied.shape[0])
-        for i in range(u_applied.shape[1]):
-            ax_input.plot(timesteps, u_applied[:, i], label=f"{run_key} - u_applied {i}", alpha=0.7)
 
-    ax_input.set_title("MPC Input over Time")
-    ax_input.set_xlabel("Timestep")
-    ax_input.set_ylabel("Input Value")
-    ax_input.grid(True)
-    cursor = mplcursors.cursor(ax_input.lines, hover=False)
-    cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
-    fig_input.tight_layout()
-    fig_input.savefig(os.path.join(save_dir, "Input_over_time.png"))
+    plotted_any = False
+
+    for run_key in run_keys:
+        if "u_applied" not in all_logs[run_key]:
+            print(f"Skipping {run_key} — no 'u_applied'")
+            continue
+
+        u_applied = all_logs[run_key]["u_applied"]
+        timesteps = np.arange(u_applied.shape[0])
+
+        for i in range(u_applied.shape[1]):
+            ax_input.plot(
+                timesteps,
+                u_applied[:, i],
+                label=f"{run_key} - u_applied {i}",
+                alpha=0.7
+            )
+
+        plotted_any = True
+
+    if plotted_any:
+        ax_input.set_title("MPC Input over Time")
+        ax_input.set_xlabel("Timestep")
+        ax_input.set_ylabel("Input Value")
+        ax_input.grid(True)
+
+        cursor = mplcursors.cursor(ax_input.lines, hover=False)
+        cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
+
+        fig_input.tight_layout()
+        fig_input.savefig(os.path.join(save_dir, "Input_over_time.png"))
+    else:
+        print("Skipping input plot — no runs had 'u_applied'")
 
     # Show all plots
     plt.show()
