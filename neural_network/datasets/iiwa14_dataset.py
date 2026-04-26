@@ -56,6 +56,7 @@ class iiwa14_eeTracker(Dataset):
             cost = run_data["total_cost"]
             yref_pos = np.tile(run_data["yref_xyz"], (qpos.shape[0], 1))
             yref_q_run = np.tile(run_data["yref_q"], (qpos.shape[0], 1))
+            xyz = run_data["xyzpos"]
 
             # Concatenate qpos and qvel
             X_run = np.concatenate([qpos, qvel, yref_pos], axis=1)
