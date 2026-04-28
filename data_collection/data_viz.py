@@ -413,24 +413,24 @@ def plot_dist(
         fig.tight_layout()
         fig.savefig(os.path.join(save_dir, f"{state_name}_histogram.png"))
 
-    # === HISTOGRAM for cost ===
-    fig_cost, ax_cost = plt.subplots(figsize=(8, 4))
+    # === Linear HISTOGRAM for cost ===
+    fig_cost_linear, ax_cost_linear = plt.subplots(figsize=(8, 4))
     all_costs = []
     for run_key in run_keys:
         cost = all_logs[run_key]["total_cost"]
         all_costs.append(cost)
 
     all_costs = np.concatenate(all_costs)
-    counts, bins, patches = ax_cost.hist(all_costs, bins=80, color="crimson", alpha=0.7)
-    ax_cost.set_title("Distribution of MPC Cost")
-    ax_cost.set_xlabel("Cost")
-    ax_cost.set_ylabel("Frequency")
-    ax_cost.grid(True)
+    counts, bins, patches = ax_cost_linear.hist(all_costs, bins=80, color="crimson", alpha=0.7)
+    ax_cost_linear.set_title("Distribution of MPC Cost")
+    ax_cost_linear.set_xlabel("Cost")
+    ax_cost_linear.set_ylabel("Frequency")
+    ax_cost_linear.grid(True)
 
     # --- Add count labels above bars ---
     for count, bin_left, bin_right in zip(counts, bins[:-1], bins[1:]):
         if count > 0:
-            ax_cost.text(
+            ax_cost_linear.text(
                 (bin_left + bin_right) / 2,  # center of the bar
                 count,                      # height position
                 f"{int(count)}",
@@ -438,8 +438,60 @@ def plot_dist(
                 fontsize=8,
                 rotation=90,                # vertical label for compactness
             )
-    fig_cost.tight_layout()
-    fig_cost.savefig(os.path.join(save_dir, "Cost_histogram.png"))
+    fig_cost_linear.tight_layout()
+    fig_cost_linear.savefig(os.path.join(save_dir, "Cost_histogram.png"))
+
+    # === Log HISTOGRAM for cost ===
+    fig_cost_log, ax_cost_log = plt.subplots(figsize=(8, 4))
+
+    all_costs = []
+    for run_key in run_keys:
+        cost = all_logs[run_key]["total_cost"]
+        all_costs.append(cost)
+
+    all_costs = np.concatenate(all_costs)
+
+    # --- Avoid zeros (log scale can't handle 0) ---
+    eps = 1e-8
+    all_costs_safe = np.clip(all_costs, eps, None)
+
+    # --- Create log-spaced bins ---
+    bins = np.logspace(
+        np.log10(all_costs_safe.min()),
+        np.log10(all_costs_safe.max()),
+        80
+    )
+
+    counts, bins, patches = ax_cost_log.hist(
+        all_costs_safe,
+        bins=bins,
+        color="crimson",
+        alpha=0.7
+    )
+
+    # --- Set x-axis to log scale ---
+    ax_cost_log.set_xscale("log")
+
+    ax_cost_log.set_title("Distribution of MPC Cost (Log Bins)")
+    ax_cost_log.set_xlabel("Cost (log scale)")
+    ax_cost_log.set_ylabel("Frequency")
+    ax_cost_log.grid(True, which="both")
+
+    # --- Add count labels (optional, but can get messy on log scale) ---
+    for count, bin_left, bin_right in zip(counts, bins[:-1], bins[1:]):
+        if count > 0:
+            ax_cost_log.text(
+                np.sqrt(bin_left * bin_right),  # geometric center for log scale
+                count,
+                f"{int(count)}",
+                ha="center",
+                va="bottom",
+                fontsize=8,
+                rotation=90,
+            )
+
+    fig_cost_log.tight_layout()
+    fig_cost_log.savefig(os.path.join(save_dir, "Cost_histogram_log_bins.png"))
 
     plt.show()
 
