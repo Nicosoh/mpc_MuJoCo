@@ -601,9 +601,9 @@ class ManipulatorMPCController_eeTracker(ManipulatorMPCController):
 
         # Create FK function from attachment_site SX
         self.ee_expr = getattr(self.robot_sys, "attachment_site")           # To feed to acados
-        q_syms_list = ca.symvar(self.ee_expr)        # list of symbolic joints
-        q_syms = ca.vertcat(*q_syms_list)      # stack into SX vector
-        self.ee_fun = ca.Function("ee_fun", [q_syms], [self.ee_expr])  # FK function, To evaluate numerically
+        q_syms_list = ca.symvar(self.ee_expr)                               # list of symbolic joints
+        q_syms = ca.vertcat(*q_syms_list)                                   # stack into SX vector
+        self.ee_fun = ca.Function("ee_fun", [q_syms], [self.ee_expr])       # FK function, To evaluate numerically
 
     def compute_stage_cost(self, X, U, stage_ref):
         # --- Step 1: Prepare cost weights ---
@@ -703,8 +703,6 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
         nx = model.x.rows()
         self.ny_e = self.ee_expr.shape[0]+ nx//2
 
-        # q_dot = model.x[nx//2:]
-
         # Create parameters for goal, obstacle
         self.p = np.array(self.config["mpc"]["yref"])
         ocp.model.p = SX.sym('p', self.p.shape[0])  # Full yref as parameter
@@ -713,26 +711,30 @@ class NNManipulatorMPCController_eeTracker(ManipulatorMPCController_eeTracker, N
         # Export trained NN model
         self.l4c_model = export_torch_model(config, self.worker_id)
         # Evaluate NN symbolically
-        y_sym = self.l4c_model(ca.transpose(vertcat(model.x, ocp.model.p)))
+        y_sym = self.l4c_model(ca.transpose(vertcat(model.x, ocp.model.p, self.ee_expr)))
         ocp.model.cost_y_expr_e = ca.transpose(y_sym)
         # Link shared library
         ocp.solver_options.model_external_shared_lib_dir = self.l4c_model.shared_lib_dir
         ocp.solver_options.model_external_shared_lib_name = self.l4c_model.name
 
     def compute_terminal_cost(self, X, terminal_ref):
-        # Terminal state (nx,)
-        # xN_q_dot = X[self.N][self.nx//2:]                       # Extract joint velocities only
+        xN = X[self.N]
 
-        q_final = X[self.N][:self.nx//2]                        # Extract joint positions only
-        # ee_val = np.array(self.ee_fun(q_final)).squeeze()       # Evaluate FK to get end-effector position
+        # Extract q
+        q_final = xN[:self.nx//2]
 
-        xN_p = np.concatenate([X[self.N], self.p])       # Combine ee position, joint velocities, and parameters shape: (7,)
+        # Compute EE position
+        ee_val = np.array(self.ee_fun(q_final)).squeeze()
 
-        # Evaluate NN numerically
+        # Build NN input (must match symbolic definition)
+        xN_p = np.concatenate([xN, self.p, ee_val])
+
+        # Evaluate NN
         yN = np.asarray(self.l4c_model(xN_p)).squeeze()
 
         # NONLINEAR_LS terminal cost
         terminal_cost = 0.5 * np.sum(yN**2)
+
         return terminal_cost
 
 @register_controller

@@ -43,6 +43,7 @@ def train_model(config, run_dir, data_path=None, seed=42):
 
     # Data
     dataset_class = config.get("DATA", "dataset_class")
+    log_space = config.getboolean("DATA", "log_space")
 
     # Model
     model_name = config.get("MODEL", "model_name")
@@ -108,6 +109,9 @@ def train_model(config, run_dir, data_path=None, seed=42):
     val_losses = []
     best_val_loss = float("inf")
     stationary_ratios = []
+    val_maes = []
+    val_maes_stationary = []
+    percentile_history = []
 
     # === Variables ===
     vals_since_improvement = 0
@@ -147,12 +151,16 @@ def train_model(config, run_dir, data_path=None, seed=42):
         stationary_ratios.append(stationary_ratio)
 
         # Update the tqdm bar postfix with avg loss
-        pbar.write(f"\n[Train @ epoch {epoch+1}]  Train Loss = {avg_train_loss}\n, Ratio = {stationary_ratio}\n")
+        pbar.write(f"\n[Train @ epoch {epoch+1}]\n Train Loss = {avg_train_loss:.6f}\n Ratio = {stationary_ratio:.6f}\n")
 
         # === Validation every eval_interval ===
         if (epoch + 1) % eval_interval == 0:
             model.eval()
             val_loss = 0.0
+            val_mae = 0.0
+            val_mae_stationary = 0.0
+            all_preds = []
+            all_targets = []
 
             with torch.no_grad():
                 for xb, xs, yb, ys in val_loader:
@@ -162,11 +170,69 @@ def train_model(config, run_dir, data_path=None, seed=42):
                     preds_stationary = model(xs.to(device))
                     loss, _, _ = criterion(preds_main, yb, preds_stationary, ys.to(device))
                     val_loss += loss.item() * xb.size(0)
+                    
+                    if log_space: # Convert back to original space for MAE calculation
+                        preds_main = torch.expm1(preds_main)
+                        yb = torch.expm1(yb)
+                        preds_stationary = torch.expm1(preds_stationary)
+                        ys = torch.expm1(ys.to(device))
+
+                    mae_main = torch.abs(preds_main - yb).mean()
+                    val_mae += mae_main.item() * xb.size(0)
+                    mae_stationary = torch.abs(preds_stationary - ys).mean()
+                    val_mae_stationary += mae_stationary.item() * xb.size(0)
+
+                    all_preds.append(preds_main.cpu())
+                    all_targets.append(yb.cpu())
 
             avg_val_loss = val_loss / len(val_loader.dataset)
-            val_losses.append((epoch+1, avg_val_loss, optimizer.param_groups[0]['lr']))
+            avg_val_mae = val_mae / len(val_loader.dataset)
+            avg_val_mae_stationary = val_mae_stationary / len(val_loader.dataset)
 
-            pbar.write(f"\n[Eval @ epoch {epoch+1}]  Val Loss = {avg_val_loss}\n")
+            val_losses.append((epoch+1, avg_val_loss, optimizer.param_groups[0]['lr']))
+            val_maes.append((epoch+1, avg_val_mae, optimizer.param_groups[0]['lr']))
+            val_maes_stationary.append((epoch+1, avg_val_mae_stationary, optimizer.param_groups[0]['lr']))
+
+            # ==== Percentile MAE analysis ====
+
+            all_preds = torch.cat(all_preds)
+            all_targets = torch.cat(all_targets)
+            errors = torch.abs(all_preds - all_targets)
+
+            percentiles = [0, 50, 75, 90, 95, 99, 100]
+            bounds = torch.quantile(all_targets, torch.tensor(percentiles, dtype=torch.float32) / 100.0)
+
+            percentile_results = []
+
+            for i in range(len(bounds) - 1):
+                mask = (all_targets >= bounds[i]) & (all_targets < bounds[i+1])
+
+                if mask.sum() > 0:
+                    mae = errors[mask].mean().item()
+                else:
+                    mae = 0.0
+
+                percentile_results.append((f"{percentiles[i]}-{percentiles[i+1]}", mae))
+            
+            # Save to dict
+            percentile_dict = {
+                "epoch": epoch + 1,
+                "lr": optimizer.param_groups[0]['lr'],
+                "values": {k: v for k, v in percentile_results}
+            }
+
+            percentile_history.append(percentile_dict)
+
+            pbar.write(
+                f"\n[Eval @ epoch {epoch+1}]"
+                f"\n Val Loss = {avg_val_loss:.6f}"
+                f"\n Val MAE = {avg_val_mae:.6f}"
+                f"\n Val MAE Stat = {avg_val_mae_stationary:.6f}"
+            )
+
+            # 🔹 Print percentile breakdown (compact)
+            perc_str = " | ".join([f"{k}%: {v:.3f}" for k, v in percentile_results])
+            pbar.write(f" MAE by percentile → {perc_str}\n")
 
             # === Save only the best model ===
             epoch_str = f"{epoch + 1}"
@@ -229,6 +295,6 @@ def train_model(config, run_dir, data_path=None, seed=42):
 
     stationary_ratios_mean = float(np.mean(stationary_ratios))
 
-    plot_loss(train_losses, val_losses, stationary_ratios, run_dir=run_dir, show_plot=show_plot)
+    plot_loss(train_losses, val_losses, stationary_ratios, val_maes, val_maes_stationary, percentile_history, run_dir=run_dir, show_plot=show_plot)
 
     return train_losses[-1][1], stationary_ratios_mean # Return last epoch's train loss and mean stationary ratio
