@@ -1,3 +1,4 @@
+from networkx import config
 import torch
 
 import numpy as np
@@ -18,7 +19,7 @@ class TwoDofArmDataset(Dataset):
     def __init__(self, config, run_dir, mode, test_config=None):
         self.run_dir = run_dir
         self.mode = mode
-
+        self.log_space = config.getboolean("DATA", "log_space")
 
         # =============================================================
         #                     TRAIN MODE
@@ -120,7 +121,7 @@ class TwoDofArmDataset_eeTracker(TwoDofArmDataset):
     """
     def __init__(self, config, run_dir, mode, test_config=None):
         super().__init__(config, run_dir, mode, test_config)
-    
+
     def preprocess_data(self, data):
         X_list = []
         Xs_list = []
@@ -129,15 +130,20 @@ class TwoDofArmDataset_eeTracker(TwoDofArmDataset):
 
         for run_key in data.keys():  # iterate over each run
             run_data = data[run_key]
-            # pos = run_data["xyzpos"]
             qpos = run_data["qpos"]
             qvel = run_data["qvel"]
-            cost = run_data["total_cost"]
+            xyz = run_data["xyzpos"]
+
+            if self.log_space:
+                cost = np.log1p(run_data["total_cost"])
+            else:
+                cost = run_data["total_cost"]
+                
             yref_pos = np.tile(run_data["yref_xyz"], (qpos.shape[0], 1))
             yref_q_run = np.tile(run_data["yref_q"], (qpos.shape[0], 1))
 
             # Concatenate qpos and qvel
-            X_run = np.concatenate([qpos, qvel, yref_pos], axis=1)
+            X_run = np.concatenate([qpos, qvel, yref_pos, xyz], axis=1)
             X_list.append(X_run)
 
             # Ensure cost is 2D
@@ -151,7 +157,7 @@ class TwoDofArmDataset_eeTracker(TwoDofArmDataset):
             # Xs_pos = yref_pos
             # (ee pos, zero vel, yref pos) 
             # While ee_pos is at yref and with zero velocity cost should be zero.
-            Xs_run = np.concatenate([yref_q_run, np.zeros_like(qvel), yref_pos], axis=1)
+            Xs_run = np.concatenate([yref_q_run, np.zeros_like(qvel), yref_pos, yref_pos], axis=1)
 
             ys = np.zeros((1,))
             ys_run = np.tile(ys, (qpos.shape[0], 1))

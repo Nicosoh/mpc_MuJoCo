@@ -137,8 +137,8 @@ class TwoDofArmModel(nn.Module):                                            # Wi
     def __init__(self, train_config):
         super().__init__()
 
-        self.fc0 = ScaleLayer(7)
-        self.fc1 = nn.Linear(7, 64)
+        self.fc0 = ScaleLayer(10)
+        self.fc1 = nn.Linear(10, 64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, 64)
         self.fc_out = nn.Linear(64, 64)
@@ -151,7 +151,8 @@ class TwoDofArmModel(nn.Module):                                            # Wi
         x = self.fc_out(x)                                                     # Output layer without activation ("scaling" layer)
         x = torch.tensor(0.5, dtype=x.dtype, device=x.device) * torch.sum(x**2, dim=1, keepdim=True)        # Least Squares which mimics acados cost
 
-        return x
+        return torch.log1p(x)
+        # return x
 
 @register_model
 class TwoDofArmModelAcados(TwoDofArmModel):                                            # Without obstacles

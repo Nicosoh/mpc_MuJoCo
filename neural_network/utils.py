@@ -2,11 +2,11 @@ import matplotlib.pyplot as plt
 import os
 import torch
 
-def plot_loss(train_losses, val_losses, stationary_ratios, run_dir, show_plot=True):
+def plot_loss(train_losses, val_losses, stationary_ratios, val_maes, val_maes_stationary, percentile_history, run_dir, show_plot=True):
     save_path = os.path.join(run_dir, "loss_plot.jpg")
 
     # 🔹 Create subplots
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(10, 16), sharex=True)
 
     # =========================
     # 🔹 Top plot: Loss curves
@@ -57,6 +57,78 @@ def plot_loss(train_losses, val_losses, stationary_ratios, run_dir, show_plot=Tr
         ax2.set_xlabel("Epoch")
         ax2.grid(True)
         ax2.legend()
+
+    # =========================
+    # 🔹 Bottom plot: MAE curves
+    # =========================
+
+    if val_maes is not None and len(val_maes) > 0:
+        unique_lrs = sorted(set(lr for _, _, lr in val_maes))
+        for lr in unique_lrs:
+            lr_epochs = [e for (e, _, l) in val_maes if l == lr]
+            lr_values = [v for (_, v, l) in val_maes if l == lr]
+            ax3.plot(lr_epochs, lr_values, linestyle='--', linewidth=1, label=f'Val MAE (LR={lr:.1e})')
+
+    if val_maes_stationary is not None and len(val_maes_stationary) > 0:
+        unique_lrs = sorted(set(lr for _, _, lr in val_maes_stationary))
+        for lr in unique_lrs:
+            lr_epochs = [e for (e, _, l) in val_maes_stationary if l == lr]
+            lr_values = [v for (_, v, l) in val_maes_stationary if l == lr]
+            ax3.plot(lr_epochs, lr_values, linestyle='--', linewidth=1, label=f'Val MAE Stationary (LR={lr:.1e})')
+
+    ax3.set_ylabel("MAE")
+    ax3.set_yscale('log')
+    ax3.set_xlabel("Epoch")
+    ax3.set_title("MAE Metrics")
+    ax3.grid(True)
+    ax3.legend()
+
+    # =========================
+    # 🔹 Percentile MAE Analysis (Line Plot)
+    # =========================
+
+    if percentile_history:
+
+        # Step 1: group data by percentile
+        percentile_series = {}
+
+        for entry in percentile_history:
+            epoch = entry["epoch"]
+            values = entry["values"]
+
+            for p, v in values.items():
+                if p not in percentile_series:
+                    percentile_series[p] = {"epochs": [], "values": []}
+
+                percentile_series[p]["epochs"].append(epoch)
+                percentile_series[p]["values"].append(v)
+
+        # Step 2: sort by epoch (important for correct lines)
+        for p in percentile_series:
+            combined = sorted(
+                zip(percentile_series[p]["epochs"], percentile_series[p]["values"])
+            )
+            epochs, values = zip(*combined)
+
+            percentile_series[p]["epochs"] = epochs
+            percentile_series[p]["values"] = values
+
+        # Step 3: plot lines
+        for p, data in percentile_series.items():
+            ax4.plot(
+                data["epochs"],
+                data["values"],
+                linestyle='--',
+                linewidth=1,
+                label=f'Percentile {p}'
+            )
+
+    ax4.set_ylabel("Percentile MAE")
+    ax4.set_yscale('log')
+    ax4.set_xlabel("Epoch")
+    ax4.set_title("Percentile MAE Analysis")
+    ax4.grid(True)
+    ax4.legend()
 
     # =========================
     # 🔹 Save & show
