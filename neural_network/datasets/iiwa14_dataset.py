@@ -18,6 +18,7 @@ class iiwa14_eeTracker(Dataset):
     def __init__(self, config, run_dir, mode, test_config=None):
         self.run_dir = run_dir
         self.mode = mode
+        self.log_space = config.getboolean("DATA", "log_space")
 
         # =============================================================
         #                     TRAIN MODE
@@ -53,13 +54,18 @@ class iiwa14_eeTracker(Dataset):
             run_data = data[run_key]
             qpos = run_data["qpos"]
             qvel = run_data["qvel"]
-            cost = run_data["total_cost"]
-            yref_pos = np.tile(run_data["yref_xyz"], (qpos.shape[0], 1))
-            yref_q_run = np.tile(run_data["yref_q"], (qpos.shape[0], 1))
             xyz = run_data["xyzpos"]
 
+            if self.log_space:
+                cost = np.log1p(run_data["total_cost"])
+            else:
+                cost = run_data["total_cost"]
+                
+            yref_pos = np.tile(run_data["yref_xyz"], (qpos.shape[0], 1))
+            yref_q_run = np.tile(run_data["yref_q"], (qpos.shape[0], 1))
+
             # Concatenate qpos and qvel
-            X_run = np.concatenate([qpos, qvel, yref_pos], axis=1)
+            X_run = np.concatenate([qpos, qvel, yref_pos, xyz], axis=1)
             X_list.append(X_run)
 
             # Ensure cost is 2D
@@ -71,7 +77,7 @@ class iiwa14_eeTracker(Dataset):
 
             # Stationary point arrays
             # While ee_pos is at yref and with zero velocity cost should be zero.
-            Xs_run = np.concatenate([yref_q_run, np.zeros_like(qvel), yref_pos], axis=1)
+            Xs_run = np.concatenate([yref_q_run, np.zeros_like(qvel), yref_pos, yref_pos], axis=1)
 
             ys = np.zeros((1,))
             ys_run = np.tile(ys, (qpos.shape[0], 1))
